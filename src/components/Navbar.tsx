@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
@@ -30,8 +31,8 @@ const Navbar = () => {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
-          <Button variant="ghost" size="sm">Entrar</Button>
-          <Button variant="hero" size="sm">Criar conta grátis</Button>
+          <Button variant="ghost" size="sm" asChild><Link to="/auth">Entrar</Link></Button>
+          <Button variant="hero" size="sm" asChild><Link to="/auth">Criar conta grátis</Link></Button>
         </div>
 
         <button className="md:hidden p-2" onClick={() => setOpen(!open)} aria-label="Menu">
