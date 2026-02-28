@@ -1,0 +1,54 @@
+import { Button } from "@/components/ui/button";
+import { Menu, X } from "lucide-react";
+import { useState } from "react";
+
+const Navbar = () => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
+      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <a href="/" className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center">
+            <span className="text-primary-foreground font-extrabold text-sm">FR</span>
+          </div>
+          <span className="text-xl font-extrabold text-foreground">
+            FR<span className="text-primary">Food</span>
+          </span>
+        </a>
+
+        <nav className="hidden md:flex items-center gap-8">
+          <a href="#funcionalidades" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Funcionalidades
+          </a>
+          <a href="#precos" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Preços
+          </a>
+          <a href="#faq" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            FAQ
+          </a>
+        </nav>
+
+        <div className="hidden md:flex items-center gap-3">
+          <Button variant="ghost" size="sm">Entrar</Button>
+          <Button variant="hero" size="sm">Criar conta grátis</Button>
+        </div>
+
+        <button className="md:hidden p-2" onClick={() => setOpen(!open)} aria-label="Menu">
+          {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+      </div>
+
+      {open && (
+        <div className="md:hidden bg-background border-b border-border px-4 pb-4 space-y-3">
+          <a href="#funcionalidades" className="block text-sm font-medium text-muted-foreground py-2" onClick={() => setOpen(false)}>Funcionalidades</a>
+          <a href="#precos" className="block text-sm font-medium text-muted-foreground py-2" onClick={() => setOpen(false)}>Preços</a>
+          <a href="#faq" className="block text-sm font-medium text-muted-foreground py-2" onClick={() => setOpen(false)}>FAQ</a>
+          <Button variant="hero" size="sm" className="w-full">Criar conta grátis</Button>
+        </div>
+      )}
+    </header>
+  );
+};
+
+export default Navbar;
