@@ -19,15 +19,9 @@ const Navbar = () => {
         </a>
 
         <nav className="hidden md:flex items-center gap-8">
-          <a href="#funcionalidades" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            Funcionalidades
-          </a>
-          <a href="#precos" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            Preços
-          </a>
-          <a href="#faq" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            FAQ
-          </a>
+          <a href="#funcionalidades" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Funcionalidades</a>
+          <a href="#precos" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Preços</a>
+          <a href="#faq" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
@@ -45,7 +39,9 @@ const Navbar = () => {
           <a href="#funcionalidades" className="block text-sm font-medium text-muted-foreground py-2" onClick={() => setOpen(false)}>Funcionalidades</a>
           <a href="#precos" className="block text-sm font-medium text-muted-foreground py-2" onClick={() => setOpen(false)}>Preços</a>
           <a href="#faq" className="block text-sm font-medium text-muted-foreground py-2" onClick={() => setOpen(false)}>FAQ</a>
-          <Button variant="hero" size="sm" className="w-full">Criar conta grátis</Button>
+          <Button variant="hero" size="sm" className="w-full" asChild>
+            <Link to="/auth" onClick={() => setOpen(false)}>Criar conta grátis</Link>
+          </Button>
         </div>
       )}
     </header>
