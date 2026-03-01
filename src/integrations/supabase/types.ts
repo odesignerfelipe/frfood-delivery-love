@@ -390,10 +390,13 @@ export type Database = {
       stores: {
         Row: {
           address: string | null
+          avg_delivery_time: number | null
+          avg_prep_time: number | null
           banner_url: string | null
           city: string | null
           created_at: string
           delivery_enabled: boolean
+          delivery_radius: number | null
           description: string | null
           id: string
           is_open: boolean
@@ -407,16 +410,20 @@ export type Database = {
           plan_status: string
           plan_type: string
           primary_color: string | null
+          segment: string | null
           slug: string
           state: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          avg_delivery_time?: number | null
+          avg_prep_time?: number | null
           banner_url?: string | null
           city?: string | null
           created_at?: string
           delivery_enabled?: boolean
+          delivery_radius?: number | null
           description?: string | null
           id?: string
           is_open?: boolean
@@ -430,16 +437,20 @@ export type Database = {
           plan_status?: string
           plan_type?: string
           primary_color?: string | null
+          segment?: string | null
           slug: string
           state?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          avg_delivery_time?: number | null
+          avg_prep_time?: number | null
           banner_url?: string | null
           city?: string | null
           created_at?: string
           delivery_enabled?: boolean
+          delivery_radius?: number | null
           description?: string | null
           id?: string
           is_open?: boolean
@@ -453,6 +464,7 @@ export type Database = {
           plan_status?: string
           plan_type?: string
           primary_color?: string | null
+          segment?: string | null
           slug?: string
           state?: string | null
           updated_at?: string

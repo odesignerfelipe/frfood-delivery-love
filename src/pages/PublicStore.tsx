@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ShoppingBag, Plus, Minus, Trash2, X, Send, MapPin } from "lucide-react";
+import { ShoppingBag, Plus, Minus, Trash2, X, Send, MapPin, Search, Star, Clock, Phone } from "lucide-react";
 
 interface CartItem {
   product: any;
@@ -27,6 +27,8 @@ const PublicStore = () => {
   const [loading, setLoading] = useState(true);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [form, setForm] = useState({
     customer_name: "",
     customer_phone: "",
@@ -38,7 +40,7 @@ const PublicStore = () => {
   });
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchData = async () => {
       const { data: s } = await supabase.from("stores").select("*").eq("slug", slug).single();
       if (!s) { setLoading(false); return; }
       setStore(s);
@@ -53,24 +55,37 @@ const PublicStore = () => {
       setDeliveryZones(zones.data || []);
       setLoading(false);
     };
-    fetch();
+    fetchData();
   }, [slug]);
 
+  // Check auto open/close based on opening_hours
+  const isStoreOpen = () => {
+    if (!store) return false;
+    if (store.is_open) return true; // Manual override
+    if (!store.opening_hours || !Array.isArray(store.opening_hours)) return store.is_open;
+    const now = new Date();
+    const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+    const today = dayNames[now.getDay()];
+    const todayConfig = (store.opening_hours as any[]).find((d: any) => d.day === today);
+    if (!todayConfig?.enabled) return false;
+    const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+    return todayConfig.periods?.some((p: any) => currentTime >= p.open && currentTime <= p.close);
+  };
+
+  const storeOpen = isStoreOpen();
+
   const addToCart = (product: any) => {
+    if (!storeOpen) { toast.error("Loja fechada no momento"); return; }
     setCart((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
-      if (existing) {
-        return prev.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      }
+      if (existing) return prev.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, { product, quantity: 1, notes: "" }];
     });
     toast.success(`${product.name} adicionado!`);
   };
 
   const updateQuantity = (productId: string, delta: number) => {
-    setCart((prev) =>
-      prev.map((i) => i.product.id === productId ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i).filter((i) => i.quantity > 0)
-    );
+    setCart((prev) => prev.map((i) => i.product.id === productId ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i).filter((i) => i.quantity > 0));
   };
 
   const removeFromCart = (productId: string) => {
@@ -78,63 +93,34 @@ const PublicStore = () => {
   };
 
   const subtotal = cart.reduce((s, i) => s + i.product.price * i.quantity, 0);
-
   const selectedZone = deliveryZones.find((z) => z.neighborhood === form.neighborhood);
   const deliveryFee = form.delivery_type === "delivery" ? (selectedZone?.fee || 0) : 0;
 
   let discount = 0;
   if (appliedCoupon) {
-    if (appliedCoupon.discount_type === "percentage") {
-      discount = subtotal * (appliedCoupon.discount_value / 100);
-    } else {
-      discount = appliedCoupon.discount_value;
-    }
+    discount = appliedCoupon.discount_type === "percentage" ? subtotal * (appliedCoupon.discount_value / 100) : appliedCoupon.discount_value;
   }
-
   const total = subtotal - discount + deliveryFee;
+  const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
+
+  const estimatedTime = store ? ((store as any).avg_prep_time || 25) + (form.delivery_type === "delivery" ? ((store as any).avg_delivery_time || 40) : 0) : 0;
 
   const applyCoupon = async () => {
     if (!store || !couponCode.trim()) return;
-    const { data } = await supabase
-      .from("coupons")
-      .select("*")
-      .eq("store_id", store.id)
-      .eq("code", couponCode.toUpperCase())
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (!data) {
-      toast.error("Cupom inválido");
-      return;
-    }
-    if (data.min_order_value && subtotal < data.min_order_value) {
-      toast.error(`Pedido mínimo de R$ ${data.min_order_value.toFixed(2)} para usar este cupom`);
-      return;
-    }
-    if (data.max_uses && data.current_uses >= data.max_uses) {
-      toast.error("Este cupom já atingiu o limite de usos");
-      return;
-    }
+    const { data } = await supabase.from("coupons").select("*").eq("store_id", store.id).eq("code", couponCode.toUpperCase()).eq("is_active", true).maybeSingle();
+    if (!data) { toast.error("Cupom inválido"); return; }
+    if (data.min_order_value && subtotal < data.min_order_value) { toast.error(`Pedido mínimo R$ ${data.min_order_value.toFixed(2)}`); return; }
+    if (data.max_uses && data.current_uses >= data.max_uses) { toast.error("Cupom esgotado"); return; }
     setAppliedCoupon(data);
     toast.success("Cupom aplicado!");
   };
 
   const handleCheckout = async () => {
     if (!store || cart.length === 0) return;
-    if (!form.customer_name.trim() || !form.customer_phone.trim()) {
-      toast.error("Preencha seu nome e telefone");
-      return;
-    }
-    if (form.delivery_type === "delivery" && !form.customer_address.trim()) {
-      toast.error("Preencha o endereço de entrega");
-      return;
-    }
-    if (store.min_order_value && subtotal < store.min_order_value) {
-      toast.error(`Pedido mínimo de R$ ${store.min_order_value.toFixed(2)}`);
-      return;
-    }
+    if (!form.customer_name.trim() || !form.customer_phone.trim()) { toast.error("Preencha nome e telefone"); return; }
+    if (form.delivery_type === "delivery" && !form.customer_address.trim()) { toast.error("Preencha o endereço"); return; }
+    if (store.min_order_value && subtotal < store.min_order_value) { toast.error(`Pedido mínimo R$ ${store.min_order_value.toFixed(2)}`); return; }
 
-    // Create order in DB
     const { data: order, error } = await supabase.from("orders").insert({
       store_id: store.id,
       customer_name: form.customer_name,
@@ -143,20 +129,14 @@ const PublicStore = () => {
       neighborhood: form.neighborhood,
       delivery_type: form.delivery_type,
       delivery_fee: deliveryFee,
-      subtotal,
-      discount,
-      total,
+      subtotal, discount, total,
       coupon_code: appliedCoupon?.code || "",
       notes: form.notes,
       payment_method: form.payment_method,
     }).select().single();
 
-    if (error || !order) {
-      toast.error("Erro ao criar pedido");
-      return;
-    }
+    if (error || !order) { toast.error("Erro ao criar pedido"); return; }
 
-    // Create order items
     await supabase.from("order_items").insert(
       cart.map((i) => ({
         order_id: order.id,
@@ -169,17 +149,14 @@ const PublicStore = () => {
       }))
     );
 
-    // Update coupon usage
     if (appliedCoupon) {
       await supabase.from("coupons").update({ current_uses: appliedCoupon.current_uses + 1 }).eq("id", appliedCoupon.id);
     }
 
-    // Build WhatsApp message
     const items = cart.map((i) => `${i.quantity}x ${i.product.name} - R$ ${(i.product.price * i.quantity).toFixed(2)}${i.notes ? ` (${i.notes})` : ""}`).join("\n");
     const msg = encodeURIComponent(
       `🛒 *Novo Pedido #${order.order_number}*\n\n` +
-      `*Cliente:* ${form.customer_name}\n` +
-      `*Tel:* ${form.customer_phone}\n` +
+      `*Cliente:* ${form.customer_name}\n*Tel:* ${form.customer_phone}\n` +
       `${form.delivery_type === "delivery" ? `*Endereço:* ${form.customer_address}\n*Bairro:* ${form.neighborhood}\n` : "*Retirada no local*\n"}` +
       `\n*Itens:*\n${items}\n\n` +
       `*Subtotal:* R$ ${subtotal.toFixed(2)}\n` +
@@ -189,7 +166,6 @@ const PublicStore = () => {
       `${form.payment_method ? `*Pagamento:* ${form.payment_method}\n` : ""}` +
       `${form.notes ? `*Obs:* ${form.notes}` : ""}`
     );
-
     const phone = store.phone.replace(/\D/g, "");
     window.open(`https://wa.me/55${phone}?text=${msg}`, "_blank");
 
@@ -200,6 +176,19 @@ const PublicStore = () => {
     setCouponCode("");
     toast.success("Pedido enviado com sucesso!");
   };
+
+  // Filter products
+  const filteredProducts = products.filter((p) => {
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.description || "").toLowerCase().includes(search.toLowerCase());
+    const matchCat = !activeCategory || p.category_id === activeCategory;
+    return matchSearch && matchCat;
+  });
+
+  const productsByCategory = categories.map((cat) => ({
+    ...cat,
+    products: filteredProducts.filter((p) => p.category_id === cat.id),
+  }));
+  const uncategorized = filteredProducts.filter((p) => !p.category_id);
 
   if (loading) {
     return (
@@ -220,40 +209,86 @@ const PublicStore = () => {
     );
   }
 
-  if (!store.is_open) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-foreground mb-2">{store.name}</h1>
-          <p className="text-lg text-destructive font-medium">🔴 Estamos fechados no momento</p>
-          <p className="text-muted-foreground mt-2">Volte mais tarde!</p>
+  return (
+    <div className="min-h-screen bg-muted/50 pb-24">
+      {/* Banner */}
+      <div className="relative">
+        {store.banner_url ? (
+          <img src={store.banner_url} alt={store.name} className="w-full h-48 object-cover" />
+        ) : (
+          <div className="w-full h-48 gradient-hero" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 p-4">
+          <div className="max-w-3xl mx-auto flex items-end gap-4">
+            {store.logo_url ? (
+              <img src={store.logo_url} alt={store.name} className="w-16 h-16 rounded-xl border-2 border-background object-cover shadow-lg" />
+            ) : (
+              <div className="w-16 h-16 rounded-xl bg-primary flex items-center justify-center border-2 border-background shadow-lg">
+                <span className="text-primary-foreground font-extrabold text-lg">{store.name.charAt(0)}</span>
+              </div>
+            )}
+            <div className="flex-1">
+              <h1 className="text-2xl font-extrabold text-background">{store.name}</h1>
+              {store.description && <p className="text-background/80 text-sm">{store.description}</p>}
+            </div>
+          </div>
         </div>
       </div>
-    );
-  }
 
-  const productsByCategory = categories.map((cat) => ({
-    ...cat,
-    products: products.filter((p) => p.category_id === cat.id),
-  }));
-
-  const uncategorized = products.filter((p) => !p.category_id);
-
-  return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <div className="gradient-hero py-8 px-4 text-center">
-        <h1 className="text-3xl font-extrabold text-primary-foreground">{store.name}</h1>
-        {store.description && <p className="text-primary-foreground/80 mt-1">{store.description}</p>}
-        <p className="text-primary-foreground/60 text-sm mt-2">🟢 Aberto agora</p>
+      {/* Info bar */}
+      <div className="max-w-3xl mx-auto px-4">
+        <div className="flex items-center gap-4 py-3 text-sm text-muted-foreground border-b border-border">
+          <span className={`font-medium ${storeOpen ? "text-green-600" : "text-destructive"}`}>
+            {storeOpen ? "🟢 Aberto" : "🔴 Fechado"}
+          </span>
+          {(store as any).avg_delivery_time && (
+            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {(store as any).avg_delivery_time} min</span>
+          )}
+          {store.min_order_value > 0 && <span>Mín. R$ {store.min_order_value.toFixed(2)}</span>}
+          <a href={`https://wa.me/55${store.phone.replace(/\D/g, "")}`} target="_blank" className="ml-auto flex items-center gap-1 text-primary hover:underline">
+            <Phone className="w-3 h-3" /> WhatsApp
+          </a>
+        </div>
       </div>
 
-      {/* Menu */}
-      <div className="max-w-3xl mx-auto px-4 py-6">
+      <div className="max-w-3xl mx-auto px-4 py-4">
+        {/* Search */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Buscar no cardápio..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full h-10 pl-10 pr-4 rounded-xl border border-border bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+        </div>
+
+        {/* Category pills */}
+        <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
+          <button
+            onClick={() => setActiveCategory(null)}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${!activeCategory ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            Todos
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${activeCategory === cat.id ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Products */}
         {productsByCategory.map((cat) =>
           cat.products.length > 0 ? (
             <div key={cat.id} className="mb-8">
-              <h2 className="text-xl font-bold text-foreground mb-4 border-b border-border pb-2">{cat.name}</h2>
+              <h2 className="text-lg font-bold text-foreground mb-3 border-b border-border pb-2">{cat.name}</h2>
               <div className="space-y-3">
                 {cat.products.map((p: any) => (
                   <ProductCard key={p.id} product={p} onAdd={() => addToCart(p)} />
@@ -265,22 +300,22 @@ const PublicStore = () => {
 
         {uncategorized.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-foreground mb-4 border-b border-border pb-2">Outros</h2>
+            <h2 className="text-lg font-bold text-foreground mb-3 border-b border-border pb-2">Outros</h2>
             <div className="space-y-3">
-              {uncategorized.map((p) => (
-                <ProductCard key={p.id} product={p} onAdd={() => addToCart(p)} />
-              ))}
+              {uncategorized.map((p) => <ProductCard key={p.id} product={p} onAdd={() => addToCart(p)} />)}
             </div>
           </div>
         )}
 
-        {products.length === 0 && (
-          <p className="text-center text-muted-foreground py-12">Nenhum produto disponível no momento.</p>
+        {filteredProducts.length === 0 && (
+          <p className="text-center text-muted-foreground py-12">
+            {search ? "Nenhum produto encontrado para essa busca." : "Nenhum produto disponível no momento."}
+          </p>
         )}
       </div>
 
       {/* Cart FAB */}
-      {cart.length > 0 && (
+      {totalItems > 0 && (
         <div className="fixed bottom-4 left-4 right-4 max-w-3xl mx-auto z-50">
           <button
             onClick={() => setCartOpen(true)}
@@ -288,7 +323,7 @@ const PublicStore = () => {
           >
             <div className="flex items-center gap-3">
               <ShoppingBag className="w-5 h-5" />
-              <span>{cart.reduce((s, i) => s + i.quantity, 0)} itens</span>
+              <span>{totalItems} {totalItems === 1 ? "item" : "itens"}</span>
             </div>
             <span>R$ {subtotal.toFixed(2)}</span>
           </button>
@@ -313,18 +348,12 @@ const PublicStore = () => {
                       <p className="font-semibold text-foreground">{item.product.name}</p>
                       <p className="text-sm text-primary font-medium">R$ {(item.product.price * item.quantity).toFixed(2)}</p>
                     </div>
-                    <button onClick={() => removeFromCart(item.product.id)}>
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </button>
+                    <button onClick={() => removeFromCart(item.product.id)}><Trash2 className="w-4 h-4 text-destructive" /></button>
                   </div>
                   <div className="flex items-center gap-3 mt-2">
-                    <button onClick={() => updateQuantity(item.product.id, -1)} className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center">
-                      <Minus className="w-3 h-3" />
-                    </button>
+                    <button onClick={() => updateQuantity(item.product.id, -1)} className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center"><Minus className="w-3 h-3" /></button>
                     <span className="font-bold text-foreground">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.product.id, 1)} className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center">
-                      <Plus className="w-3 h-3" />
-                    </button>
+                    <button onClick={() => updateQuantity(item.product.id, 1)} className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Plus className="w-3 h-3" /></button>
                   </div>
                 </div>
               ))}
@@ -332,18 +361,11 @@ const PublicStore = () => {
 
             <div className="p-4 border-t border-border space-y-3">
               <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Cupom de desconto"
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  className="flex-1"
-                />
+                <Input placeholder="Cupom de desconto" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} className="flex-1" />
                 <Button variant="outline" size="sm" onClick={applyCoupon}>Aplicar</Button>
               </div>
               {appliedCoupon && (
-                <p className="text-sm text-green-600 font-medium">
-                  ✅ Cupom {appliedCoupon.code} aplicado! -{appliedCoupon.discount_type === "percentage" ? `${appliedCoupon.discount_value}%` : `R$ ${appliedCoupon.discount_value.toFixed(2)}`}
-                </p>
+                <p className="text-sm text-green-600 font-medium">✅ Cupom {appliedCoupon.code} aplicado!</p>
               )}
               <div className="text-sm space-y-1">
                 <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
@@ -401,9 +423,7 @@ const PublicStore = () => {
                         <SelectTrigger><SelectValue placeholder="Selecione o bairro" /></SelectTrigger>
                         <SelectContent>
                           {deliveryZones.map((z) => (
-                            <SelectItem key={z.id} value={z.neighborhood}>
-                              {z.neighborhood} - R$ {z.fee.toFixed(2)}
-                            </SelectItem>
+                            <SelectItem key={z.id} value={z.neighborhood}>{z.neighborhood} - R$ {z.fee.toFixed(2)}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -435,6 +455,11 @@ const PublicStore = () => {
                 {discount > 0 && <div className="flex justify-between text-green-600"><span>Desconto</span><span>-R$ {discount.toFixed(2)}</span></div>}
                 {deliveryFee > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Entrega</span><span>R$ {deliveryFee.toFixed(2)}</span></div>}
                 <div className="flex justify-between font-bold text-foreground text-base pt-1 border-t border-border"><span>Total</span><span>R$ {total.toFixed(2)}</span></div>
+                {estimatedTime > 0 && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 pt-1">
+                    <Clock className="w-3 h-3" /> Estimativa: {estimatedTime} min
+                  </p>
+                )}
               </div>
 
               <Button variant="hero" size="lg" className="w-full" onClick={handleCheckout}>

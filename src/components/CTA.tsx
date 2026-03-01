@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const CTA = () => {
   return (
@@ -13,9 +14,11 @@ const CTA = () => {
             Comece agora e tenha seu delivery online funcionando em minutos. 
             Sem taxa por pedido, sem complicação.
           </p>
-          <Button variant="heroInverted" size="lg" className="group">
-            Criar minha loja grátis
-            <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
+          <Button variant="heroInverted" size="lg" className="group" asChild>
+            <Link to="/auth">
+              Criar minha loja grátis
+              <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
+            </Link>
           </Button>
         </div>
       </div>
