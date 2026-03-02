@@ -29,7 +29,7 @@ import AdminLandingPage from "./pages/admin/AdminLandingPage";
 import AdminRoute from "./components/admin/AdminRoute";
 
 // Domain configuration
-const MAIN_DOMAINS = ["localhost", "127.0.0.1", "frfood.app", "www.frfood.app"];
+const MAIN_DOMAINS = ["localhost", "127.0.0.1", "frfood.app", "www.frfood.app", "frfood.com.br", "www.frfood.com.br"];
 
 const AppRouter = () => {
   const hostname = window.location.hostname;

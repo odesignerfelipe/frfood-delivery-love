@@ -338,12 +338,12 @@ const StoreSettings = () => {
                     className="pr-20"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">
-                    .frfood.app
+                    .frfood.com.br
                   </span>
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Sua loja será acessada em: <span className="font-bold text-primary">{form.slug || 'slug'}.frfood.app</span>
+                Sua loja será acessada em: <span className="font-bold text-primary">{form.slug || 'slug'}.frfood.com.br</span>
               </p>
             </div>
 

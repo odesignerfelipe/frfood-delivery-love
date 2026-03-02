@@ -289,7 +289,7 @@ const DemoStore = () => {
 
       {/* Footer - identical to PublicStore */}
       <div className="max-w-3xl mx-auto px-4 mt-12 pb-8 text-center border-t border-border pt-8">
-        <a href="https://frfood.app" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+        <a href="https://frfood.com.br" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
           &copy; Desenvolvido por FRFood
         </a>
       </div>
