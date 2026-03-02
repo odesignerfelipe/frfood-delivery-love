@@ -11,12 +11,12 @@ const CTA = () => {
             Pronto para vender mais?
           </h2>
           <p className="text-primary-foreground/80 text-lg max-w-xl mx-auto mb-8">
-            Comece agora e tenha seu delivery online funcionando em minutos. 
+            Comece agora e tenha seu delivery online funcionando em minutos.
             Sem taxa por pedido, sem complicação.
           </p>
           <Button variant="heroInverted" size="lg" className="group" asChild>
-            <Link to="/auth">
-              Criar minha loja grátis
+            <Link to="/checkout">
+              Criar minha loja agora
               <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
             </Link>
           </Button>

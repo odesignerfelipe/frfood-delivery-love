@@ -21,7 +21,9 @@ const Products = () => {
     name: "",
     description: "",
     price: 0,
+    promotional_price: 0,
     category_id: "",
+    serves_people: 0,
     is_active: true,
     image_url: "",
   });
@@ -44,6 +46,8 @@ const Products = () => {
       name: form.name,
       description: form.description,
       price: form.price,
+      promotional_price: form.promotional_price || null,
+      serves_people: form.serves_people || null,
       category_id: form.category_id || null,
       is_active: form.is_active,
       image_url: form.image_url,
@@ -65,7 +69,7 @@ const Products = () => {
 
   const resetForm = () => {
     setEditing(null);
-    setForm({ name: "", description: "", price: 0, category_id: "", is_active: true, image_url: "" });
+    setForm({ name: "", description: "", price: 0, promotional_price: 0, serves_people: 0, category_id: "", is_active: true, image_url: "" });
   };
 
   const handleDelete = async (id: string) => {
@@ -81,6 +85,8 @@ const Products = () => {
       name: p.name,
       description: p.description || "",
       price: p.price,
+      promotional_price: p.promotional_price || 0,
+      serves_people: p.serves_people || 0,
       category_id: p.category_id || "",
       is_active: p.is_active,
       image_url: p.image_url || "",
@@ -136,6 +142,14 @@ const Products = () => {
                   <Input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div>
+                  <Label>Preço Promocional (R$)</Label>
+                  <Input type="number" step="0.01" value={form.promotional_price} onChange={(e) => setForm({ ...form, promotional_price: parseFloat(e.target.value) || 0 })} placeholder="0.00 (Opcional)" />
+                </div>
+                <div className="col-span-2">
+                  <Label>Serve quantas pessoas? (Opcional)</Label>
+                  <Input type="number" step="1" value={form.serves_people || ""} onChange={(e) => setForm({ ...form, serves_people: parseInt(e.target.value) || 0 })} placeholder="Ex: 2" />
+                </div>
+                <div className="col-span-2">
                   <Label>Categoria</Label>
                   <Select value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>

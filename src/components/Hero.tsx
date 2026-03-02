@@ -3,7 +3,12 @@ import { ArrowRight, Smartphone } from "lucide-react";
 import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-image.png";
 
-const Hero = () => {
+interface HeroProps {
+  title?: string;
+  subtitle?: string;
+}
+
+const Hero = ({ title, subtitle }: HeroProps) => {
   return (
     <section className="relative overflow-hidden bg-background">
       <div className="absolute inset-0 opacity-5">
@@ -20,18 +25,21 @@ const Hero = () => {
             </div>
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight text-foreground">
-              Seu delivery online{" "}
-              <span className="text-primary">pronto em minutos</span>
+              {title || (
+                <>
+                  Seu delivery online{" "}
+                  <span className="text-primary">pronto em minutos</span>
+                </>
+              )}
             </h1>
 
             <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
-              Crie seu catálogo digital, receba pedidos pelo WhatsApp e gerencie
-              tudo em um único painel. Sem complicação, sem taxa por pedido.
+              {subtitle || "Crie seu catálogo digital, receba pedidos pelo WhatsApp e gerencie tudo em um único painel. Sem complicação, sem taxa por pedido."}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
               <Button variant="hero" size="lg" className="group" asChild>
-                <Link to="/auth">
+                <Link to="/checkout">
                   Começar agora
                   <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
                 </Link>

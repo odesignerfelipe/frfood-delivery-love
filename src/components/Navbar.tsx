@@ -1,10 +1,30 @@
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { Menu, X, Shield } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (data?.role === 'admin') {
+        setIsAdmin(true);
+      }
+    };
+    checkAdmin();
+  }, [user]);
 
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
@@ -22,11 +42,23 @@ const Navbar = () => {
           <a href="#funcionalidades" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Funcionalidades</a>
           <a href="#precos" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Preços</a>
           <a href="#faq" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
+          {isAdmin && (
+            <Link to="/admin" className="text-sm font-bold text-primary flex items-center gap-1">
+              <Shield className="w-4 h-4" />
+              Painel Admin
+            </Link>
+          )}
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
-          <Button variant="ghost" size="sm" asChild><Link to="/auth">Entrar</Link></Button>
-          <Button variant="hero" size="sm" asChild><Link to="/auth">Criar conta grátis</Link></Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to={user ? "/dashboard" : "/auth"}>
+              {user ? "Dashboard" : "Entrar"}
+            </Link>
+          </Button>
+          {!user && (
+            <Button variant="hero" size="sm" asChild><Link to="/auth">Criar conta</Link></Button>
+          )}
         </div>
 
         <button className="md:hidden p-2" onClick={() => setOpen(!open)} aria-label="Menu">
@@ -39,8 +71,15 @@ const Navbar = () => {
           <a href="#funcionalidades" className="block text-sm font-medium text-muted-foreground py-2" onClick={() => setOpen(false)}>Funcionalidades</a>
           <a href="#precos" className="block text-sm font-medium text-muted-foreground py-2" onClick={() => setOpen(false)}>Preços</a>
           <a href="#faq" className="block text-sm font-medium text-muted-foreground py-2" onClick={() => setOpen(false)}>FAQ</a>
+          {isAdmin && (
+            <Link to="/admin" className="block text-sm font-bold text-primary py-2" onClick={() => setOpen(false)}>
+              Painel Admin
+            </Link>
+          )}
           <Button variant="hero" size="sm" className="w-full" asChild>
-            <Link to="/auth" onClick={() => setOpen(false)}>Criar conta grátis</Link>
+            <Link to={user ? "/dashboard" : "/auth"} onClick={() => setOpen(false)}>
+              {user ? "Ir para Dashboard" : "Criar conta"}
+            </Link>
           </Button>
         </div>
       )}

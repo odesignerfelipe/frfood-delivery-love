@@ -48,7 +48,8 @@ const Auth = () => {
       if (error) {
         toast.error(error.message);
       } else {
-        toast.success("Conta criada! Verifique seu email para confirmar.");
+        toast.success("Conta criada com sucesso!");
+        navigate("/checkout");
       }
     }
     setSubmitting(false);
@@ -73,8 +74,8 @@ const Auth = () => {
             {mode === "login"
               ? "Acesse o painel do seu delivery"
               : mode === "signup"
-              ? "Comece a vender online agora"
-              : "Enviaremos um link para redefinir sua senha"}
+                ? "Comece a vender online agora"
+                : "Enviaremos um link para redefinir sua senha"}
           </p>
         </div>
 
@@ -128,10 +129,10 @@ const Auth = () => {
               {submitting
                 ? "Aguarde..."
                 : mode === "login"
-                ? "Entrar"
-                : mode === "signup"
-                ? "Criar conta"
-                : "Enviar link de recuperação"}
+                  ? "Entrar"
+                  : mode === "signup"
+                    ? "Criar conta"
+                    : "Enviar link de recuperação"}
             </Button>
           </form>
 

@@ -84,7 +84,7 @@ const Pricing = () => {
               </div>
 
               <Button variant={plan.highlight ? "heroInverted" : "hero"} size="lg" className="w-full mb-8" asChild>
-                <Link to="/auth">{plan.cta}</Link>
+                <Link to="/checkout">{plan.cta}</Link>
               </Button>
 
               <ul className="space-y-3">

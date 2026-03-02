@@ -11,13 +11,18 @@ import {
   Tag,
   MapPin,
   BarChart3,
+  Users,
   LogOut,
   Menu,
   X,
   ExternalLink,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const links = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Painel", end: true },
@@ -28,6 +33,7 @@ const links = [
   { to: "/dashboard/coupons", icon: Tag, label: "Cupons" },
   { to: "/dashboard/delivery-zones", icon: MapPin, label: "Taxas de Entrega" },
   { to: "/dashboard/reports", icon: BarChart3, label: "Relatórios" },
+  { to: "/dashboard/customers", icon: Users, label: "Clientes" },
 ];
 
 const DashboardLayout = () => {
@@ -37,11 +43,58 @@ const DashboardLayout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const isOverdue = store?.plan_status === "overdue";
+
   useEffect(() => {
     if (!authLoading && !storeLoading && user && !store) {
       navigate("/create-store");
     }
   }, [authLoading, storeLoading, user, store, navigate]);
+
+  useEffect(() => {
+    if (!store) return;
+    const channel = supabase
+      .channel("new-orders-layout")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "orders", filter: `store_id=eq.${store.id}` },
+        (payload: any) => {
+          if ((store as any).audio_notifications !== false) {
+            // Use AudioContext for reliable playback even in background tabs
+            const playNotification = async () => {
+              try {
+                const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const response = await fetch("https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg");
+                const buffer = await response.arrayBuffer();
+                const audioBuffer = await ctx.decodeAudioData(buffer);
+                const source = ctx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(ctx.destination);
+                source.start(0);
+                // Stop after 3 seconds
+                source.stop(ctx.currentTime + 3);
+              } catch (e) {
+                // Fallback to standard Audio API
+                const audio = new Audio("https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg");
+                audio.volume = 1.0;
+                audio.play().catch(() => { });
+                setTimeout(() => { audio.pause(); audio.currentTime = 0; }, 3000);
+              }
+            };
+            playNotification();
+          }
+          toast.success(`Novo pedido recebido: #${payload.new.order_number}`, {
+            duration: 10000,
+            description: "Acesse a aba de Pedidos para aceitar."
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [store]);
 
   if (authLoading || storeLoading) {
     return (
@@ -67,9 +120,8 @@ const DashboardLayout = () => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-card border-r border-border z-50 flex flex-col transition-transform lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-card border-r border-border z-50 flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between">
@@ -89,24 +141,35 @@ const DashboardLayout = () => {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {links.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.end}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`
-              }
-            >
-              <link.icon className="w-4 h-4" />
-              {link.label}
-            </NavLink>
-          ))}
+          {links.map((link) => {
+            const isDisabled = isOverdue && link.to !== "/dashboard";
+            return (
+              <NavLink
+                key={link.to}
+                to={isDisabled ? "#" : link.to}
+                end={link.end}
+                onClick={(e) => {
+                  if (isDisabled) {
+                    e.preventDefault();
+                    toast.error("Pagamento pendente. Regularize sua assinatura para acessar este recurso.");
+                    return;
+                  }
+                  setSidebarOpen(false);
+                }}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isDisabled
+                    ? "opacity-50 cursor-not-allowed text-muted-foreground"
+                    : isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`
+                }
+              >
+                <link.icon className="w-4 h-4" />
+                {link.label}
+              </NavLink>
+            );
+          })}
         </nav>
 
         <div className="p-3 border-t border-border space-y-2">
@@ -135,10 +198,38 @@ const DashboardLayout = () => {
           <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-bold text-foreground">FRFood</h1>
+          <div className="flex-1 flex items-center justify-between">
+            <h1 className="text-lg font-bold text-foreground">FRFood</h1>
+            {isOverdue && (
+              <div className="hidden md:flex items-center gap-2 text-destructive font-bold animate-pulse">
+                <AlertCircle className="w-4 h-4" />
+                Pagamento Pendente
+              </div>
+            )}
+          </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-6">
+        {isOverdue && (
+          <div className="px-4 py-3 lg:px-6">
+            <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
+              <AlertCircle className="w-4 h-4" />
+              <AlertTitle className="font-bold">Atenção: Pagamento Pendente</AlertTitle>
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
+                <p>Sua assinatura está atrasada. Os recursos da sua loja foram suspensos até que o pagamento seja regularizado.</p>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => navigate("/checkout")}
+                  className="font-bold whitespace-nowrap"
+                >
+                  Regularizar Agora
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
+        <main className={`flex-1 p-4 lg:p-6 ${isOverdue ? "pointer-events-none grayscale-[0.5] opacity-80" : ""}`}>
           <Outlet />
         </main>
       </div>

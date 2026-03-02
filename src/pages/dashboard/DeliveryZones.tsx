@@ -73,11 +73,29 @@ const DeliveryZones = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Taxa (R$)</Label>
-                  <Input type="number" step="0.01" value={form.fee} onChange={(e) => setForm({ ...form, fee: parseFloat(e.target.value) || 0 })} />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground font-medium">R$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      className="pl-9"
+                      value={form.fee}
+                      onChange={(e) => setForm({ ...form, fee: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
                 </div>
                 <div>
-                  <Label>Tempo estimado</Label>
-                  <Input value={form.estimated_time} onChange={(e) => setForm({ ...form, estimated_time: e.target.value })} placeholder="Ex: 30-40 min" />
+                  <Label>Tempo estimado (Minutos)</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      className="pr-12"
+                      value={(form.estimated_time || "").replace(/\D/g, "")}
+                      onChange={(e) => setForm({ ...form, estimated_time: e.target.value ? `${e.target.value} min` : "" })}
+                      placeholder="Ex: 40"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">min</span>
+                  </div>
                 </div>
               </div>
               <Button variant="hero" onClick={handleSave} className="w-full">{editing ? "Salvar" : "Criar"}</Button>

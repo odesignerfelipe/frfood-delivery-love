@@ -28,7 +28,7 @@ const features = [
   { icon: ShoppingBag, title: "Gestão Completa", description: "Painel administrativo completo para gerenciar tudo" },
 ];
 
-const Features = () => {
+const Features = ({ customFeatures }: { customFeatures?: string[] }) => {
   return (
     <section id="funcionalidades" className="py-20 lg:py-28 bg-muted/50">
       <div className="container mx-auto px-4">
@@ -46,20 +46,37 @@ const Features = () => {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="group bg-card rounded-xl p-6 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/50"
-            >
-              <div className="w-12 h-12 rounded-xl gradient-hero flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <feature.icon className="w-6 h-6 text-primary-foreground" />
+          {customFeatures && customFeatures.length > 0 ? (
+            customFeatures.map((feature, index) => (
+              <div
+                key={index}
+                className="group bg-card rounded-xl p-6 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/50"
+              >
+                <div className="w-12 h-12 rounded-xl gradient-hero flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <Globe className="w-6 h-6 text-primary-foreground" />
+                </div>
+                <h3 className="font-bold text-foreground mb-2">{feature}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Funcionalidade inclusa em todos os planos para alavancar seu negócio.
+                </p>
               </div>
-              <h3 className="font-bold text-foreground mb-2">{feature.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {feature.description}
-              </p>
-            </div>
-          ))}
+            ))
+          ) : (
+            features.map((feature) => (
+              <div
+                key={feature.title}
+                className="group bg-card rounded-xl p-6 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/50"
+              >
+                <div className="w-12 h-12 rounded-xl gradient-hero flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <feature.icon className="w-6 h-6 text-primary-foreground" />
+                </div>
+                <h3 className="font-bold text-foreground mb-2">{feature.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {feature.description}
+                </p>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </section>
