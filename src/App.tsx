@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { GlobalSettingsProvider } from "@/contexts/GlobalSettingsContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Checkout from "./pages/Checkout";
@@ -25,6 +26,7 @@ import OrderStatus from "./pages/OrderStatus";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminStores from "./pages/admin/AdminStores";
+import AdminSettings from "./pages/admin/AdminSettings";
 import AdminLandingPage from "./pages/admin/AdminLandingPage";
 import AdminRoute from "./components/admin/AdminRoute";
 
@@ -80,6 +82,7 @@ const AppRouter = () => {
       <Route path="/admin" element={<AdminRoute />}>
         <Route index element={<AdminDashboard />} />
         <Route path="stores" element={<AdminStores />} />
+        <Route path="settings" element={<AdminSettings />} />
         <Route path="landing-page" element={<AdminLandingPage />} />
       </Route>
 
@@ -97,7 +100,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppRouter />
+          <GlobalSettingsProvider>
+            <AppRouter />
+          </GlobalSettingsProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

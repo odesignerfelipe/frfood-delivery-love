@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useGlobalSettings } from "@/contexts/GlobalSettingsContext";
 
 const Auth = () => {
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
@@ -16,6 +17,7 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { signIn, signUp } = useAuth();
+  const { settings } = useGlobalSettings();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,7 +63,7 @@ const Auth = () => {
         <div className="text-center mb-8">
           <a href="/" className="inline-flex items-center gap-2 mb-6">
             <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center overflow-hidden">
-              <img src="/logo-icon.png" alt="FRFood" className="w-full h-full object-contain" />
+              <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="w-full h-full object-contain mix-blend-multiply" />
             </div>
             <span className="text-2xl font-extrabold text-foreground">
               FR<span className="text-primary">Food</span>

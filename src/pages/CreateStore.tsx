@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useGlobalSettings } from "@/contexts/GlobalSettingsContext";
 
 const CreateStore = () => {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { createStore } = useStore();
+  const { settings } = useGlobalSettings();
   const navigate = useNavigate();
 
   const generateSlug = (name: string) => {
@@ -41,7 +43,7 @@ const CreateStore = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4 overflow-hidden">
-            <img src="/logo-icon.png" alt="FRFood" className="w-full h-full object-contain p-2" />
+            <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="w-full h-full object-contain p-2 mix-blend-multiply" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Criar sua loja</h1>
           <p className="text-muted-foreground mt-2">

@@ -4,10 +4,12 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGlobalSettings } from "@/contexts/GlobalSettingsContext";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
+  const { settings } = useGlobalSettings();
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -31,7 +33,7 @@ const Navbar = () => {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center overflow-hidden">
-            <img src="/logo-icon.png" alt="FRFood" className="w-full h-full object-contain" />
+            <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="w-full h-full object-contain mix-blend-multiply" />
           </div>
           <span className="text-xl font-extrabold text-foreground">
             FR<span className="text-primary">Food</span>

@@ -5,25 +5,30 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type Store = Tables<"stores">;
 
-export const useStore = () => {
+export const useStore = (impersonateStoreId?: string) => {
   const { user } = useAuth();
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchStore = async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("stores")
-      .select("*")
-      .eq("owner_id", user.id)
-      .maybeSingle();
+
+    let query = supabase.from("stores").select("*");
+
+    if (impersonateStoreId) {
+      query = query.eq("id", impersonateStoreId);
+    } else {
+      query = query.eq("owner_id", user.id);
+    }
+
+    const { data } = await query.maybeSingle();
     setStore(data);
     setLoading(false);
   };
 
   useEffect(() => {
     fetchStore();
-  }, [user]);
+  }, [user, impersonateStoreId]);
 
   const createStore = async (name: string, slug: string, phone: string) => {
     if (!user) return { error: "Not authenticated" };

@@ -9,8 +9,8 @@ export const useOrderNotifications = (storeId: string | undefined, audioNotifica
         if (!storeId || !audioNotificationsEnabled) return;
 
         // Pre-load audio
-        // Using a more reliable "telephone ring" sound
-        audioRef.current = new Audio("https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg");
+        // Using an iFood-style notification sound
+        audioRef.current = new Audio("https://actions.google.com/sounds/v1/doorbells/doorbell_classic.ogg");
 
         const playNotification = async () => {
             if (!audioRef.current) return;

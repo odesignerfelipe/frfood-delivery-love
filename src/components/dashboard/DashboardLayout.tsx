@@ -1,6 +1,7 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStore } from "@/hooks/useStore";
+import { useGlobalSettings } from "@/contexts/GlobalSettingsContext";
 import { useOrderNotifications } from "@/hooks/useOrderNotifications";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import {
@@ -39,7 +40,10 @@ const links = [
 
 const DashboardLayout = () => {
   const { user, loading: authLoading } = useRequireAuth();
-  const { store, loading: storeLoading } = useStore();
+  const [searchParams] = useSearchParams();
+  const impersonateStoreId = searchParams.get("impersonate") || undefined;
+  const { store, loading: storeLoading } = useStore(impersonateStoreId);
+  const { settings } = useGlobalSettings();
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -90,7 +94,7 @@ const DashboardLayout = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center overflow-hidden">
-                <img src="/logo-icon.png" alt="FRFood" className="w-full h-full object-contain" />
+                <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="w-full h-full object-contain mix-blend-multiply" />
               </div>
               <div>
                 <p className="text-sm font-bold text-foreground truncate max-w-[140px]">{store.name}</p>

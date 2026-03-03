@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useGlobalSettings } from "@/contexts/GlobalSettingsContext";
 import { Eye, EyeOff } from "lucide-react";
 
 const ResetPassword = () => {
@@ -13,6 +14,7 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isRecovery, setIsRecovery] = useState(false);
+  const { settings } = useGlobalSettings();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -66,7 +68,7 @@ const ResetPassword = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center mx-auto mb-4 overflow-hidden">
-            <img src="/logo-icon.png" alt="FRFood" className="w-full h-full object-contain" />
+            <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="w-full h-full object-contain mix-blend-multiply" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Redefinir senha</h1>
           <p className="text-muted-foreground mt-2">Digite sua nova senha abaixo</p>

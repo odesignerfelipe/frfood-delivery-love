@@ -21,9 +21,15 @@ const AdminStores = () => {
 
     const fetchStores = async () => {
         setLoading(true);
+        // In order to show user data without an RPC, we fall back to what's available
+        // on the "stores" table or simply the owner ID if a profile join isn't directly configured.
+        // Usually, an RPC function or edge function is better to list auth.users
         const { data, error } = await supabase
             .from("stores")
-            .select("*")
+            .select(`
+              *,
+              profiles:owner_id (full_name)
+            `)
             .order("created_at", { ascending: false });
 
         if (error) {
@@ -89,6 +95,7 @@ const AdminStores = () => {
                     <TableHeader className="bg-slate-50">
                         <TableRow>
                             <TableHead>Loja</TableHead>
+                            <TableHead>Proprietário</TableHead>
                             <TableHead>Slug</TableHead>
                             <TableHead>Plano</TableHead>
                             <TableHead>Status</TableHead>
@@ -107,6 +114,9 @@ const AdminStores = () => {
                                         {store.name}
                                     </div>
                                 </TableCell>
+                                <TableCell className="text-slate-500 text-sm">
+                                    {store.profiles?.full_name || 'Desconhecido'}
+                                </TableCell>
                                 <TableCell className="text-slate-500">{store.slug}</TableCell>
                                 <TableCell>
                                     <Badge variant="outline" className="capitalize">
@@ -124,7 +134,16 @@ const AdminStores = () => {
                                 <TableCell className="text-slate-500">
                                     {store.asaas_next_due_date ? new Date(store.asaas_next_due_date).toLocaleDateString() : '-'}
                                 </TableCell>
-                                <TableCell className="text-right space-x-2">
+                                <TableCell className="text-right space-x-2 whitespace-nowrap">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => navigate(`/dashboard/store?impersonate=${store.id}`)}
+                                        title="Acessar painel da loja"
+                                        className="mr-2"
+                                    >
+                                        Acessar Loja
+                                    </Button>
                                     <Button
                                         variant="ghost"
                                         size="icon"
