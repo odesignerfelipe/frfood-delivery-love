@@ -245,7 +245,9 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
     if (store.min_order_value && subtotal < store.min_order_value) { toast.error(`Pedido mínimo R$ ${store.min_order_value.toFixed(2)}`); setIsProcessing(false); return; }
 
-    const { data: order, error } = await supabase.from("orders").insert({
+    const orderId = crypto.randomUUID();
+    const { error } = await supabase.from("orders").insert({
+      id: orderId,
       store_id: store.id,
       customer_name: form.customer_name,
       customer_phone: form.customer_phone,
@@ -259,9 +261,9 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
       coupon_code: appliedCoupon?.code || "",
       notes: form.notes,
       payment_method: form.payment_method,
-    }).select().single();
+    });
 
-    if (error || !order) {
+    if (error) {
       console.error("Order Insert Error:", error);
       toast.error(error?.message || "Erro ao criar pedido. Verifique os dados.");
       setIsProcessing(false);
@@ -270,7 +272,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
     await supabase.from("order_items").insert(
       cart.map((i) => ({
-        order_id: order.id,
+        order_id: orderId,
         product_id: i.product.id,
         product_name: i.product.name,
         quantity: i.quantity,
@@ -291,7 +293,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     setCouponCode("");
     setIsProcessing(false);
     toast.success("Pedido finalizado com sucesso!");
-    navigate(`/pedido/${order.id}`);
+    navigate(`/pedido/${orderId}`);
   };
 
   // Filter products
