@@ -35,8 +35,8 @@ const AppRouter = () => {
   const hostname = window.location.hostname;
 
   // Check if we are on a subdomain (e.g., pizzaria.localhost or pizzaria.frfood.app)
-  // Also handle wildcard formats like store.frfood.com.br
-  const isSubdomain = MAIN_DOMAINS.every(domain => !hostname.endsWith(domain)) || (hostname.split('.').length > 2 && !hostname.startsWith('www.'));
+  const isMainDomain = MAIN_DOMAINS.includes(hostname);
+  const isSubdomain = !isMainDomain && MAIN_DOMAINS.some(domain => hostname.endsWith("." + domain));
 
   if (isSubdomain) {
     // Extract slug: handles store.frfood.app, store.localhost, etc.
