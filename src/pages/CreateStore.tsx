@@ -42,8 +42,8 @@ const CreateStore = () => {
     <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4 overflow-hidden">
-            <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="w-full h-full object-contain p-2 mix-blend-multiply" />
+          <div className="h-16 flex items-center justify-center mx-auto mb-4">
+            <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="h-full w-auto object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Criar sua loja</h1>
           <p className="text-muted-foreground mt-2">

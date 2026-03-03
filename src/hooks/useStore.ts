@@ -30,6 +30,21 @@ export const useStore = (impersonateStoreId?: string) => {
     fetchStore();
   }, [user, impersonateStoreId]);
 
+  useEffect(() => {
+    if (!store?.id) return;
+    const channel = supabase
+      .channel(`admin-store-sync-${store.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "stores", filter: `id=eq.${store.id}` },
+        (payload: any) => {
+          setStore((prev: any) => ({ ...prev, ...payload.new }));
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [store?.id]);
+
   const createStore = async (name: string, slug: string, phone: string) => {
     if (!user) return { error: "Not authenticated" };
     const { data, error } = await supabase

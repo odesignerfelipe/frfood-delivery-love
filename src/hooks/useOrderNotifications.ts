@@ -8,9 +8,8 @@ export const useOrderNotifications = (storeId: string | undefined, audioNotifica
     useEffect(() => {
         if (!storeId || !audioNotificationsEnabled) return;
 
-        // Pre-load audio
         // Using an iFood-style notification sound
-        audioRef.current = new Audio("https://actions.google.com/sounds/v1/doorbells/doorbell_classic.ogg");
+        audioRef.current = new Audio("https://www.myinstants.com/media/sounds/notificacao-ifood.mp3");
 
         const playNotification = async () => {
             if (!audioRef.current) return;

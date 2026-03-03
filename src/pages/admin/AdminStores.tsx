@@ -13,6 +13,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const AdminStores = () => {
     const [stores, setStores] = useState<any[]>([]);
@@ -28,7 +29,7 @@ const AdminStores = () => {
             .from("stores")
             .select(`
               *,
-              profiles:owner_id (full_name)
+              profiles:owner_id (full_name, phone)
             `)
             .order("created_at", { ascending: false });
 
@@ -67,6 +68,20 @@ const AdminStores = () => {
             toast.error("Erro ao atualizar status");
         } else {
             toast.success(`Loja ${newStatus === 'active' ? 'ativada' : 'bloqueada'} com sucesso`);
+            fetchStores();
+        }
+    };
+
+    const changePlanType = async (id: string, newPlan: string) => {
+        const { error } = await supabase
+            .from("stores")
+            .update({ plan_type: newPlan })
+            .eq("id", id);
+
+        if (error) {
+            toast.error("Erro ao alterar plano");
+        } else {
+            toast.success("Plano alterado com sucesso");
             fetchStores();
         }
     };
@@ -115,13 +130,24 @@ const AdminStores = () => {
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-slate-500 text-sm">
-                                    {store.profiles?.full_name || 'Desconhecido'}
+                                    <div className="font-medium text-slate-700">{store.profiles?.full_name || 'Desconhecido'}</div>
+                                    <div className="text-xs">{store.profiles?.phone || 'S/ telefone'}</div>
                                 </TableCell>
                                 <TableCell className="text-slate-500">{store.slug}</TableCell>
                                 <TableCell>
-                                    <Badge variant="outline" className="capitalize">
-                                        {store.plan_type}
-                                    </Badge>
+                                    <Select
+                                        value={store.plan_type || "free"}
+                                        onValueChange={(val) => changePlanType(store.id, val)}
+                                    >
+                                        <SelectTrigger className="w-[110px] h-8 text-xs capitalize">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="free">Free</SelectItem>
+                                            <SelectItem value="monthly">Monthly</SelectItem>
+                                            <SelectItem value="yearly">Yearly</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </TableCell>
                                 <TableCell>
                                     <Badge

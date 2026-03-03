@@ -146,7 +146,7 @@ export default function AdminSettings() {
                                         <img
                                             src={settings.logoUrl}
                                             alt="Logo"
-                                            className="w-full h-full object-contain p-2 mix-blend-multiply"
+                                            className="w-full h-full object-contain"
                                         />
                                     ) : (
                                         <div className="text-slate-400 flex flex-col items-center">

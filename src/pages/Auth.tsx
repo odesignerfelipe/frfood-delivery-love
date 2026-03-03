@@ -61,13 +61,8 @@ const Auth = () => {
     <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <a href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center overflow-hidden">
-              <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="w-full h-full object-contain mix-blend-multiply" />
-            </div>
-            <span className="text-2xl font-extrabold text-foreground">
-              FR<span className="text-primary">Food</span>
-            </span>
+          <a href="/" className="inline-flex items-center justify-center h-12 mb-6">
+            <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="h-full w-auto object-contain" />
           </a>
           <h1 className="text-2xl font-bold text-foreground">
             {mode === "login" ? "Entrar na sua conta" : mode === "signup" ? "Criar sua conta" : "Recuperar senha"}

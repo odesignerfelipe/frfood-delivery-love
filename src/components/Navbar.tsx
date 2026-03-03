@@ -31,13 +31,8 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <a href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center overflow-hidden">
-            <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="w-full h-full object-contain mix-blend-multiply" />
-          </div>
-          <span className="text-xl font-extrabold text-foreground">
-            FR<span className="text-primary">Food</span>
-          </span>
+        <a href="/" className="flex items-center justify-center h-8">
+          <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="h-full w-auto object-contain" />
         </a>
 
         <nav className="hidden md:flex items-center gap-8">

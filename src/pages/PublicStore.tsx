@@ -240,6 +240,9 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     }
 
     if (form.delivery_type === "delivery" && !form.customer_address.trim()) { toast.error("Preencha o endereço"); setIsProcessing(false); return; }
+    if (form.delivery_type === "delivery" && deliveryZones.length > 0 && !form.neighborhood) { toast.error("Selecione o bairro"); setIsProcessing(false); return; }
+    if (!form.payment_method) { toast.error("Selecione a forma de pagamento"); setIsProcessing(false); return; }
+
     if (store.min_order_value && subtotal < store.min_order_value) { toast.error(`Pedido mínimo R$ ${store.min_order_value.toFixed(2)}`); setIsProcessing(false); return; }
 
     const { data: order, error } = await supabase.from("orders").insert({

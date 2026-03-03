@@ -93,8 +93,8 @@ const DashboardLayout = () => {
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center overflow-hidden">
-                <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="w-full h-full object-contain mix-blend-multiply" />
+              <div className="h-8 flex items-center justify-center">
+                <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="h-full w-auto object-contain" />
               </div>
               <div>
                 <p className="text-sm font-bold text-foreground truncate max-w-[140px]">{store.name}</p>
@@ -166,7 +166,9 @@ const DashboardLayout = () => {
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex-1 flex items-center justify-between">
-            <h1 className="text-lg font-bold text-foreground">FRFood</h1>
+            <div className="h-6 flex items-center justify-center">
+              <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="h-full w-auto object-contain" />
+            </div>
             {isOverdue && (
               <div className="hidden md:flex items-center gap-2 text-destructive font-bold animate-pulse">
                 <AlertCircle className="w-4 h-4" />
