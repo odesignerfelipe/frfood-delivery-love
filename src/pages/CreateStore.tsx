@@ -33,7 +33,7 @@ const CreateStore = () => {
       toast.error("Erro ao criar loja: " + (typeof error === 'string' ? error : error?.message));
     } else {
       toast.success("Loja criada com sucesso!");
-      navigate("/checkout");
+      navigate("/dashboard");
     }
     setSubmitting(false);
   };

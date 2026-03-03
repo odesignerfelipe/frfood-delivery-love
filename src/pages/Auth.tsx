@@ -51,7 +51,7 @@ const Auth = () => {
         toast.error(error.message);
       } else {
         toast.success("Conta criada com sucesso!");
-        navigate("/create-store");
+        navigate("/checkout");
       }
     }
     setSubmitting(false);

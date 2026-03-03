@@ -42,9 +42,7 @@ const Checkout = () => {
     useEffect(() => {
         if (!session) return;
         supabase.from("stores").select("id, plan_status").eq("owner_id", session.user.id).maybeSingle().then(({ data }) => {
-            if (!data) {
-                navigate("/create-store");
-            } else if (data.plan_status === 'active') {
+            if (data && data.plan_status === 'active') {
                 navigate("/dashboard");
             }
         });
@@ -127,7 +125,14 @@ const Checkout = () => {
             if (!res.ok || data.error) throw new Error(data.error || "Erro ao processar assinatura");
 
             toast.success("Assinatura criada com sucesso! 🎉");
-            navigate("/dashboard");
+
+            // Check if user already has a store (renewing) or is a new user
+            const { data: storeData } = await supabase.from("stores").select("id").eq("owner_id", session.user.id).maybeSingle();
+            if (storeData) {
+                navigate("/dashboard");
+            } else {
+                navigate("/create-store");
+            }
         } catch (error: any) {
             toast.error(error.message || "Erro ao processar pagamento. Tente novamente.");
         } finally {

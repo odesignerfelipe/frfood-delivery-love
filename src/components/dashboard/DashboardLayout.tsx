@@ -26,6 +26,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+import { checkStoreStatus } from "@/lib/utils";
+
 const links = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Painel", end: true },
   { to: "/dashboard/store", icon: Store, label: "Minha Loja" },
@@ -98,7 +100,7 @@ const DashboardLayout = () => {
               </div>
               <div>
                 <p className="text-sm font-bold text-foreground truncate max-w-[140px]">{store.name}</p>
-                <p className="text-xs text-muted-foreground">{store.is_open ? "🟢 Aberto" : "🔴 Fechado"}</p>
+                <p className="text-xs text-muted-foreground">{checkStoreStatus(store) ? "🟢 Aberto" : "🔴 Fechado"}</p>
               </div>
             </div>
             <button className="lg:hidden" onClick={() => setSidebarOpen(false)}>

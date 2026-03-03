@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ShoppingBag, Plus, Minus, Trash2, X, Send, MapPin, Search, Star, Clock, Phone, Mail, Lock, Check } from "lucide-react";
-
+import { checkStoreStatus } from "@/lib/utils";
 interface CartItem {
   product: any;
   quantity: number;
@@ -133,37 +133,6 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Check auto open/close based on opening_hours
-  const isStoreOpen = () => {
-    if (!store) return false;
-
-    // Status Mode logic (New)
-    const mode = (store as any).status_mode || "auto";
-    if (mode === "manual_open") return true;
-    if (mode === "manual_closed") return false;
-
-    // Fallback to "auto" (schedule logic)
-    if (!store.opening_hours || !Array.isArray(store.opening_hours)) return store.is_open;
-    const now = new Date();
-    const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-    const today = dayNames[now.getDay()];
-    const todayConfig = (store.opening_hours as any[]).find((d: any) => d.day === today);
-    if (!todayConfig?.enabled) return false;
-
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    return todayConfig.periods.some((p: any) => {
-      if (!p.open || !p.close) return false;
-      const [hO, mO] = p.open.split(":").map(Number);
-      const [hC, mC] = p.close.split(":").map(Number);
-      const openTime = hO * 60 + mO;
-      let closeTime = hC * 60 + mC;
-      if (closeTime < openTime) closeTime += 24 * 60; // Crosses midnight
-      let checkTime = currentTime;
-      if (checkTime < openTime && closeTime > 24 * 60) checkTime += 24 * 60;
-      return checkTime >= openTime && checkTime <= closeTime;
-    });
-  };
-
   const getTodayHours = () => {
     if (!store?.opening_hours || !Array.isArray(store.opening_hours)) return null;
     const now = new Date();
@@ -174,8 +143,19 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     return `${todayConfig.periods[0].open} às ${todayConfig.periods[0].close}`;
   };
 
-  const storeOpen = isStoreOpen();
+  const storeOpen = checkStoreStatus(store);
   const todayHours = getTodayHours();
+
+  // Fechamento reativo de carrinho e avisos
+  useEffect(() => {
+    if (!loading && store && !storeOpen) {
+      if (cartOpen || checkoutOpen) {
+        setCartOpen(false);
+        setCheckoutOpen(false);
+        toast.error("A loja foi fechada! Pedidos não podem mais ser enviados.");
+      }
+    }
+  }, [storeOpen, loading, store, cartOpen, checkoutOpen]);
 
   const addToCart = (product: any) => {
     if (!storeOpen) { toast.error("Loja fechada no momento"); return; }

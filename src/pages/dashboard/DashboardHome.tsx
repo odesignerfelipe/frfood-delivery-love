@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { checkStoreStatus } from "@/lib/utils";
 
 const DashboardHome = () => {
   const { store, updateStore } = useStore();
@@ -16,6 +17,8 @@ const DashboardHome = () => {
   const [stats, setStats] = useState({ orders: 0, products: 0, revenue: 0, todayOrders: 0 });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [toggling, setToggling] = useState(false);
+  const isOpenNow = checkStoreStatus(store);
+
 
   useOrderNotifications(store?.id, (store as any)?.audio_notifications !== false);
 
@@ -54,7 +57,14 @@ const DashboardHome = () => {
   const toggleStore = async () => {
     if (!store) return;
     setToggling(true);
-    const { error } = await updateStore({ is_open: !store.is_open });
+    const newIsOpen = !store.is_open;
+    const newStatusMode = newIsOpen ? "manual_open" : "manual_closed";
+
+    const { error } = await updateStore({
+      is_open: newIsOpen,
+      status_mode: newStatusMode
+    } as any);
+
     if (error) {
       toast.error("Erro ao alterar status");
     } else {
@@ -94,9 +104,9 @@ const DashboardHome = () => {
         <h2 className="text-2xl font-bold text-foreground">Painel</h2>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-card rounded-xl px-4 py-2 border border-border/50 shadow-card">
-            <Power className={`w-4 h-4 ${store?.is_open ? "text-green-500" : "text-destructive"}`} />
-            <span className="text-sm font-medium text-foreground">{store?.is_open ? "Aberta" : "Fechada"}</span>
-            <Switch checked={store?.is_open || false} onCheckedChange={toggleStore} disabled={toggling} />
+            <Power className={`w-4 h-4 ${isOpenNow ? "text-green-500" : "text-destructive"}`} />
+            <span className="text-sm font-medium text-foreground">{isOpenNow ? "Aberta" : "Fechada"}</span>
+            <Switch checked={isOpenNow} onCheckedChange={toggleStore} disabled={toggling} />
           </div>
         </div>
       </div>
