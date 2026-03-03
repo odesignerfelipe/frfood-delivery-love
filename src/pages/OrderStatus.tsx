@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, Link2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function OrderStatus() {
     const { id } = useParams();
@@ -129,6 +130,50 @@ export default function OrderStatus() {
                         </div>
                     </div>
                 </div>
+
+                {/* Pix Payment Info */}
+                {order.payment_method === 'pix' && store.pix_key && (
+                    <div className="bg-card rounded-2xl p-6 shadow-card border border-primary/20 bg-primary/5 text-center">
+                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <span className="text-primary font-bold text-xl">P</span>
+                        </div>
+                        <h3 className="font-bold text-foreground mb-2">Pagamento via PIX</h3>
+                        <p className="text-sm text-muted-foreground mb-4 border-b border-border/50 pb-4">
+                            Faça o pagamento usando a chave abaixo e envie o comprovante pelo WhatsApp.
+                        </p>
+
+                        <div className="mb-4">
+                            <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Chave PIX da loja</p>
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="text-lg font-bold text-foreground">{store.pix_key}</span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(store.pix_key);
+                                        toast.success("Chave PIX copiada!");
+                                    }}
+                                >
+                                    <Copy className="w-4 h-4 text-primary" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        <Button
+                            variant="hero"
+                            className="w-full font-bold shadow-lg"
+                            typeof="button"
+                            onClick={() => {
+                                const text = `Olá! Acabei de fazer o pedido #${order.order_number} no valor de R$ ${order.total.toFixed(2)} e este é o comprovante do PIX.`;
+                                window.open(`https://wa.me/55${store.phone.replace(/\\D/g, "")}?text=${encodeURIComponent(text)}`, "_blank");
+                            }}
+                        >
+                            <MessageCircle className="w-4 h-4 mr-2" />
+                            Enviar Comprovante
+                        </Button>
+                    </div>
+                )}
 
                 {/* Copy Link */}
                 <div className="bg-card rounded-2xl p-4 shadow-card border border-border/50">

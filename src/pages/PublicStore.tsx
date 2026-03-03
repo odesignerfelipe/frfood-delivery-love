@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,6 +107,22 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [store?.id]);
+
+  // Dynamic Title and Favicon
+  useEffect(() => {
+    if (store) {
+      document.title = store.name;
+      if (store.logo_url) {
+        let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.head.appendChild(link);
+        }
+        link.href = store.logo_url;
+      }
+    }
+  }, [store?.name, store?.logo_url]);
 
   // Sticky header on scroll (feature 7)
   useEffect(() => {
@@ -217,43 +233,8 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     if (!store || cart.length === 0) return;
     setIsProcessing(true);
 
-    let userId = session?.user?.id;
-
-    if (!userId) {
-      if (authMode === "signup") {
-        if (!form.email || !form.password || !form.customer_name || !form.customer_phone) {
-          toast.error("Preencha todos os campos obrigatórios");
-          setIsProcessing(false);
-          return;
-        }
-        const { data, error } = await supabase.auth.signUp({
-          email: form.email,
-          password: form.password,
-          options: { data: { full_name: form.customer_name } }
-        });
-        if (error) { toast.error(error.message); setIsProcessing(false); return; }
-        userId = data.user?.id;
-
-        if (userId) {
-          await supabase.from("profiles").update({
-            phone: form.customer_phone,
-            address: form.customer_address,
-            neighborhood: form.neighborhood,
-          }).eq("id", userId);
-        }
-      } else {
-        if (!form.email || !form.password) { toast.error("Preencha email e senha"); setIsProcessing(false); return; }
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: form.email,
-          password: form.password,
-        });
-        if (error) { toast.error("Email ou senha incorretos"); setIsProcessing(false); return; }
-        userId = data.user?.id;
-      }
-    }
-
-    if (!userId) {
-      toast.error("Erro ao autenticar. Tente novamente.");
+    if (!form.customer_name || !form.customer_phone) {
+      toast.error("Preencha o nome e telefone");
       setIsProcessing(false);
       return;
     }
@@ -263,7 +244,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
     const { data: order, error } = await supabase.from("orders").insert({
       store_id: store.id,
-      customer_name: form.customer_name || session?.user?.user_metadata?.full_name || "Cliente",
+      customer_name: form.customer_name,
       customer_phone: form.customer_phone,
       customer_address: form.customer_address,
       neighborhood: form.neighborhood,
@@ -291,14 +272,6 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
     if (appliedCoupon) {
       await supabase.from("coupons").update({ current_uses: appliedCoupon.current_uses + 1 }).eq("id", appliedCoupon.id);
-    }
-
-    if (userId && authMode === "login") {
-      await supabase.from("profiles").update({
-        phone: form.customer_phone,
-        address: form.customer_address,
-        neighborhood: form.neighborhood,
-      }).eq("id", userId);
     }
 
     setCart([]);
@@ -655,44 +628,10 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
             <div className="space-y-4">
 
-              {!session && (
-                <div className="bg-muted/50 p-4 rounded-xl border border-primary/20 mb-4">
-                  <div className="flex gap-2 mb-4 p-1 bg-card rounded-lg border border-border">
-                    <button onClick={() => setAuthMode("login")} className={`flex-1 text-sm py-1.5 rounded-md font-medium transition-colors ${authMode === "login" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"}`}>Já tenho conta</button>
-                    <button onClick={() => setAuthMode("signup")} className={`flex-1 text-sm py-1.5 rounded-md font-medium transition-colors ${authMode === "signup" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"}`}>Criar conta</button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {authMode === "signup" && (
-                      <div>
-                        <Label>Nome completo</Label>
-                        <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} placeholder="Seu nome" />
-                      </div>
-                    )}
-                    <div>
-                      <Label>Email</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="seu@email.com" className="pl-9" />
-                      </div>
-                    </div>
-                    <div>
-                      <Label>Senha</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Sua senha secreta" className="pl-9" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {session && (
-                <div>
-                  <Label>Nome</Label>
-                  <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} placeholder="Seu nome" required />
-                </div>
-              )}
+              <div>
+                <Label>Nome</Label>
+                <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} placeholder="Seu nome completo" required />
+              </div>
 
               <div>
                 <Label>WhatsApp</Label>
@@ -773,11 +712,22 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
       )}
 
       {/* Footer */}
-      <div className="max-w-3xl mx-auto px-4 mt-12 pb-8 text-center border-t border-border pt-8">
+      <div className="max-w-3xl mx-auto px-4 mt-12 pb-24 text-center border-t border-border pt-8">
         <a href="https://frfood.com.br" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
           &copy; Desenvolvido por FRFood
         </a>
       </div>
+
+      {slug === "demo" && (
+        <div className="fixed bottom-0 left-0 right-0 z-[60] p-4 bg-background/80 backdrop-blur-md border-t border-border flex flex-col items-center gap-2">
+          <Button variant="hero" size="lg" className="w-full max-w-sm shadow-hero animate-pulse" asChild>
+            <Link to="/checkout">Crie sua loja agora mesmo!</Link>
+          </Button>
+          <Link to="/" className="text-sm font-semibold flex items-center gap-1 text-foreground hover:text-primary transition-colors">
+            Voltar ao site principal
+          </Link>
+        </div>
+      )}
     </div>
   );
 };

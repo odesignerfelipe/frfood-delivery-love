@@ -52,6 +52,7 @@ const StoreSettings = () => {
     logo_url: (store as any)?.logo_url || "",
     banner_url: (store as any)?.banner_url || "",
     segment: (store as any)?.segment || "",
+    pix_key: (store as any)?.pix_key || "",
     avg_prep_time: (store as any)?.avg_prep_time || 30,
     avg_delivery_time: (store as any)?.avg_delivery_time || 40,
     delivery_radius: (store as any)?.delivery_radius || 5,
@@ -79,6 +80,7 @@ const StoreSettings = () => {
         logo_url: (store as any).logo_url || "",
         banner_url: (store as any).banner_url || "",
         segment: (store as any).segment || "",
+        pix_key: (store as any).pix_key || "",
         avg_prep_time: (store as any).avg_prep_time || 30,
         avg_delivery_time: (store as any).avg_delivery_time || 40,
         delivery_radius: (store as any).delivery_radius || 5,
@@ -352,9 +354,15 @@ const StoreSettings = () => {
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Uma breve descrição sobre sua loja..." rows={3} />
             </div>
 
-            <div>
-              <Label>WhatsApp</Label>
-              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <Label>WhatsApp</Label>
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </div>
+              <div>
+                <Label>Chave PIX</Label>
+                <Input value={form.pix_key} onChange={(e) => setForm({ ...form, pix_key: e.target.value })} placeholder="Email, CPF, Telefone ou Aleatória" />
+              </div>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
@@ -482,7 +490,7 @@ const StoreSettings = () => {
             <h3 className="font-bold text-foreground">Link da Loja</h3>
             <p className="text-sm text-muted-foreground">
               Seu cardápio está disponível em:{" "}
-              <a href={`/loja/${store.slug}`} target="_blank" className="text-primary font-medium hover:underline">/loja/{store.slug}</a>
+              <a href={`https://${store.slug}.frfood.com.br`} target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">https://{store.slug}.frfood.com.br</a>
             </p>
           </div>
         </TabsContent>

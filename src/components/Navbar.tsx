@@ -19,7 +19,7 @@ const Navbar = () => {
         .eq("id", user.id)
         .single();
 
-      if (data?.role === 'admin') {
+      if ((data as any)?.role === 'admin') {
         setIsAdmin(true);
       }
     };
@@ -30,8 +30,8 @@ const Navbar = () => {
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center">
-            <span className="text-primary-foreground font-extrabold text-sm">FR</span>
+          <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center overflow-hidden">
+            <img src="/logo-icon.png" alt="FRFood" className="w-full h-full object-contain" />
           </div>
           <span className="text-xl font-extrabold text-foreground">
             FR<span className="text-primary">Food</span>

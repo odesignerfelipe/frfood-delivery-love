@@ -44,13 +44,18 @@ const DashboardLayout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const isOverdue = store?.plan_status === "overdue";
+  const isActive = store?.plan_status === "active";
+  const isOverdue = store?.plan_status === "overdue" || !isActive;
 
   useEffect(() => {
-    if (!authLoading && !storeLoading && user && !store) {
-      navigate("/create-store");
+    if (!authLoading && !storeLoading) {
+      if (user && !store) {
+        navigate("/create-store");
+      } else if (store && !isActive) {
+        navigate("/checkout");
+      }
     }
-  }, [authLoading, storeLoading, user, store, navigate]);
+  }, [authLoading, storeLoading, user, store, isActive, navigate]);
 
   useOrderNotifications(store?.id, (store as any)?.audio_notifications !== false);
 
@@ -84,8 +89,8 @@ const DashboardLayout = () => {
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center">
-                <span className="text-primary-foreground font-extrabold text-xs">FR</span>
+              <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center overflow-hidden">
+                <img src="/logo-icon.png" alt="FRFood" className="w-full h-full object-contain" />
               </div>
               <div>
                 <p className="text-sm font-bold text-foreground truncate max-w-[140px]">{store.name}</p>
@@ -132,7 +137,7 @@ const DashboardLayout = () => {
 
         <div className="p-3 border-t border-border space-y-2">
           <a
-            href={`/loja/${store.slug}`}
+            href={`https://${store.slug}.frfood.com.br`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"

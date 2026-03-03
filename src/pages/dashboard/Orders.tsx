@@ -215,7 +215,7 @@ const Orders = () => {
       {viewMode === "kanban" ? (
         <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: "70vh" }}>
           {columns.map((col) => {
-            const colOrders = orders.filter((o) => o.status === col.id);
+            const colOrders = orders.filter((o) => o.status === col.id && isToday(new Date(o.created_at)));
             return (
               <div
                 key={col.id}

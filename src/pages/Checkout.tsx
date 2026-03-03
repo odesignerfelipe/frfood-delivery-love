@@ -41,8 +41,12 @@ const Checkout = () => {
     // Check if user already has a store (already paid)
     useEffect(() => {
         if (!session) return;
-        supabase.from("stores").select("id").eq("user_id", session.user.id).maybeSingle().then(({ data }) => {
-            if (data) navigate("/dashboard");
+        supabase.from("stores").select("id, plan_status").eq("owner_id", session.user.id).maybeSingle().then(({ data }) => {
+            if (!data) {
+                navigate("/create-store");
+            } else if (data.plan_status === 'active') {
+                navigate("/dashboard");
+            }
         });
     }, [session, navigate]);
 
@@ -75,6 +79,14 @@ const Checkout = () => {
         setSubmitting(true);
 
         try {
+            const cardNumberStr = form.cardNumber.replace(/\D/g, "");
+            if (cardNumberStr.length < 13) {
+                throw new Error("Número de cartão inválido");
+            }
+            if (form.cpfCnpj.replace(/\D/g, "").length < 11) {
+                throw new Error("CPF/CNPJ inválido");
+            }
+
             // 1. Create client and subscription via management backend
             const [expiryMonth, expiryYear] = form.cardExpiry.split("/");
             const res = await fetch(`${SUPABASE_URL}/functions/v1/asaas-management`, {

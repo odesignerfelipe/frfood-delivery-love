@@ -137,7 +137,7 @@ const AdminStores = () => {
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        onClick={() => window.open(`/loja/${store.slug}`, '_blank')}
+                                        onClick={() => window.open(`https://${store.slug}.frfood.com.br`, '_blank')}
                                         title="Ver Loja"
                                     >
                                         <ExternalLink className="w-4 h-4 text-primary" />

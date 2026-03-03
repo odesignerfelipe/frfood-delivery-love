@@ -31,7 +31,7 @@ const CreateStore = () => {
       toast.error("Erro ao criar loja: " + (typeof error === 'string' ? error : error?.message));
     } else {
       toast.success("Loja criada com sucesso!");
-      navigate("/dashboard");
+      navigate("/checkout");
     }
     setSubmitting(false);
   };
@@ -40,8 +40,8 @@ const CreateStore = () => {
     <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4">
-            <span className="text-primary-foreground font-extrabold text-xl">FR</span>
+          <div className="w-16 h-16 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4 overflow-hidden">
+            <img src="/logo-icon.png" alt="FRFood" className="w-full h-full object-contain p-2" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Criar sua loja</h1>
           <p className="text-muted-foreground mt-2">

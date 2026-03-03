@@ -49,7 +49,7 @@ const Auth = () => {
         toast.error(error.message);
       } else {
         toast.success("Conta criada com sucesso!");
-        navigate("/checkout");
+        navigate("/create-store");
       }
     }
     setSubmitting(false);
@@ -60,8 +60,8 @@ const Auth = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <a href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">
-              <span className="text-primary-foreground font-extrabold">FR</span>
+            <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center overflow-hidden">
+              <img src="/logo-icon.png" alt="FRFood" className="w-full h-full object-contain" />
             </div>
             <span className="text-2xl font-extrabold text-foreground">
               FR<span className="text-primary">Food</span>

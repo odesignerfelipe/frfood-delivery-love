@@ -65,8 +65,8 @@ const ResetPassword = () => {
     <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center mx-auto mb-4">
-            <span className="text-primary-foreground font-extrabold">FR</span>
+          <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center mx-auto mb-4 overflow-hidden">
+            <img src="/logo-icon.png" alt="FRFood" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Redefinir senha</h1>
           <p className="text-muted-foreground mt-2">Digite sua nova senha abaixo</p>
