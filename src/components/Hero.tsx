@@ -6,15 +6,21 @@ import heroImage from "@/assets/hero-image.png";
 interface HeroProps {
   title?: string;
   subtitle?: string;
+  buttonText?: string;
+  imageUrl?: string;
+  bgType?: string;
+  bgColor?: string;
 }
 
-const Hero = ({ title, subtitle }: HeroProps) => {
+const Hero = ({ title, subtitle, buttonText, imageUrl, bgType, bgColor }: HeroProps) => {
   return (
-    <section className="relative overflow-hidden bg-background">
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full gradient-hero blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full gradient-warm blur-3xl" />
-      </div>
+    <section className={`relative overflow-hidden bg-background ${bgType === 'solid' && bgColor ? bgColor : ''}`}>
+      {bgType === 'gradient' && (
+        <div className="absolute inset-0 opacity-5">
+          <div className={`absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl ${bgColor || 'gradient-hero'}`} />
+          <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full gradient-warm blur-3xl" />
+        </div>
+      )}
 
       <div className="container relative mx-auto px-4 py-20 lg:py-28">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -40,7 +46,7 @@ const Hero = ({ title, subtitle }: HeroProps) => {
             <div className="flex flex-col sm:flex-row gap-4">
               <Button variant="hero" size="lg" className="group" asChild>
                 <Link to="/checkout">
-                  Começar agora
+                  {buttonText || "Começar agora"}
                   <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
                 </Link>
               </Button>
@@ -69,10 +75,12 @@ const Hero = ({ title, subtitle }: HeroProps) => {
 
           <div className="relative flex justify-center">
             <div className="relative">
-              <div className="absolute -inset-4 rounded-3xl gradient-hero opacity-20 blur-2xl" />
+              {bgType === 'gradient' && (
+                <div className={`absolute -inset-4 rounded-3xl opacity-20 blur-2xl ${bgColor || 'gradient-hero'}`} />
+              )}
               <img
-                src={heroImage}
-                alt="FRFood - Plataforma de delivery com cardápio digital e gestão de pedidos"
+                src={imageUrl || heroImage}
+                alt="FRFood - Plataforma de delivery"
                 className="relative w-full max-w-md rounded-3xl shadow-hero"
                 loading="eager"
               />

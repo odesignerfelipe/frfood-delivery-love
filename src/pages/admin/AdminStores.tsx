@@ -23,20 +23,39 @@ const AdminStores = () => {
 
     const fetchStores = async () => {
         setLoading(true);
-        const { data, error } = await supabase
+        // Busca baseada em tabela separada para evitar bloqueio por foreign key ausente (PostgREST issue)
+        const { data: storesData, error: storesError } = await supabase
             .from("stores")
-            .select(`
-              *,
-              profiles:owner_id (full_name, phone)
-            `)
+            .select("*")
             .order("created_at", { ascending: false });
 
-        if (error) {
-            console.error(error);
+        if (storesError) {
+            console.error(storesError);
             toast.error("Erro ao carregar lojas");
-        } else {
-            setStores(data || []);
+            setLoading(false);
+            return;
         }
+
+        if (storesData && storesData.length > 0) {
+            const ownerIds = storesData.map(s => s.owner_id);
+            const { data: profilesData } = await supabase
+                .from("profiles")
+                .select("user_id, full_name, phone")
+                .in("user_id", ownerIds);
+
+            const profilesMap = new Map();
+            profilesData?.forEach(p => profilesMap.set(p.user_id, p));
+
+            const combinedStores = storesData.map(store => ({
+                ...store,
+                profiles: profilesMap.get(store.owner_id) || null
+            }));
+
+            setStores(combinedStores);
+        } else {
+            setStores([]);
+        }
+
         setLoading(false);
     };
 

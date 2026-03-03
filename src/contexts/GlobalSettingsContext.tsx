@@ -4,6 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 type GlobalThemeSettings = {
     primaryColor: string;
     logoUrl: string;
+    heroTitle: string;
+    heroSubtitle: string;
+    heroButtonText: string;
+    heroImageUrl: string;
+    heroBgType: string;
+    heroBgColor: string;
 };
 
 type GlobalSettingsContextType = {
@@ -14,6 +20,12 @@ type GlobalSettingsContextType = {
 const defaultSettings: GlobalThemeSettings = {
     primaryColor: "#ea384c", // Default FRFood primary
     logoUrl: "/logo-icon.png",   // Default FRFood logo (now transparent via mix-blend)
+    heroTitle: "O melhor sistema para o seu Delivery",
+    heroSubtitle: "Receba pedidos ilimitados direto no seu WhatsApp. Sem comissões, sem taxas ocultas.",
+    heroButtonText: "Criar minha loja grátis",
+    heroImageUrl: "",
+    heroBgType: "gradient",
+    heroBgColor: "from-orange-500 to-orange-600",
 };
 
 const GlobalSettingsContext = createContext<GlobalSettingsContextType>({
@@ -32,8 +44,8 @@ export const GlobalSettingsProvider = ({ children }: { children: React.ReactNode
             try {
                 const { data, error } = await supabase
                     .from("platform_settings")
-                    .select("value")
-                    .eq("key", "global_theme")
+                    .select("*")
+                    .limit(1)
                     .maybeSingle();
 
                 if (error) {
@@ -41,11 +53,17 @@ export const GlobalSettingsProvider = ({ children }: { children: React.ReactNode
                     return;
                 }
 
-                if (data && data.value) {
-                    const val = data.value as any;
+                if (data) {
+                    const val = data as any;
                     const newSettings = {
-                        primaryColor: val.primaryColor || defaultSettings.primaryColor,
-                        logoUrl: val.logoUrl || defaultSettings.logoUrl,
+                        primaryColor: val.primary_color || defaultSettings.primaryColor,
+                        logoUrl: val.logo_url || defaultSettings.logoUrl,
+                        heroTitle: val.hero_title || defaultSettings.heroTitle,
+                        heroSubtitle: val.hero_subtitle || defaultSettings.heroSubtitle,
+                        heroButtonText: val.hero_button_text || defaultSettings.heroButtonText,
+                        heroImageUrl: val.hero_image_url || defaultSettings.heroImageUrl,
+                        heroBgType: val.hero_bg_type || defaultSettings.heroBgType,
+                        heroBgColor: val.hero_bg_color || defaultSettings.heroBgColor,
                     };
 
                     setSettings(newSettings);

@@ -23,20 +23,19 @@ export default function AdminSettings() {
 
     const fetchSettings = async () => {
         setLoading(true);
-        // Standardizing on 'global_theme' key
         const { data, error } = await supabase
             .from("platform_settings")
-            .select("value")
-            .eq("key", "global_theme")
+            .select("*")
+            .limit(1)
             .maybeSingle();
 
         if (error) {
             console.error("Error fetching platform settings:", error);
-        } else if (data && data.value) {
-            const val = data.value as any;
+        } else if (data) {
+            const val = data as any;
             setSettings({
-                primaryColor: val.primaryColor || "#ea384c",
-                logoUrl: val.logoUrl || ""
+                primaryColor: val.primary_color || "#ea384c",
+                logoUrl: val.logo_url || ""
             });
         }
         setLoading(false);
@@ -46,10 +45,11 @@ export default function AdminSettings() {
         setSaving(true);
         const { error } = await supabase
             .from("platform_settings")
-            .upsert({
-                key: "global_theme",
-                value: settings
-            }, { onConflict: "key" });
+            .update({
+                primary_color: settings.primaryColor,
+                logo_url: settings.logoUrl
+            } as any)
+            .eq("id", "00000000-0000-0000-0000-000000000001");
 
         if (error) {
             toast.error("Erro ao salvar configurações");

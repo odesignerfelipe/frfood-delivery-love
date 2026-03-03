@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Save, ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { LayoutDashboard, Save, ArrowLeft, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const AdminLandingPage = () => {
     const [content, setContent] = useState<any>(null);
@@ -16,20 +17,30 @@ const AdminLandingPage = () => {
     const navigate = useNavigate();
 
     const fetchContent = useCallback(async () => {
-        const { data, error } = await (supabase
-            .from("platform_settings" as any) as any)
+        const { data, error } = await supabase
+            .from("platform_settings")
             .select("*")
-            .eq("key", "landing_page")
-            .single();
+            .limit(1)
+            .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
             toast.error("Erro ao carregar conteúdo");
         } else if (data) {
-            setContent(data.value);
-        } else {
-            // Initial state
             setContent({
-                hero: { title: "", subtitle: "" },
+                hero: {
+                    title: (data as any).hero_title || "",
+                    subtitle: (data as any).hero_subtitle || "",
+                    buttonText: (data as any).hero_button_text || "",
+                    imageUrl: (data as any).hero_image_url || "",
+                    bgType: (data as any).hero_bg_type || "gradient",
+                    bgColor: (data as any).hero_bg_color || "",
+                },
+                features: (data.value as any)?.features || []
+            });
+        } else {
+            // Initial fallback
+            setContent({
+                hero: { title: "", subtitle: "", buttonText: "", imageUrl: "", bgType: "gradient", bgColor: "" },
                 features: []
             });
         }
@@ -42,16 +53,52 @@ const AdminLandingPage = () => {
 
     const handleSave = async () => {
         setSaving(true);
-        const { error } = await (supabase
-            .from("platform_settings" as any) as any)
-            .upsert({ key: "landing_page", value: content }, { onConflict: 'key' });
+        const { error } = await supabase
+            .from("platform_settings")
+            .update({
+                hero_title: content.hero.title,
+                hero_subtitle: content.hero.subtitle,
+                hero_button_text: content.hero.buttonText,
+                hero_image_url: content.hero.imageUrl,
+                hero_bg_type: content.hero.bgType,
+                hero_bg_color: content.hero.bgColor,
+                value: { features: content.features }
+            })
+            .eq("id", "00000000-0000-0000-0000-000000000001");
 
         if (error) {
             toast.error("Erro ao salvar");
         } else {
-            toast.success("Conteúdo atualizado com sucesso");
+            toast.success("Conteúdo atualizado com sucesso!");
         }
         setSaving(false);
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            const fileExt = file.name.split('.').pop();
+            const filePath = `landing_hero_${Math.random()}.${fileExt}`;
+
+            toast.loading("Transferindo imagem...", { id: "upload" });
+
+            const { error: uploadError } = await supabase.storage
+                .from('store-assets')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('store-assets')
+                .getPublicUrl(filePath);
+
+            setContent({ ...content, hero: { ...content.hero, imageUrl: publicUrl } });
+            toast.success("Arte Principal salva!", { id: "upload" });
+        } catch (error: any) {
+            toast.error(error.message || "Erro no upload", { id: "upload" });
+        }
     };
 
     const addFeature = () => {
@@ -68,7 +115,7 @@ const AdminLandingPage = () => {
         setContent({ ...content, features: content.features.filter((_: any, i: number) => i !== index) });
     };
 
-    if (loading) return null;
+    if (loading || !content) return null;
 
     return (
         <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
@@ -88,32 +135,93 @@ const AdminLandingPage = () => {
             <div className="grid gap-6">
                 <Card className="border-none shadow-sm bg-white">
                     <CardHeader>
-                        <CardTitle className="text-xl text-slate-900">Seção Hero</CardTitle>
+                        <CardTitle className="text-xl text-slate-900">Seção Inicial (Hero & Banner)</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Título Principal</Label>
-                            <Input
-                                value={content.hero.title}
-                                onChange={(e) => setContent({ ...content, hero: { ...content.hero, title: e.target.value } })}
-                                placeholder="Título impactante..."
-                            />
+                    <CardContent className="space-y-6">
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Título Principal</Label>
+                                <Input
+                                    value={content.hero.title}
+                                    onChange={(e) => setContent({ ...content, hero: { ...content.hero, title: e.target.value } })}
+                                    placeholder="Ex: O melhor sistema para..."
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Texto do Botão (Call-to-Action)</Label>
+                                <Input
+                                    value={content.hero.buttonText}
+                                    onChange={(e) => setContent({ ...content, hero: { ...content.hero, buttonText: e.target.value } })}
+                                    placeholder="Ex: Criar minha loja grátis"
+                                />
+                            </div>
                         </div>
+
                         <div className="space-y-2">
-                            <Label>Subtítulo</Label>
+                            <Label>Subtítulo de Apoio</Label>
                             <Textarea
                                 value={content.hero.subtitle}
                                 onChange={(e) => setContent({ ...content, hero: { ...content.hero, subtitle: e.target.value } })}
-                                placeholder="Descrição resumida..."
-                                rows={3}
+                                placeholder="Descrição detalhada para capturar lide..."
+                                rows={2}
                             />
                         </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                            <div className="space-y-2">
+                                <Label>Fundo Exibição Principal (Background)</Label>
+                                <Select value={content.hero.bgType} onValueChange={(val) => setContent({ ...content, hero: { ...content.hero, bgType: val } })}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Tipo..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="gradient">Gradiente Animado (Padrão)</SelectItem>
+                                        <SelectItem value="solid">Cor Sólida (Específica)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Esquema de Cor Manual (Tailwind Class / Solid Hex)</Label>
+                                <Input
+                                    value={content.hero.bgColor}
+                                    onChange={(e) => setContent({ ...content, hero: { ...content.hero, bgColor: e.target.value } })}
+                                    placeholder="ex: bg-[#111] ou from-orange-400 to-red-400"
+                                    disabled={content.hero.bgType === "gradient" && !content.hero.bgColor.includes("from-")}
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Para Gradientes digite apenas as classes: <code>from-brand to-black</code>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t space-y-4">
+                            <div className="space-y-2">
+                                <Label>Arte Lateral (Banner Mockup)</Label>
+                                <div className="flex items-center gap-4">
+                                    {content.hero.imageUrl && (
+                                        <div className="w-16 h-16 rounded overflow-hidden border">
+                                            <img src={content.hero.imageUrl} alt="Banner" className="w-full h-full object-cover" />
+                                        </div>
+                                    )}
+                                    <Label className="cursor-pointer">
+                                        <div className="flex items-center gap-2 px-4 py-2 border rounded-md hover:bg-slate-50">
+                                            <Upload className="w-4 h-4" />
+                                            <span>Subir Imagem</span>
+                                        </div>
+                                        <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                                    </Label>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">Recomendado: Celulares flutuantes e mockups em .png transparente, em formato vertical.</p>
+                            </div>
+                        </div>
+
                     </CardContent>
                 </Card>
 
                 <Card className="border-none shadow-sm bg-white">
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-xl text-slate-900">Vantagens (Features)</CardTitle>
+                        <CardTitle className="text-xl text-slate-900">Vantagens (Features Inferior)</CardTitle>
                         <Button variant="outline" size="sm" onClick={addFeature} className="gap-1">
                             <Plus className="w-4 h-4" /> Adicionar
                         </Button>
@@ -131,6 +239,9 @@ const AdminLandingPage = () => {
                                 </Button>
                             </div>
                         ))}
+                        {content.features.length === 0 && (
+                            <p className="text-sm text-muted-foreground">Adicione marcadores que aparecerão sob os botões da landing page para impulsionar a venda.</p>
+                        )}
                     </CardContent>
                 </Card>
             </div>

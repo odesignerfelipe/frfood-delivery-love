@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useGlobalSettings } from "@/contexts/GlobalSettingsContext";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Features from "@/components/Features";
@@ -9,21 +10,22 @@ import CTA from "@/components/CTA";
 import Footer from "@/components/Footer";
 
 const Index = () => {
-  const [landingData, setLandingData] = useState<any>(null);
+  const { settings } = useGlobalSettings();
+  const [features, setFeatures] = useState<string[]>([]);
 
   useEffect(() => {
-    const fetchLandingData = async () => {
-      const { data, error } = await (supabase
-        .from("platform_settings" as any) as any)
+    const fetchFeatures = async () => {
+      const { data } = await supabase
+        .from("platform_settings")
         .select("value")
-        .eq("key", "landing_page")
-        .single();
+        .limit(1)
+        .maybeSingle();
 
-      if (!error && data) {
-        setLandingData(data.value);
+      if (data && data.value) {
+        setFeatures((data.value as any).features || []);
       }
     };
-    fetchLandingData();
+    fetchFeatures();
   }, []);
 
   return (
@@ -31,11 +33,15 @@ const Index = () => {
       <Navbar />
       <main>
         <Hero
-          title={landingData?.hero?.title}
-          subtitle={landingData?.hero?.subtitle}
+          title={settings.heroTitle}
+          subtitle={settings.heroSubtitle}
+          buttonText={settings.heroButtonText}
+          imageUrl={settings.heroImageUrl}
+          bgType={settings.heroBgType}
+          bgColor={settings.heroBgColor}
         />
         <Features
-          customFeatures={landingData?.features}
+          customFeatures={features.length > 0 ? features : undefined}
         />
         <Pricing />
         <FAQ />
