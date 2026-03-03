@@ -12,6 +12,7 @@ export default function AdminSettings() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [settings, setSettings] = useState({
+        id: "",
         primaryColor: "#ea384c", // Default FRFood red
         logoUrl: ""
     });
@@ -34,6 +35,7 @@ export default function AdminSettings() {
         } else if (data) {
             const val = data as any;
             setSettings({
+                id: val.id || "",
                 primaryColor: val.primary_color || "#ea384c",
                 logoUrl: val.logo_url || ""
             });
@@ -42,6 +44,11 @@ export default function AdminSettings() {
     };
 
     const handleSave = async () => {
+        if (!settings.id) {
+            toast.error("Erro: ID de configurações não encontrado.");
+            return;
+        }
+
         setSaving(true);
         const { error } = await supabase
             .from("platform_settings")
@@ -49,7 +56,7 @@ export default function AdminSettings() {
                 primary_color: settings.primaryColor,
                 logo_url: settings.logoUrl
             } as any)
-            .eq("id", "00000000-0000-0000-0000-000000000001");
+            .eq("id", settings.id);
 
         if (error) {
             toast.error("Erro ao salvar configurações");

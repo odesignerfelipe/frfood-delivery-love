@@ -81,6 +81,10 @@ export const GlobalSettingsProvider = ({ children }: { children: React.ReactNode
 
     const applyCssVariables = (settings: GlobalThemeSettings) => {
         // Generate HSL values from Hex for Tailwind's convention
+        // Restrict changing root styles strictly to specific platform pages so the dashboard isn't polluted by custom branding
+        const isPublicPage = ["/", "/checkout", "/demo"].includes(window.location.pathname);
+        if (!isPublicPage) return;
+
         const hexToHSL = (hex: string) => {
             let r = 0, g = 0, b = 0;
             if (hex.length === 4) {

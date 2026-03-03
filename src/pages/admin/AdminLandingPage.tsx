@@ -27,6 +27,7 @@ const AdminLandingPage = () => {
             toast.error("Erro ao carregar conteúdo");
         } else if (data) {
             setContent({
+                id: data.id,
                 hero: {
                     title: (data as any).hero_title || "",
                     subtitle: (data as any).hero_subtitle || "",
@@ -40,6 +41,7 @@ const AdminLandingPage = () => {
         } else {
             // Initial fallback
             setContent({
+                id: null,
                 hero: { title: "", subtitle: "", buttonText: "", imageUrl: "", bgType: "gradient", bgColor: "" },
                 features: []
             });
@@ -52,6 +54,10 @@ const AdminLandingPage = () => {
     }, [fetchContent]);
 
     const handleSave = async () => {
+        if (!content.id) {
+            toast.error("Configuração não encontrada no banco.");
+            return;
+        }
         setSaving(true);
         const { error } = await supabase
             .from("platform_settings")
@@ -64,7 +70,7 @@ const AdminLandingPage = () => {
                 hero_bg_color: content.hero.bgColor,
                 value: { features: content.features }
             })
-            .eq("id", "00000000-0000-0000-0000-000000000001");
+            .eq("id", content.id);
 
         if (error) {
             toast.error("Erro ao salvar");

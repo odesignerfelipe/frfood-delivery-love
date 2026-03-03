@@ -16,24 +16,11 @@ const Checkout = () => {
     const [submitting, setSubmitting] = useState(false);
     const [plan, setPlan] = useState<"monthly" | "yearly">("yearly");
 
-    const [form, setForm] = useState({
-        name: "",
-        email: "",
-        cpfCnpj: "",
-        phone: "",
-        cardNumber: "",
-        cardName: "",
-        cardExpiry: "",
-        cardCvv: "",
-        postalCode: "",
-        addressNumber: "",
-    });
-
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (!session) { navigate("/auth"); return; }
             setSession(session);
-            setForm(prev => ({ ...prev, email: session.user.email || "", name: session.user.user_metadata?.full_name || "" }));
+            setSession(session);
             setLoading(false);
         });
     }, [navigate]);
@@ -48,93 +35,38 @@ const Checkout = () => {
         });
     }, [session, navigate]);
 
-    const formatCPF = (v: string) => {
-        const n = v.replace(/\D/g, "").slice(0, 14);
-        if (n.length <= 11) return n.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, "$1.$2.$3-$4").replace(/[-.]$/, "");
-        return n.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, "$1.$2.$3/$4-$5").replace(/[-./]$/, "");
-    };
-
-    const formatCardNumber = (v: string) => {
-        return v.replace(/\D/g, "").slice(0, 16).replace(/(\d{4})/g, "$1 ").trim();
-    };
-
-    const formatExpiry = (v: string) => {
-        const n = v.replace(/\D/g, "").slice(0, 4);
-        if (n.length > 2) return n.slice(0, 2) + "/" + n.slice(2);
-        return n;
-    };
-
-    const formatPhone = (v: string) => {
-        const n = v.replace(/\D/g, "").slice(0, 11);
-        if (n.length > 6) return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
-        if (n.length > 2) return `(${n.slice(0, 2)}) ${n.slice(2)}`;
-        return n;
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleStripeCheckout = async () => {
         if (!session) return;
         setSubmitting(true);
 
         try {
-            const cardNumberStr = form.cardNumber.replace(/\D/g, "");
-            if (cardNumberStr.length < 13) {
-                throw new Error("Número de cartão inválido");
-            }
-            if (form.cpfCnpj.replace(/\D/g, "").length < 11) {
-                throw new Error("CPF/CNPJ inválido");
-            }
+            // Find if user already has a store
+            const { data: storeData } = await supabase.from("stores").select("id").eq("owner_id", session.user.id).maybeSingle();
 
-            // 1. Create client and subscription via management backend
-            const [expiryMonth, expiryYear] = form.cardExpiry.split("/");
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/asaas-management`, {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/stripe-checkout`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${session.access_token}`,
                 },
                 body: JSON.stringify({
-                    action: "create_subscription",
-                    plan: plan,
-                    billingType: "CREDIT_CARD",
-                    customer: {
-                        name: form.name,
-                        email: form.email,
-                        cpfCnpj: form.cpfCnpj.replace(/\D/g, ""),
-                        phone: form.phone.replace(/\D/g, ""),
-                    },
-                    creditCard: {
-                        holderName: form.cardName,
-                        number: form.cardNumber.replace(/\s/g, ""),
-                        expiryMonth: expiryMonth,
-                        expiryYear: `20${expiryYear}`,
-                        ccv: form.cardCvv,
-                    },
-                    creditCardHolderInfo: {
-                        name: form.name,
-                        email: form.email,
-                        cpfCnpj: form.cpfCnpj.replace(/\D/g, ""),
-                        postalCode: form.postalCode.replace(/\D/g, ""),
-                        addressNumber: form.addressNumber,
-                        phone: form.phone.replace(/\D/g, ""),
-                    },
+                    store_id: storeData?.id || null, // Will be used if renewing, otherwise handled via owner link
+                    user_id: session.user.id,
+                    plan: plan
                 }),
             });
 
             const data = await res.json();
-            if (!res.ok || data.error) throw new Error(data.error || "Erro ao processar assinatura");
+            if (!res.ok || data.error) throw new Error(data.error || "Erro ao gerar link de pagamento.");
 
-            toast.success("Assinatura criada com sucesso! 🎉");
-
-            // Check if user already has a store (renewing) or is a new user
-            const { data: storeData } = await supabase.from("stores").select("id").eq("owner_id", session.user.id).maybeSingle();
-            if (storeData) {
-                navigate("/dashboard");
+            if (data.url) {
+                window.location.href = data.url;
             } else {
-                navigate("/create-store");
+                toast.success("Assinatura validada!");
+                navigate(storeData ? "/dashboard" : "/create-store");
             }
         } catch (error: any) {
-            toast.error(error.message || "Erro ao processar pagamento. Tente novamente.");
+            toast.error(error.message || "Erro ao redirecionar para o pagamento. Tente novamente.");
         } finally {
             setSubmitting(false);
         }
@@ -229,75 +161,24 @@ const Checkout = () => {
                                 </div>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="col-span-2 sm:col-span-1">
-                                        <Label htmlFor="name">Nome completo</Label>
-                                        <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Seu nome" required />
-                                    </div>
-                                    <div className="col-span-2 sm:col-span-1">
-                                        <Label htmlFor="email">Email</Label>
-                                        <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="seu@email.com" required />
-                                    </div>
+                            <form onSubmit={(e) => { e.preventDefault(); handleStripeCheckout(); }} className="space-y-4">
+                                <div className="bg-muted/30 p-4 rounded-xl text-sm text-muted-foreground border border-muted text-center mb-6">
+                                    Ao clicar no botão abaixo, você será redirecionado em segurança para o ambiente do Stripe, onde poderá finalizar sua assinatura via Cartão de Crédito ou PIX.
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <Label htmlFor="cpf">CPF / CNPJ</Label>
-                                        <Input id="cpf" value={form.cpfCnpj} onChange={(e) => setForm({ ...form, cpfCnpj: formatCPF(e.target.value) })} placeholder="000.000.000-00" required />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="phone">Telefone</Label>
-                                        <Input id="phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} placeholder="(00) 00000-0000" required />
-                                    </div>
-                                </div>
-
-                                <hr className="my-2 border-border" />
-
-                                <div>
-                                    <Label htmlFor="cardNumber">Número do cartão</Label>
-                                    <Input id="cardNumber" value={form.cardNumber} onChange={(e) => setForm({ ...form, cardNumber: formatCardNumber(e.target.value) })} placeholder="0000 0000 0000 0000" required />
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="cardName">Nome no cartão</Label>
-                                    <Input id="cardName" value={form.cardName} onChange={(e) => setForm({ ...form, cardName: e.target.value.toUpperCase() })} placeholder="NOME COMO NO CARTÃO" required />
-                                </div>
-
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div>
-                                        <Label htmlFor="expiry">Validade</Label>
-                                        <Input id="expiry" value={form.cardExpiry} onChange={(e) => setForm({ ...form, cardExpiry: formatExpiry(e.target.value) })} placeholder="MM/AA" required />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="cvv">CVV</Label>
-                                        <Input id="cvv" value={form.cardCvv} onChange={(e) => setForm({ ...form, cardCvv: e.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="000" required />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="addressNumber">Nº endereço</Label>
-                                        <Input id="addressNumber" value={form.addressNumber} onChange={(e) => setForm({ ...form, addressNumber: e.target.value })} placeholder="123" required />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="postalCode">CEP</Label>
-                                    <Input id="postalCode" value={form.postalCode} onChange={(e) => setForm({ ...form, postalCode: e.target.value.replace(/\D/g, "").slice(0, 8) })} placeholder="00000000" required />
-                                </div>
-
-                                <Button type="submit" variant="hero" size="lg" className="w-full mt-2" disabled={submitting}>
+                                <Button type="submit" variant="hero" size="lg" className="w-full mt-2 h-14 text-base" disabled={submitting}>
                                     {submitting ? (
                                         <span className="flex items-center gap-2">
-                                            <div className="animate-spin w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full" /> Processando...
+                                            <div className="animate-spin w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full" /> Redirecionando...
                                         </span>
                                     ) : (
                                         <span className="flex items-center gap-2">
-                                            <Lock className="w-4 h-4" /> Assinar por R$ {plan === "yearly" ? "124,90/mês" : "149,90/mês"}
+                                            <Lock className="w-4 h-4" /> Ir para Pagamento Seguro
                                         </span>
                                     )}
                                 </Button>
 
-                                <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground mt-2">
-                                    <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> Pagamento seguro</span>
+                                <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground mt-4">
+                                    <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> Stripe Gateway</span>
                                     <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Dados criptografados</span>
                                 </div>
                             </form>
