@@ -171,12 +171,21 @@ const DashboardLayout = () => {
             <div className="h-6 flex items-center justify-center">
               <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="h-full w-auto object-contain" />
             </div>
-            {isOverdue && (
-              <div className="hidden md:flex items-center gap-2 text-destructive font-bold animate-pulse">
-                <AlertCircle className="w-4 h-4" />
-                Pagamento Pendente
+            <div className="flex items-center gap-3">
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${checkStoreStatus(store) ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                {checkStoreStatus(store) ? (
+                  <><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> Aberta</>
+                ) : (
+                  <><span className="w-2 h-2 rounded-full bg-red-500" /> Fechada</>
+                )}
               </div>
-            )}
+              {isOverdue && (
+                <div className="hidden md:flex items-center gap-2 text-destructive font-bold animate-pulse text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  Pagamento Pendente
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

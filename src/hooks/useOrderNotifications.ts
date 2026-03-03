@@ -16,12 +16,14 @@ export const useOrderNotifications = (storeId: string | undefined, audioNotifica
 
             try {
                 audioRef.current.currentTime = 0;
+                audioRef.current.loop = true; // Repetir o som curto do ifood 
                 await audioRef.current.play();
 
                 // Stop after 3 seconds
                 setTimeout(() => {
                     if (audioRef.current) {
                         audioRef.current.pause();
+                        audioRef.current.loop = false;
                         audioRef.current.currentTime = 0;
                     }
                 }, 3000);
