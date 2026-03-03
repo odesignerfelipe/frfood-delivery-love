@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Save, ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,34 +15,35 @@ const AdminLandingPage = () => {
     const [saving, setSaving] = useState(false);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        const fetchContent = async () => {
-            const { data, error } = await supabase
-                .from("platform_settings")
-                .select("*")
-                .eq("key", "landing_page")
-                .single();
+    const fetchContent = useCallback(async () => {
+        const { data, error } = await (supabase
+            .from("platform_settings" as any) as any)
+            .select("*")
+            .eq("key", "landing_page")
+            .single();
 
-            if (error && error.code !== 'PGRST116') {
-                toast.error("Erro ao carregar conteúdo");
-            } else if (data) {
-                setContent(data.value);
-            } else {
-                // Initial state
-                setContent({
-                    hero: { title: "", subtitle: "" },
-                    features: []
-                });
-            }
-            setLoading(false);
-        };
-        fetchContent();
+        if (error && error.code !== 'PGRST116') {
+            toast.error("Erro ao carregar conteúdo");
+        } else if (data) {
+            setContent(data.value);
+        } else {
+            // Initial state
+            setContent({
+                hero: { title: "", subtitle: "" },
+                features: []
+            });
+        }
+        setLoading(false);
     }, []);
+
+    useEffect(() => {
+        fetchContent();
+    }, [fetchContent]);
 
     const handleSave = async () => {
         setSaving(true);
-        const { error } = await supabase
-            .from("platform_settings")
+        const { error } = await (supabase
+            .from("platform_settings" as any) as any)
             .upsert({ key: "landing_page", value: content }, { onConflict: 'key' });
 
         if (error) {

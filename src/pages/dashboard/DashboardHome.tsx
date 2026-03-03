@@ -1,5 +1,6 @@
 import { useStore } from "@/hooks/useStore";
-import { useEffect, useState, useRef } from "react";
+import { useOrderNotifications } from "@/hooks/useOrderNotifications";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ShoppingBag, Package, DollarSign, TrendingUp, Bell, Plus, Eye, Pencil, Power } from "lucide-react";
@@ -15,58 +16,40 @@ const DashboardHome = () => {
   const [stats, setStats] = useState({ orders: 0, products: 0, revenue: 0, todayOrders: 0 });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [toggling, setToggling] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useOrderNotifications(store?.id, (store as any)?.audio_notifications !== false);
+
+  const fetchStats = useCallback(async () => {
+    if (!store) return;
+    const [ordersRes, productsRes, todayRes, recentRes] = await Promise.all([
+      supabase.from("orders").select("id, total").eq("store_id", store.id),
+      supabase.from("products").select("id").eq("store_id", store.id),
+      supabase.from("orders").select("id, total").eq("store_id", store.id).gte("created_at", new Date().toISOString().split("T")[0]),
+      supabase.from("orders").select("*").eq("store_id", store.id).order("created_at", { ascending: false }).limit(10),
+    ]);
+    setStats({
+      orders: ordersRes.data?.length || 0,
+      products: productsRes.data?.length || 0,
+      revenue: ordersRes.data?.reduce((s, o) => s + (o.total || 0), 0) || 0,
+      todayOrders: todayRes.data?.length || 0,
+    });
+    setRecentOrders(recentRes.data || []);
+  }, [store]);
 
   useEffect(() => {
-    if (!store) return;
-    // Pre-load audio to "unlock" it on first user interaction
-    audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3");
-    audioRef.current.loop = true;
-
-    const fetchStats = async () => {
-      const [ordersRes, productsRes, todayRes, recentRes] = await Promise.all([
-        supabase.from("orders").select("id, total").eq("store_id", store.id),
-        supabase.from("products").select("id").eq("store_id", store.id),
-        supabase.from("orders").select("id, total").eq("store_id", store.id).gte("created_at", new Date().toISOString().split("T")[0]),
-        supabase.from("orders").select("*").eq("store_id", store.id).order("created_at", { ascending: false }).limit(10),
-      ]);
-      setStats({
-        orders: ordersRes.data?.length || 0,
-        products: productsRes.data?.length || 0,
-        revenue: ordersRes.data?.reduce((s, o) => s + (o.total || 0), 0) || 0,
-        todayOrders: todayRes.data?.length || 0,
-      });
-      setRecentOrders(recentRes.data || []);
-    };
     fetchStats();
 
-    // Realtime for new orders
+    if (!store) return;
+    // Re-fetch stats on new orders
     const channel = supabase
-      .channel("dashboard-orders")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders", filter: `store_id=eq.${store.id}` }, (payload) => {
-        // Feature: 3s Telephone Ring if enabled
-        if ((store as any).audio_notifications !== false && audioRef.current) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().catch((err) => {
-            console.warn("Autoplay blocked or audio error:", err);
-            // Fallback: simple toast is already shown
-          });
-
-          setTimeout(() => {
-            if (audioRef.current) {
-              audioRef.current.pause();
-              audioRef.current.currentTime = 0;
-            }
-          }, 3000);
-        }
-
-        toast.info(`🔔 Novo pedido #${(payload.new as any).order_number}!`, { duration: 10000 });
+      .channel("dashboard-stats-refresh")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders", filter: `store_id=eq.${store.id}` }, () => {
         fetchStats();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [store]);
+  }, [store, fetchStats]);
 
   const toggleStore = async () => {
     if (!store) return;

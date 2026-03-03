@@ -35,17 +35,20 @@ const AppRouter = () => {
   const hostname = window.location.hostname;
 
   // Check if we are on a subdomain (e.g., pizzaria.localhost or pizzaria.frfood.app)
-  const isSubdomain = !MAIN_DOMAINS.includes(hostname);
+  // Also handle wildcard formats like store.frfood.com.br
+  const isSubdomain = MAIN_DOMAINS.every(domain => !hostname.endsWith(domain)) || (hostname.split('.').length > 2 && !hostname.startsWith('www.'));
 
   if (isSubdomain) {
-    const slug = hostname.split('.')[0];
+    // Extract slug: handles store.frfood.app, store.localhost, etc.
+    const parts = hostname.split('.');
+    const slug = parts[0] === 'www' ? parts[1] : parts[0];
 
     // Render only the store routes for subdomains
     return (
       <Routes>
         <Route path="/" element={<PublicStore explicitSlug={slug} />} />
         <Route path="/pedido/:id" element={<OrderStatus />} />
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<PublicStore explicitSlug={slug} />} />
       </Routes>
     );
   }

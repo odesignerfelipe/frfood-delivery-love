@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStore } from "@/hooks/useStore";
+import { useOrderNotifications } from "@/hooks/useOrderNotifications";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import {
   LayoutDashboard,
@@ -51,50 +52,7 @@ const DashboardLayout = () => {
     }
   }, [authLoading, storeLoading, user, store, navigate]);
 
-  useEffect(() => {
-    if (!store) return;
-    const channel = supabase
-      .channel("new-orders-layout")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "orders", filter: `store_id=eq.${store.id}` },
-        (payload: any) => {
-          if ((store as any).audio_notifications !== false) {
-            // Use AudioContext for reliable playback even in background tabs
-            const playNotification = async () => {
-              try {
-                const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                const response = await fetch("https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg");
-                const buffer = await response.arrayBuffer();
-                const audioBuffer = await ctx.decodeAudioData(buffer);
-                const source = ctx.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(ctx.destination);
-                source.start(0);
-                // Stop after 3 seconds
-                source.stop(ctx.currentTime + 3);
-              } catch (e) {
-                // Fallback to standard Audio API
-                const audio = new Audio("https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg");
-                audio.volume = 1.0;
-                audio.play().catch(() => { });
-                setTimeout(() => { audio.pause(); audio.currentTime = 0; }, 3000);
-              }
-            };
-            playNotification();
-          }
-          toast.success(`Novo pedido recebido: #${payload.new.order_number}`, {
-            duration: 10000,
-            description: "Acesse a aba de Pedidos para aceitar."
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [store]);
+  useOrderNotifications(store?.id, (store as any)?.audio_notifications !== false);
 
   if (authLoading || storeLoading) {
     return (

@@ -72,24 +72,25 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     }
   }, [session]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const { data: s } = await supabase.from("stores").select("*").eq("slug", slug).single();
-      if (!s) { setLoading(false); return; }
-      setStore(s);
+  const fetchData = useCallback(async () => {
+    const { data: s } = await supabase.from("stores").select("*").eq("slug", slug).single();
+    if (!s) { setLoading(false); return; }
+    setStore(s);
 
-      const [cats, prods, zones] = await Promise.all([
-        supabase.from("categories").select("*").eq("store_id", s.id).eq("is_active", true).order("sort_order"),
-        supabase.from("products").select("*").eq("store_id", s.id).eq("is_active", true).order("sort_order"),
-        supabase.from("delivery_zones").select("*").eq("store_id", s.id).eq("is_active", true).order("neighborhood"),
-      ]);
-      setCategories(cats.data || []);
-      setProducts(prods.data || []);
-      setDeliveryZones(zones.data || []);
-      setLoading(false);
-    };
-    fetchData();
+    const [cats, prods, zones] = await Promise.all([
+      supabase.from("categories").select("*").eq("store_id", s.id).eq("is_active", true).order("sort_order"),
+      supabase.from("products").select("*").eq("store_id", s.id).eq("is_active", true).order("sort_order"),
+      supabase.from("delivery_zones").select("*").eq("store_id", s.id).eq("is_active", true).order("neighborhood"),
+    ]);
+    setCategories(cats.data || []);
+    setProducts(prods.data || []);
+    setDeliveryZones(zones.data || []);
+    setLoading(false);
   }, [slug]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Real-time store sync (feature 6)
   useEffect(() => {
@@ -331,12 +332,23 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     );
   }
 
-  if (!store) {
+  if (!store && !loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Loja não encontrada</h1>
-          <p className="text-muted-foreground">Verifique o link e tente novamente.</p>
+      <div className="min-h-screen flex items-center justify-center bg-muted/50 p-4">
+        <div className="max-w-md w-full text-center space-y-6 bg-card p-10 rounded-2xl shadow-card border border-border/50">
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto ring-8 ring-primary/5">
+            <ShoppingBag className="w-10 h-10 text-primary" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-extrabold text-foreground">Loja não encontrada</h1>
+            <p className="text-muted-foreground">O link que você acessou pode estar incorreto ou o estabelecimento não está mais ativo.</p>
+          </div>
+          <Button onClick={() => window.location.href = "https://frfood.com.br"} variant="hero" className="w-full">
+            Conhecer o FRFood
+          </Button>
+          <p className="text-[11px] text-muted-foreground pt-4 border-t border-border">
+            &copy; {new Date().getFullYear()} FRFood Delivery
+          </p>
         </div>
       </div>
     );

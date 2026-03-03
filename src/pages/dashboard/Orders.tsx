@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/hooks/useStore";
 import { Button } from "@/components/ui/button";
@@ -25,13 +25,15 @@ const Orders = () => {
   const [viewMode, setViewMode] = useState<"kanban" | "history">("kanban");
   const [historyFilter, setHistoryFilter] = useState<"today" | "week" | "month" | "year" | "all">("today");
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     if (!store) return;
     const { data } = await supabase.from("orders").select("*").eq("store_id", store.id).order("created_at", { ascending: false });
     setOrders(data || []);
-  };
+  }, [store]);
 
-  useEffect(() => { fetchOrders(); }, [store]);
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   useEffect(() => {
     if (!store) return;
@@ -42,7 +44,7 @@ const Orders = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [store]);
+  }, [store, fetchOrders]);
 
   const updateStatus = async (orderId: string, status: string) => {
     await supabase.from("orders").update({ status }).eq("id", orderId);

@@ -13,13 +13,13 @@ const Index = () => {
 
   useEffect(() => {
     const fetchLandingData = async () => {
-      const { data, error } = await supabase
-        .from("platform_settings")
+      const { data, error } = await (supabase
+        .from("platform_settings" as any) as any)
         .select("value")
         .eq("key", "landing_page")
         .single();
 
-      if (data) {
+      if (!error && data) {
         setLandingData(data.value);
       }
     };
