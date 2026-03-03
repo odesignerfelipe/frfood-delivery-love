@@ -208,13 +208,13 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     }
   }, [subtotal, appliedCoupon]);
   const selectedZone = deliveryZones.find((z) => z.neighborhood === form.neighborhood);
-  const deliveryFee = form.delivery_type === "delivery" ? (selectedZone?.fee || 0) : 0;
+  const deliveryFee = form.delivery_type === "delivery" ? Number(selectedZone?.fee || 0) : 0;
 
   let discount = 0;
   if (appliedCoupon) {
     discount = appliedCoupon.discount_type === "percentage" ? subtotal * (appliedCoupon.discount_value / 100) : appliedCoupon.discount_value;
   }
-  const total = subtotal - discount + deliveryFee;
+  const total = Number(subtotal) - Number(discount) + deliveryFee;
   const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
 
   const estimatedTime = store ? ((store as any).avg_prep_time || 25) + (form.delivery_type === "delivery" ? ((store as any).avg_delivery_time || 40) : 0) : 0;
@@ -253,13 +253,20 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
       neighborhood: form.neighborhood,
       delivery_type: form.delivery_type,
       delivery_fee: deliveryFee,
-      subtotal, discount, total,
+      subtotal: Number(subtotal),
+      discount: Number(discount),
+      total: total,
       coupon_code: appliedCoupon?.code || "",
       notes: form.notes,
       payment_method: form.payment_method,
     }).select().single();
 
-    if (error || !order) { toast.error("Erro ao criar pedido"); setIsProcessing(false); return; }
+    if (error || !order) {
+      console.error("Order Insert Error:", error);
+      toast.error(error?.message || "Erro ao criar pedido. Verifique os dados.");
+      setIsProcessing(false);
+      return;
+    }
 
     await supabase.from("order_items").insert(
       cart.map((i) => ({

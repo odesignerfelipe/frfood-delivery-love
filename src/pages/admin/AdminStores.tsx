@@ -29,11 +29,12 @@ const AdminStores = () => {
             .from("stores")
             .select(`
               *,
-              profiles:owner_id (full_name, phone)
+              profiles:owner_id (full_name)
             `)
             .order("created_at", { ascending: false });
 
         if (error) {
+            console.error(error);
             toast.error("Erro ao carregar lojas");
         } else {
             setStores(data || []);
