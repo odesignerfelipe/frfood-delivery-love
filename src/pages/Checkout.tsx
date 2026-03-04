@@ -56,7 +56,7 @@ const Checkout = () => {
             });
 
             const data = await res.json();
-            if (!res.ok || data.error) throw new Error(data.error || "Erro ao gerar link de pagamento.");
+            if (!res.ok || data.error) throw new Error(data.error || `Erro ao gerar link de pagamento (${res.status}).`);
 
             if (data.url) {
                 window.location.href = data.url;
@@ -162,7 +162,7 @@ const Checkout = () => {
 
                             <form onSubmit={(e) => { e.preventDefault(); handleStripeCheckout(); }} className="space-y-4">
                                 <div className="bg-muted/30 p-4 rounded-xl text-sm text-muted-foreground border border-muted text-center mb-6">
-                                    Ao clicar no botão abaixo, você será redirecionado em segurança para o ambiente do Stripe, onde poderá finalizar sua assinatura com Cartão de Crédito.
+                                    Ao clicar no botão abaixo, você será redirecionado em segurança para o ambiente do Stripe, onde poderá finalizar sua assinatura com Cartão de Crédito ou PIX.
                                 </div>
                                 <Button type="submit" variant="hero" size="lg" className="w-full mt-2 h-14 text-base" disabled={submitting}>
                                     {submitting ? (
