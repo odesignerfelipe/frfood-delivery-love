@@ -126,6 +126,9 @@ const Checkout = () => {
         setPixStatus("loading");
 
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+
             const res = await fetch(`${SUPABASE_URL}/functions/v1/pix-create`, {
                 method: "POST",
                 headers: {
@@ -133,7 +136,9 @@ const Checkout = () => {
                     "Authorization": `Bearer ${session.access_token}`,
                 },
                 body: JSON.stringify({ plan }),
+                signal: controller.signal,
             });
+            clearTimeout(timeoutId);
 
             const data = await res.json();
             if (!res.ok || data.error) throw new Error(data.error || "Erro ao gerar PIX.");
