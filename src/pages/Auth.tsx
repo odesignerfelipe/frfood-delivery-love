@@ -43,7 +43,18 @@ const Auth = () => {
         toast.error(error.message);
       } else {
         toast.success("Login realizado com sucesso!");
-        navigate("/dashboard");
+        // Check if user has a store — if not, go to checkout
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: storeData } = await supabase.from("stores").select("id, plan_status").eq("owner_id", user.id).maybeSingle();
+          if (!storeData) {
+            navigate("/checkout");
+          } else {
+            navigate("/dashboard");
+          }
+        } else {
+          navigate("/dashboard");
+        }
       }
     } else {
       const { error } = await signUp(email, password, fullName);

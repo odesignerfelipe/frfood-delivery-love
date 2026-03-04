@@ -20,7 +20,6 @@ const Checkout = () => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (!session) { navigate("/auth"); return; }
             setSession(session);
-            setSession(session);
             setLoading(false);
         });
     }, [navigate]);
@@ -63,7 +62,7 @@ const Checkout = () => {
                 window.location.href = data.url;
             } else {
                 toast.success("Assinatura validada!");
-                navigate(storeData ? "/dashboard" : "/create-store");
+                navigate("/create-store");
             }
         } catch (error: any) {
             toast.error(error.message || "Erro ao redirecionar para o pagamento. Tente novamente.");
@@ -157,13 +156,13 @@ const Checkout = () => {
                                 </div>
                                 <div>
                                     <h2 className="font-bold text-foreground">Dados de pagamento</h2>
-                                    <p className="text-xs text-muted-foreground">Pagamento seguro via cartão de crédito</p>
+                                    <p className="text-xs text-muted-foreground">Pagamento seguro via Stripe</p>
                                 </div>
                             </div>
 
                             <form onSubmit={(e) => { e.preventDefault(); handleStripeCheckout(); }} className="space-y-4">
                                 <div className="bg-muted/30 p-4 rounded-xl text-sm text-muted-foreground border border-muted text-center mb-6">
-                                    Ao clicar no botão abaixo, você será redirecionado em segurança para o ambiente do Stripe, onde poderá finalizar sua assinatura via Cartão de Crédito ou PIX.
+                                    Ao clicar no botão abaixo, você será redirecionado em segurança para o ambiente do Stripe, onde poderá finalizar sua assinatura com Cartão de Crédito.
                                 </div>
                                 <Button type="submit" variant="hero" size="lg" className="w-full mt-2 h-14 text-base" disabled={submitting}>
                                     {submitting ? (

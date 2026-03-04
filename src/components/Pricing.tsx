@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Check, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
+import { useGlobalSettings } from "@/contexts/GlobalSettingsContext";
 
 const allFeatures = [
   "Site e Catálogo Online",
@@ -17,37 +18,46 @@ const allFeatures = [
   "Suporte diário pelo WhatsApp",
 ];
 
-const plans = [
-  {
-    name: "Mensal",
-    price: "149",
-    cents: "90",
-    period: "/mês",
-    description: "Ideal para testar e começar a vender online",
-    highlight: false,
-    cta: "Começar agora",
-  },
-  {
-    name: "Anual",
-    price: "124",
-    cents: "90",
-    period: "/mês",
-    description: "Economize mais de R$ 300 por ano",
-    highlight: true,
-    cta: "Assinar plano anual",
-    badge: "Mais popular",
-    installment: "12x de",
-  },
-];
-
 const Pricing = () => {
+  const { settings } = useGlobalSettings();
+
+  const monthlyParts = (settings.monthlyPrice || "149,90").split(",");
+  const yearlyParts = (settings.yearlyPrice || "124,90").split(",");
+
+  const plans = [
+    {
+      name: "Mensal",
+      price: monthlyParts[0],
+      cents: monthlyParts[1] || "90",
+      period: "/mês",
+      description: "Ideal para testar e começar a vender online",
+      highlight: false,
+      cta: "Começar agora",
+    },
+    {
+      name: "Anual",
+      price: yearlyParts[0],
+      cents: yearlyParts[1] || "90",
+      period: "/mês",
+      description: "Economize mais de R$ 300 por ano",
+      highlight: true,
+      cta: "Assinar plano anual",
+      badge: "Mais popular",
+      installment: "12x de",
+    },
+  ];
+
   return (
     <section id="precos" className="py-20 lg:py-28 bg-background">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Preços</p>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-foreground mb-4">Planos simples e transparentes</h2>
-          <p className="text-muted-foreground text-lg">Todos os recursos inclusos em qualquer plano. Sem taxa por pedido.</p>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-foreground mb-4">
+            {settings.pricingTitle || "Planos simples e transparentes"}
+          </h2>
+          <p className="text-muted-foreground text-lg">
+            {settings.pricingSubtitle || "Todos os recursos inclusos em qualquer plano. Sem taxa por pedido."}
+          </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -84,7 +94,7 @@ const Pricing = () => {
               </div>
 
               <Button variant={plan.highlight ? "heroInverted" : "hero"} size="lg" className="w-full mb-8" asChild>
-                <Link to="/checkout">{plan.cta}</Link>
+                <Link to="/auth">{plan.cta}</Link>
               </Button>
 
               <ul className="space-y-3">

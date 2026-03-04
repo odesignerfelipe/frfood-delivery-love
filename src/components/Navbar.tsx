@@ -32,7 +32,7 @@ const Navbar = () => {
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <a href="/" className="flex items-center justify-center h-8">
-          <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="h-full w-auto object-contain" />
+          <img src={settings.logoUrl || "/logo-icon.png"} alt={settings.siteName || "FRFood"} className="h-full w-auto object-contain" />
         </a>
 
         <nav className="hidden md:flex items-center gap-8">
@@ -54,7 +54,9 @@ const Navbar = () => {
             </Link>
           </Button>
           {!user && (
-            <Button variant="hero" size="sm" asChild><Link to="/auth">Criar conta</Link></Button>
+            <Button variant="hero" size="sm" asChild>
+              <Link to="/auth">{settings.navbarButtonText || "Criar conta"}</Link>
+            </Button>
           )}
         </div>
 
@@ -75,7 +77,7 @@ const Navbar = () => {
           )}
           <Button variant="hero" size="sm" className="w-full" asChild>
             <Link to={user ? "/dashboard" : "/auth"} onClick={() => setOpen(false)}>
-              {user ? "Ir para Dashboard" : "Criar conta"}
+              {user ? "Ir para Dashboard" : (settings.navbarButtonText || "Criar conta")}
             </Link>
           </Button>
         </div>

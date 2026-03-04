@@ -34,14 +34,17 @@ serve(async (req) => {
         const { store_id, plan } = await req.json()
         const email = user.email
 
-        // Retrieve price ID based on plan
-        const priceId = plan === 'monthly' ? Deno.env.get('STRIPE_PRICE_ID_MONTHLY') : Deno.env.get('STRIPE_PRICE_ID_YEARLY')
+        // Retrieve price ID based on plan (monthly or yearly only — no free plan)
+        const priceId = plan === 'monthly'
+            ? Deno.env.get('STRIPE_PRICE_ID_MONTHLY')
+            : Deno.env.get('STRIPE_PRICE_ID_YEARLY')
 
         if (!priceId) {
-            throw new Error(`Price ID not configured for plan ${plan}.`)
+            throw new Error(`Price ID not configured for plan ${plan}. Set STRIPE_PRICE_ID_MONTHLY and STRIPE_PRICE_ID_YEARLY in secrets.`)
         }
 
         const session = await stripe.checkout.sessions.create({
+            // Enable all relevant payment methods
             payment_method_types: ['card'],
             billing_address_collection: 'required',
             customer_email: email,
@@ -52,11 +55,13 @@ serve(async (req) => {
                 },
             ],
             mode: 'subscription',
-            success_url: `${req.headers.get('origin')}/dashboard?payment=success`,
+            // After payment success, redirect to create-store page
+            success_url: `${req.headers.get('origin')}/create-store?payment=success`,
             cancel_url: `${req.headers.get('origin')}/checkout`,
             metadata: {
-                store_id,
-                user_id: user.id
+                store_id: store_id || '',
+                user_id: user.id,
+                plan: plan
             }
         })
 

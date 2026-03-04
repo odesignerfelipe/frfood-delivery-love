@@ -1,15 +1,40 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+type HeroStat = { value: string; label: string };
+type FaqItem = { q: string; a: string };
+
 type GlobalThemeSettings = {
     primaryColor: string;
+    secondaryColor: string;
     logoUrl: string;
+    faviconUrl: string;
+    siteName: string;
+    navbarButtonText: string;
+    // Hero
     heroTitle: string;
     heroSubtitle: string;
     heroButtonText: string;
     heroImageUrl: string;
     heroBgType: string;
     heroBgColor: string;
+    heroBadgeText: string;
+    heroStats: HeroStat[];
+    // Pricing
+    pricingTitle: string;
+    pricingSubtitle: string;
+    monthlyPrice: string;
+    yearlyPrice: string;
+    // CTA
+    ctaTitle: string;
+    ctaSubtitle: string;
+    ctaButtonText: string;
+    // FAQ
+    faqItems: FaqItem[];
+    // Footer
+    footerText: string;
+    // Features
+    features: string[];
 };
 
 type GlobalSettingsContextType = {
@@ -18,14 +43,40 @@ type GlobalSettingsContextType = {
 };
 
 const defaultSettings: GlobalThemeSettings = {
-    primaryColor: "#ea384c", // Default FRFood primary
-    logoUrl: "/logo-icon.png",   // Default FRFood logo (now transparent via mix-blend)
+    primaryColor: "#ea384c",
+    secondaryColor: "#f97316",
+    logoUrl: "/logo-icon.png",
+    faviconUrl: "",
+    siteName: "FRFood",
+    navbarButtonText: "Criar conta",
     heroTitle: "O melhor sistema para o seu Delivery",
     heroSubtitle: "Receba pedidos ilimitados direto no seu WhatsApp. Sem comissões, sem taxas ocultas.",
-    heroButtonText: "Criar minha loja grátis",
+    heroButtonText: "Começar agora",
     heroImageUrl: "",
     heroBgType: "gradient",
     heroBgColor: "from-orange-500 to-orange-600",
+    heroBadgeText: "Plataforma completa de delivery",
+    heroStats: [
+        { value: "5.000+", label: "Restaurantes" },
+        { value: "1M+", label: "Pedidos/mês" },
+        { value: "0%", label: "Taxa por pedido" },
+    ],
+    pricingTitle: "Planos simples e transparentes",
+    pricingSubtitle: "Todos os recursos inclusos em qualquer plano. Sem taxa por pedido.",
+    monthlyPrice: "149,90",
+    yearlyPrice: "124,90",
+    ctaTitle: "Pronto para vender mais?",
+    ctaSubtitle: "Comece agora e tenha seu delivery online funcionando em minutos. Sem taxa por pedido, sem complicação.",
+    ctaButtonText: "Criar minha loja agora",
+    faqItems: [
+        { q: "Preciso ter conhecimento técnico para usar a plataforma?", a: "Não! A FRFood foi pensada para ser simples. Você configura seu catálogo em minutos e começa a receber pedidos pelo WhatsApp." },
+        { q: "Existe taxa por pedido?", a: "Absolutamente não. Você paga apenas a mensalidade fixa e recebe pedidos ilimitados sem nenhuma taxa adicional." },
+        { q: "Como funciona a integração com WhatsApp?", a: "Quando seu cliente finaliza o pedido no catálogo, ele é enviado automaticamente para o WhatsApp do seu restaurante com todos os detalhes." },
+        { q: "Posso cancelar a qualquer momento?", a: "Sim! Não há fidelidade. Você pode cancelar seu plano mensal quando quiser, sem multas ou taxas." },
+        { q: "Como configuro as taxas de entrega por bairro?", a: "No painel administrativo, você cadastra os bairros de atendimento e define o valor da taxa de entrega para cada um individualmente." },
+    ],
+    footerText: "",
+    features: [],
 };
 
 const GlobalSettingsContext = createContext<GlobalSettingsContextType>({
@@ -55,19 +106,36 @@ export const GlobalSettingsProvider = ({ children }: { children: React.ReactNode
 
                 if (data) {
                     const val = data as any;
-                    const newSettings = {
+                    const newSettings: GlobalThemeSettings = {
                         primaryColor: val.primary_color || defaultSettings.primaryColor,
+                        secondaryColor: val.secondary_color || defaultSettings.secondaryColor,
                         logoUrl: val.logo_url || defaultSettings.logoUrl,
+                        faviconUrl: val.favicon_url || defaultSettings.faviconUrl,
+                        siteName: val.site_name || defaultSettings.siteName,
+                        navbarButtonText: val.navbar_button_text || defaultSettings.navbarButtonText,
                         heroTitle: val.hero_title || defaultSettings.heroTitle,
                         heroSubtitle: val.hero_subtitle || defaultSettings.heroSubtitle,
                         heroButtonText: val.hero_button_text || defaultSettings.heroButtonText,
                         heroImageUrl: val.hero_image_url || defaultSettings.heroImageUrl,
                         heroBgType: val.hero_bg_type || defaultSettings.heroBgType,
                         heroBgColor: val.hero_bg_color || defaultSettings.heroBgColor,
+                        heroBadgeText: val.hero_badge_text || defaultSettings.heroBadgeText,
+                        heroStats: val.hero_stats || defaultSettings.heroStats,
+                        pricingTitle: val.pricing_title || defaultSettings.pricingTitle,
+                        pricingSubtitle: val.pricing_subtitle || defaultSettings.pricingSubtitle,
+                        monthlyPrice: val.monthly_price || defaultSettings.monthlyPrice,
+                        yearlyPrice: val.yearly_price || defaultSettings.yearlyPrice,
+                        ctaTitle: val.cta_title || defaultSettings.ctaTitle,
+                        ctaSubtitle: val.cta_subtitle || defaultSettings.ctaSubtitle,
+                        ctaButtonText: val.cta_button_text || defaultSettings.ctaButtonText,
+                        faqItems: val.faq_items || defaultSettings.faqItems,
+                        footerText: val.footer_text || defaultSettings.footerText,
+                        features: (val.value as any)?.features || defaultSettings.features,
                     };
 
                     setSettings(newSettings);
                     applyCssVariables(newSettings);
+                    applyMetaTags(newSettings);
                 }
             } catch (err) {
                 console.error("Failed to load global settings", err);
@@ -79,10 +147,25 @@ export const GlobalSettingsProvider = ({ children }: { children: React.ReactNode
         loadSettings();
     }, []);
 
+    const applyMetaTags = (s: GlobalThemeSettings) => {
+        // Favicon
+        if (s.faviconUrl) {
+            let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+            if (!link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.head.appendChild(link);
+            }
+            link.href = s.faviconUrl;
+        }
+        // Title
+        if (s.siteName) {
+            document.title = s.siteName;
+        }
+    };
+
     const applyCssVariables = (settings: GlobalThemeSettings) => {
-        // Generate HSL values from Hex for Tailwind's convention
-        // Restrict changing root styles strictly to specific platform pages so the dashboard isn't polluted by custom branding
-        const isPublicPage = ["/", "/checkout", "/demo"].includes(window.location.pathname);
+        const isPublicPage = ["/", "/checkout", "/demo", "/auth"].includes(window.location.pathname);
         if (!isPublicPage) return;
 
         const hexToHSL = (hex: string) => {
@@ -96,9 +179,7 @@ export const GlobalSettingsProvider = ({ children }: { children: React.ReactNode
                 g = parseInt(hex[3] + hex[4], 16);
                 b = parseInt(hex[5] + hex[6], 16);
             }
-            r /= 255;
-            g /= 255;
-            b /= 255;
+            r /= 255; g /= 255; b /= 255;
             const max = Math.max(r, g, b), min = Math.min(r, g, b);
             let h = 0, s = 0, l = (max + min) / 2;
             if (max !== min) {
@@ -122,12 +203,6 @@ export const GlobalSettingsProvider = ({ children }: { children: React.ReactNode
 
     return (
         <GlobalSettingsContext.Provider value={{ settings, loading }}>
-            <div data-global-theme-provider>
-                {/* 
-              Inject a style tag globally if needed, although CSS vars is usually enough. 
-              Only using CSS vars on documentElement is cleaner.
-            */}
-            </div>
             {children}
         </GlobalSettingsContext.Provider>
     );
