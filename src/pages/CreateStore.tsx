@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "@/hooks/useStore";
 import { Button } from "@/components/ui/button";
@@ -6,14 +6,61 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useGlobalSettings } from "@/contexts/GlobalSettingsContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const CreateStore = () => {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [checking, setChecking] = useState(true);
   const { createStore } = useStore();
   const { settings } = useGlobalSettings();
   const navigate = useNavigate();
+
+  // Verify payment before allowing store creation
+  useEffect(() => {
+    const verifyPayment = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate("/auth");
+        return;
+      }
+
+      // Check if already has a store
+      const { data: existingStore } = await supabase
+        .from("stores")
+        .select("id")
+        .eq("owner_id", user.id)
+        .maybeSingle();
+
+      if (existingStore) {
+        navigate("/dashboard");
+        return;
+      }
+
+      // Check if user has a paid PIX payment
+      const { data: pixPayment } = await supabase
+        .from("pix_payments")
+        .select("id, status")
+        .eq("user_id", user.id)
+        .eq("status", "paid")
+        .maybeSingle();
+
+      // Check URL for Stripe success
+      const urlParams = new URLSearchParams(window.location.search);
+      const paymentSuccess = urlParams.get("payment") === "success";
+
+      if (!pixPayment && !paymentSuccess) {
+        toast.error("Você precisa realizar o pagamento antes de criar sua loja.");
+        navigate("/checkout");
+        return;
+      }
+
+      setChecking(false);
+    };
+
+    verifyPayment();
+  }, [navigate]);
 
   const generateSlug = (name: string) => {
     return name
@@ -37,6 +84,14 @@ const CreateStore = () => {
     }
     setSubmitting(false);
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-muted/50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">

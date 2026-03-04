@@ -11,22 +11,51 @@ const Navbar = () => {
   const { user } = useAuth();
   const { settings } = useGlobalSettings();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [hasActiveStore, setHasActiveStore] = useState(false);
 
   useEffect(() => {
-    const checkAdmin = async () => {
-      if (!user) return;
-      const { data } = await supabase
+    const checkUserStatus = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        setHasActiveStore(false);
+        return;
+      }
+
+      // Check admin role
+      const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      if ((data as any)?.role === 'admin') {
+      if ((profile as any)?.role === 'admin') {
         setIsAdmin(true);
       }
+
+      // Check if user has a store (any store, paid or not)
+      const { data: store } = await supabase
+        .from("stores")
+        .select("id")
+        .eq("owner_id", user.id)
+        .maybeSingle();
+
+      setHasActiveStore(!!store);
     };
-    checkAdmin();
+    checkUserStatus();
   }, [user]);
+
+  // Decide where the main CTA button goes
+  const getMainButtonLink = () => {
+    if (!user) return "/auth";
+    if (hasActiveStore) return "/dashboard";
+    return "/checkout";
+  };
+
+  const getMainButtonLabel = () => {
+    if (!user) return "Entrar";
+    if (hasActiveStore) return "Dashboard";
+    return "Finalizar assinatura";
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
@@ -49,8 +78,8 @@ const Navbar = () => {
 
         <div className="hidden md:flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
-            <Link to={user ? "/dashboard" : "/auth"}>
-              {user ? "Dashboard" : "Entrar"}
+            <Link to={getMainButtonLink()}>
+              {getMainButtonLabel()}
             </Link>
           </Button>
           {!user && (
@@ -76,8 +105,8 @@ const Navbar = () => {
             </Link>
           )}
           <Button variant="hero" size="sm" className="w-full" asChild>
-            <Link to={user ? "/dashboard" : "/auth"} onClick={() => setOpen(false)}>
-              {user ? "Ir para Dashboard" : (settings.navbarButtonText || "Criar conta")}
+            <Link to={getMainButtonLink()} onClick={() => setOpen(false)}>
+              {user ? (hasActiveStore ? "Ir para Dashboard" : "Finalizar assinatura") : (settings.navbarButtonText || "Criar conta")}
             </Link>
           </Button>
         </div>
