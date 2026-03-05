@@ -101,14 +101,12 @@ export default function AdminSettings() {
         if (!settingsId) { toast.error("Erro: ID de configurações não encontrado."); return; }
         setSaving(true);
 
-        // Store ALL settings inside the 'value' JSONB column + only the known base columns
+        // Store ALL settings inside the 'value' JSONB column exactly as the DB expects
         const { error } = await supabase
             .from("platform_settings")
             .update({
-                primary_color: settings.primaryColor,
-                logo_url: settings.logoUrl,
                 value: settings as any,
-            } as any)
+            })
             .eq("id", settingsId);
 
         if (error) {

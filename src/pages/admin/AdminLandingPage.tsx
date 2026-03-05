@@ -31,14 +31,14 @@ const AdminLandingPage = () => {
             setContent({
                 id: row.id,
                 hero: {
-                    title: val.heroTitle || row.hero_title || "",
-                    subtitle: val.heroSubtitle || row.hero_subtitle || "",
-                    buttonText: val.heroButtonText || row.hero_button_text || "",
-                    imageUrl: val.heroImageUrl || row.hero_image_url || "",
-                    bgType: val.heroBgType || row.hero_bg_type || "gradient",
-                    bgColor: val.heroBgColor || row.hero_bg_color || "",
+                    title: val.heroTitle || "",
+                    subtitle: val.heroSubtitle || "",
+                    buttonText: val.heroButtonText || "",
+                    imageUrl: val.heroImageUrl || "",
+                    bgType: val.heroBgType || "gradient",
+                    bgColor: val.heroBgColor || "",
                 },
-                features: val.features || row.features || []
+                features: val.features || []
             });
         } else {
             // Initial fallback
