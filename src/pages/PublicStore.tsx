@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ShoppingBag, Plus, Minus, Trash2, X, Send, MapPin, Search, Star, Clock, Phone, Mail, Lock, Check, AlertTriangle } from "lucide-react";
+import { ShoppingBag, Plus, Minus, Trash2, X, Send, MapPin, Search, Star, Clock, Phone, Mail, Lock, Check, AlertTriangle, Zap } from "lucide-react";
 import { checkStoreStatus } from "@/lib/utils";
 
 interface SelectedVariation {
@@ -518,83 +518,75 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
           )}
         </div>
       </div>
-      {/* Banner */}
-      <div className="relative bg-black h-48 md:h-[250px] overflow-hidden">
-        {/* Desktop Banner (Centered & Constrained) */}
-        <div className="hidden md:flex items-center justify-center w-full h-full">
-          {store.banner_url ? (
-            <img
-              src={store.banner_url}
-              alt={store.name}
-              className="w-full h-full object-cover max-w-[1210px]"
-            />
-          ) : (
-            <div className="w-full h-full gradient-hero max-w-[1210px]" />
-          )}
-        </div>
+      {/* Banner & Store Header */}
+      <div className="bg-slate-50 pt-4 md:pt-8 pb-12">
+        <div className="max-w-[1210px] mx-auto px-4">
+          {/* Banner Container */}
+          <div className="relative h-48 md:h-[250px] rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-lg bg-slate-200">
+            {/* Desktop Banner Implementation */}
+            <div className="hidden md:block w-full h-full">
+              {store.banner_url ? (
+                <img
+                  src={store.banner_url}
+                  alt={store.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full gradient-hero" />
+              )}
+            </div>
 
-        {/* Mobile Banner (Full width) */}
-        <div className="flex md:hidden items-center justify-center w-full h-full">
-          {store.banner_mobile_url || store.banner_url ? (
-            <img
-              src={store.banner_mobile_url || store.banner_url}
-              alt={store.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full gradient-hero" />
-          )}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-4">
-          <div className="max-w-3xl mx-auto flex items-end gap-4">
-            {store.logo_url ? (
-              <img src={store.logo_url} alt={store.name} className="w-16 h-16 rounded-xl border-2 border-background object-cover shadow-lg" />
-            ) : (
-              <div className="w-16 h-16 rounded-xl bg-primary flex items-center justify-center border-2 border-background shadow-lg">
-                <span className="text-primary-foreground font-extrabold text-lg">{store.name.charAt(0)}</span>
+            {/* Mobile Banner Implementation */}
+            <div className="block md:hidden w-full h-full">
+              {store.banner_mobile_url || store.banner_url ? (
+                <img
+                  src={store.banner_mobile_url || store.banner_url}
+                  alt={store.name}
+                  className="w-full h-full object-cover font-brand"
+                />
+              ) : (
+                <div className="w-full h-full gradient-hero" />
+              )}
+            </div>
+          </div>
+
+          {/* Store Logo & Identity (Floating) */}
+          <div className="relative flex flex-col items-center -mt-12 md:-mt-16 z-20">
+            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-xl bg-white overflow-hidden flex-shrink-0">
+              {store.logo_url ? (
+                <img src={store.logo_url} alt={store.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground font-black text-3xl">{store.name.charAt(0)}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 text-center px-4 max-w-2xl">
+              <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight leading-tight">
+                {store.name}
+              </h1>
+              {store.description && (
+                <p className="mt-1.5 text-slate-500 text-sm md:text-base leading-relaxed line-clamp-2">
+                  {store.description}
+                </p>
+              )}
+
+              <div className="mt-3 flex flex-wrap justify-center items-center gap-3">
+                <div className={`inline-flex items-center gap-2 font-bold px-4 py-1.5 rounded-full text-[10px] uppercase tracking-wider ${storeOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                  <span className={`w-2 h-2 rounded-full ${storeOpen ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
+                  {storeOpen ? "Aberto Agora" : "Fechado no Momento"}
+                </div>
+
+                {todayHours && (
+                  <div className="inline-flex items-center gap-1.5 text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                    <Clock className="w-3 h-3" />
+                    Entregas: {todayHours}
+                  </div>
+                )}
               </div>
-            )}
-            <div className="flex-1">
-              <h1 className="text-2xl font-extrabold text-background">{store.name}</h1>
-              {store.description && <p className="text-background/80 text-sm">{store.description}</p>}
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Info bar */}
-      <div className="max-w-3xl mx-auto px-4 mt-4">
-        <div className="flex flex-wrap items-center gap-3 py-4 text-sm bg-card rounded-2xl shadow-sm border border-border px-5">
-          <div className={`flex items-center gap-2 font-medium px-3 py-1.5 rounded-full ${storeOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-            {storeOpen ? (
-              <><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> Aberto</>
-            ) : (
-              <><span className="w-2 h-2 rounded-full bg-red-500" /> Fechado</>
-            )}
-          </div>
-
-          {todayHours && (
-            <div className="flex items-center gap-2 text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full font-medium">
-              <Clock className="w-4 h-4" /> Entregas das: {todayHours}
-            </div>
-          )}
-
-          {(store as any).avg_delivery_time && (
-            <div className="flex items-center gap-2 text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full font-medium">
-              <Clock className="w-4 h-4" /> Tempo médio para entrega: {(store as any).avg_delivery_time} min
-            </div>
-          )}
-
-          {store.address && (
-            <div className="flex items-center gap-2 text-muted-foreground w-full sm:w-auto mt-2 sm:mt-0">
-              <MapPin className="w-4 h-4" /> {store.address}{store.city ? `, ${store.city}` : ""}
-            </div>
-          )}
-
-          <a href={`https://wa.me/55${store.phone.replace(/\D/g, "")}`} target="_blank" className="ml-auto flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full font-bold hover:bg-primary/20 transition-colors">
-            <Phone className="w-4 h-4" /> WhatsApp
-          </a>
         </div>
       </div>
 
@@ -662,277 +654,285 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
       </div>
 
       {/* Variation Selection Modal */}
-      {variationModalOpen && variationProduct && (
-        <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}>
-          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-3">
-                {variationProduct.image_url && (
-                  <img src={variationProduct.image_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
-                )}
-                <div>
-                  <p className="text-lg font-bold">{variationProduct.name}</p>
-                  <p className="text-sm text-primary font-medium">
-                    R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}
-                  </p>
-                </div>
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-5 mt-2">
-              {(productVariations[variationProduct.id] || []).map((v: any) => (
-                <div key={v.id}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="font-bold text-foreground text-sm">{v.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {v.required ? "Obrigatório" : "Opcional"} • {v.max_selections === 1 ? "Escolha 1" : `Até ${v.max_selections}`}
-                      </p>
+      {
+        variationModalOpen && variationProduct && (
+          <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}>
+            <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-3">
+                  {variationProduct.image_url && (
+                    <img src={variationProduct.image_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                  )}
+                  <div>
+                    <p className="text-lg font-bold">{variationProduct.name}</p>
+                    <p className="text-sm text-primary font-medium">
+                      R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}
+                    </p>
+                  </div>
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-5 mt-2">
+                {(productVariations[variationProduct.id] || []).map((v: any) => (
+                  <div key={v.id}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="font-bold text-foreground text-sm">{v.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {v.required ? "Obrigatório" : "Opcional"} • {v.max_selections === 1 ? "Escolha 1" : `Até ${v.max_selections}`}
+                        </p>
+                      </div>
+                      {v.required && (
+                        <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">OBRIGATÓRIO</span>
+                      )}
                     </div>
-                    {v.required && (
-                      <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">OBRIGATÓRIO</span>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    {(v.options || []).map((opt: any, oi: number) => {
-                      const isSelected = (variationSelections[v.id] || []).some(s => s.name === opt.name);
-                      return (
-                        <button
-                          key={oi}
-                          onClick={() => toggleVariationOption(v.id, opt, v.max_selections)}
-                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm transition-all ${isSelected
-                            ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/30"
-                            : "border-border bg-card text-muted-foreground hover:border-primary/30"
-                            }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"}`}>
-                              {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                    <div className="space-y-1.5">
+                      {(v.options || []).map((opt: any, oi: number) => {
+                        const isSelected = (variationSelections[v.id] || []).some(s => s.name === opt.name);
+                        return (
+                          <button
+                            key={oi}
+                            onClick={() => toggleVariationOption(v.id, opt, v.max_selections)}
+                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm transition-all ${isSelected
+                              ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/30"
+                              : "border-border bg-card text-muted-foreground hover:border-primary/30"
+                              }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"}`}>
+                                {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                              </div>
+                              <span className={isSelected ? "font-medium text-foreground" : ""}>{opt.name}</span>
                             </div>
-                            <span className={isSelected ? "font-medium text-foreground" : ""}>{opt.name}</span>
-                          </div>
-                          {opt.price > 0 && (
-                            <span className="text-xs font-medium text-primary">+R$ {opt.price.toFixed(2)}</span>
-                          )}
-                        </button>
-                      );
-                    })}
+                            {opt.price > 0 && (
+                              <span className="text-xs font-medium text-primary">+R$ {opt.price.toFixed(2)}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
 
-              {/* Price preview */}
-              <div className="bg-muted/50 rounded-xl p-3 text-sm">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Produto</span>
-                  <span>R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}</span>
-                </div>
-                {Object.values(variationSelections).flat().filter(s => s.price > 0).length > 0 && (
+                {/* Price preview */}
+                <div className="bg-muted/50 rounded-xl p-3 text-sm">
                   <div className="flex justify-between text-muted-foreground">
-                    <span>Opcionais</span>
-                    <span>+R$ {Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0).toFixed(2)}</span>
+                    <span>Produto</span>
+                    <span>R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}</span>
                   </div>
-                )}
-                <div className="flex justify-between font-bold text-foreground text-base pt-1 border-t border-border mt-1">
-                  <span>Total</span>
-                  <span>R$ {(
-                    (variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price) +
-                    Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0)
-                  ).toFixed(2)}</span>
+                  {Object.values(variationSelections).flat().filter(s => s.price > 0).length > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Opcionais</span>
+                      <span>+R$ {Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-foreground text-base pt-1 border-t border-border mt-1">
+                    <span>Total</span>
+                    <span>R$ {(
+                      (variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price) +
+                      Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0)
+                    ).toFixed(2)}</span>
+                  </div>
                 </div>
-              </div>
 
-              <Button variant="hero" className="w-full" onClick={confirmVariationSelection}>
-                <Plus className="w-4 h-4 mr-2" /> Adicionar ao pedido
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+                <Button variant="hero" className="w-full" onClick={confirmVariationSelection}>
+                  <Plus className="w-4 h-4 mr-2" /> Adicionar ao pedido
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )
+      }
 
       {/* Cart FAB */}
-      {totalItems > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 max-w-3xl mx-auto z-50">
-          <button
-            onClick={() => setCartOpen(true)}
-            className="w-full gradient-hero text-primary-foreground rounded-2xl p-4 shadow-hero flex items-center justify-between font-bold"
-          >
-            <div className="flex items-center gap-3">
-              <ShoppingBag className="w-5 h-5" />
-              <span>{totalItems} {totalItems === 1 ? "item" : "itens"}</span>
-            </div>
-            <span>R$ {subtotal.toFixed(2)}</span>
-          </button>
-        </div>
-      )}
+      {
+        totalItems > 0 && (
+          <div className="fixed bottom-4 left-4 right-4 max-w-3xl mx-auto z-50">
+            <button
+              onClick={() => setCartOpen(true)}
+              className="w-full gradient-hero text-primary-foreground rounded-2xl p-4 shadow-hero flex items-center justify-between font-bold"
+            >
+              <div className="flex items-center gap-3">
+                <ShoppingBag className="w-5 h-5" />
+                <span>{totalItems} {totalItems === 1 ? "item" : "itens"}</span>
+              </div>
+              <span>R$ {subtotal.toFixed(2)}</span>
+            </button>
+          </div>
+        )
+      }
 
       {/* Cart Drawer */}
-      {cartOpen && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-foreground/50" onClick={() => setCartOpen(false)} />
-          <div className="absolute right-0 top-0 h-full w-full max-w-md bg-card shadow-2xl flex flex-col">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <h2 className="text-lg font-bold text-foreground">Seu Pedido</h2>
-              <button className="text-muted-foreground hover:text-foreground" onClick={() => setCartOpen(false)}><X className="w-5 h-5" /></button>
-            </div>
+      {
+        cartOpen && (
+          <div className="fixed inset-0 z-50">
+            <div className="absolute inset-0 bg-foreground/50" onClick={() => setCartOpen(false)} />
+            <div className="absolute right-0 top-0 h-full w-full max-w-md bg-card shadow-2xl flex flex-col">
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <h2 className="text-lg font-bold text-foreground">Seu Pedido</h2>
+                <button className="text-muted-foreground hover:text-foreground" onClick={() => setCartOpen(false)}><X className="w-5 h-5" /></button>
+              </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {cart.map((item, idx) => (
-                <div key={idx} className="bg-muted/50 rounded-xl p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-semibold text-foreground">{item.product.name}</p>
-                      <div className="flex items-center gap-2">
-                        {item.product.promotional_price > 0 ? (
-                          <>
-                            <span className="text-xs text-muted-foreground line-through">R$ {(item.product.price * item.quantity).toFixed(2)}</span>
-                            <span className="text-sm text-primary font-bold">R$ {(getItemPrice(item) * item.quantity).toFixed(2)}</span>
-                          </>
-                        ) : (
-                          <span className="text-sm text-primary font-medium">R$ {(getItemPrice(item) * item.quantity).toFixed(2)}</span>
-                        )}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {cart.map((item, idx) => (
+                  <div key={idx} className="bg-muted/50 rounded-xl p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-semibold text-foreground">{item.product.name}</p>
+                        <div className="flex items-center gap-2">
+                          {item.product.promotional_price > 0 ? (
+                            <>
+                              <span className="text-xs text-muted-foreground line-through">R$ {(item.product.price * item.quantity).toFixed(2)}</span>
+                              <span className="text-sm text-primary font-bold">R$ {(getItemPrice(item) * item.quantity).toFixed(2)}</span>
+                            </>
+                          ) : (
+                            <span className="text-sm text-primary font-medium">R$ {(getItemPrice(item) * item.quantity).toFixed(2)}</span>
+                          )}
+                        </div>
                       </div>
+                      <button onClick={() => removeFromCart(idx)}><Trash2 className="w-4 h-4 text-destructive" /></button>
                     </div>
-                    <button onClick={() => removeFromCart(idx)}><Trash2 className="w-4 h-4 text-destructive" /></button>
-                  </div>
-                  {/* Variation details in cart */}
-                  {item.variations.length > 0 && (
-                    <div className="mt-1.5 space-y-0.5">
-                      {item.variations.map((v, vi) => (
-                        <p key={vi} className="text-xs text-muted-foreground">
-                          <span className="font-medium">{v.group}:</span> {v.selected.map(s => `${s.name}${s.price > 0 ? ` (+R$${s.price.toFixed(2)})` : ""}`).join(", ")}
-                        </p>
-                      ))}
+                    {/* Variation details in cart */}
+                    {item.variations.length > 0 && (
+                      <div className="mt-1.5 space-y-0.5">
+                        {item.variations.map((v, vi) => (
+                          <p key={vi} className="text-xs text-muted-foreground">
+                            <span className="font-medium">{v.group}:</span> {v.selected.map(s => `${s.name}${s.price > 0 ? ` (+R$${s.price.toFixed(2)})` : ""}`).join(", ")}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {item.product.description && <p className="text-xs text-muted-foreground mt-1 mb-2 line-clamp-1">{item.product.description}</p>}
+                    <div className="flex items-center gap-3 mt-2">
+                      <button onClick={() => updateQuantity(idx, -1)} className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center"><Minus className="w-3 h-3" /></button>
+                      <span className="font-bold text-foreground">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(idx, 1)} className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Plus className="w-3 h-3" /></button>
                     </div>
-                  )}
-                  {item.product.description && <p className="text-xs text-muted-foreground mt-1 mb-2 line-clamp-1">{item.product.description}</p>}
-                  <div className="flex items-center gap-3 mt-2">
-                    <button onClick={() => updateQuantity(idx, -1)} className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center"><Minus className="w-3 h-3" /></button>
-                    <span className="font-bold text-foreground">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(idx, 1)} className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Plus className="w-3 h-3" /></button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
 
-            <div className="p-4 border-t border-border space-y-3">
-              <div className="flex items-center gap-2">
-                <Input placeholder="Cupom de desconto" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} className="flex-1" />
-                <Button variant="outline" size="sm" onClick={applyCoupon}>Aplicar</Button>
-              </div>
-              {appliedCoupon && (
-                <p className="text-sm text-green-600 font-medium flex items-center gap-1"><Check className="w-4 h-4" /> Cupom {appliedCoupon.code} aplicado!</p>
-              )}
-              <div className="text-sm space-y-1">
-                <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
-                {discount > 0 && <div className="flex justify-between text-green-600"><span>Desconto</span><span>-R$ {discount.toFixed(2)}</span></div>}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="lg" className="flex-1 px-0 truncate" onClick={() => setCartOpen(false)}>
-                  Continuar compras
-                </Button>
-                <Button variant="hero" size="lg" className="flex-1 px-0 truncate" onClick={() => { setCartOpen(false); setCheckoutOpen(true); }}>
-                  Finalizar • R$ {(subtotal - discount).toFixed(2)}
-                </Button>
+              <div className="p-4 border-t border-border space-y-3">
+                <div className="flex items-center gap-2">
+                  <Input placeholder="Cupom de desconto" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} className="flex-1" />
+                  <Button variant="outline" size="sm" onClick={applyCoupon}>Aplicar</Button>
+                </div>
+                {appliedCoupon && (
+                  <p className="text-sm text-green-600 font-medium flex items-center gap-1"><Check className="w-4 h-4" /> Cupom {appliedCoupon.code} aplicado!</p>
+                )}
+                <div className="text-sm space-y-1">
+                  <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
+                  {discount > 0 && <div className="flex justify-between text-green-600"><span>Desconto</span><span>-R$ {discount.toFixed(2)}</span></div>}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="lg" className="flex-1 px-0 truncate" onClick={() => setCartOpen(false)}>
+                    Continuar compras
+                  </Button>
+                  <Button variant="hero" size="lg" className="flex-1 px-0 truncate" onClick={() => { setCartOpen(false); setCheckoutOpen(true); }}>
+                    Finalizar • R$ {(subtotal - discount).toFixed(2)}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Checkout Modal */}
-      {checkoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-foreground/50" onClick={() => setCheckoutOpen(false)} />
-          <div className="relative bg-card rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-foreground">Finalizar Pedido</h2>
-              <button onClick={() => setCheckoutOpen(false)}><X className="w-5 h-5" /></button>
-            </div>
-
-            <div className="space-y-4">
-
-              <div>
-                <Label>Nome</Label>
-                <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} placeholder="Seu nome completo" required />
+      {
+        checkoutOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-foreground/50" onClick={() => setCheckoutOpen(false)} />
+            <div className="relative bg-card rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-foreground">Finalizar Pedido</h2>
+                <button onClick={() => setCheckoutOpen(false)}><X className="w-5 h-5" /></button>
               </div>
 
-              <div>
-                <Label>WhatsApp</Label>
-                <Input value={form.customer_phone} onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} placeholder="11999999999" required />
-              </div>
+              <div className="space-y-4">
 
-              <div>
-                <Label>Tipo de entrega</Label>
-                <Select value={form.delivery_type} onValueChange={(v) => setForm({ ...form, delivery_type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {store.delivery_enabled && <SelectItem value="delivery">Entrega</SelectItem>}
-                    {store.pickup_enabled && <SelectItem value="pickup">Retirada no local</SelectItem>}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div>
+                  <Label>Nome</Label>
+                  <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} placeholder="Seu nome completo" required />
+                </div>
 
-              {form.delivery_type === "delivery" && (
-                <>
-                  <div>
-                    <Label>Endereço</Label>
-                    <Input value={form.customer_address} onChange={(e) => setForm({ ...form, customer_address: e.target.value })} placeholder="Rua, número, complemento" required />
-                  </div>
-                  {deliveryZones.length > 0 && (
+                <div>
+                  <Label>WhatsApp</Label>
+                  <Input value={form.customer_phone} onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} placeholder="11999999999" required />
+                </div>
+
+                <div>
+                  <Label>Tipo de entrega</Label>
+                  <Select value={form.delivery_type} onValueChange={(v) => setForm({ ...form, delivery_type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {store.delivery_enabled && <SelectItem value="delivery">Entrega</SelectItem>}
+                      {store.pickup_enabled && <SelectItem value="pickup">Retirada no local</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {form.delivery_type === "delivery" && (
+                  <>
                     <div>
-                      <Label>Bairro</Label>
-                      <Select value={form.neighborhood} onValueChange={(v) => setForm({ ...form, neighborhood: v })}>
-                        <SelectTrigger><SelectValue placeholder="Selecione o bairro" /></SelectTrigger>
-                        <SelectContent>
-                          {deliveryZones.map((z) => (
-                            <SelectItem key={z.id} value={z.neighborhood}>{z.neighborhood} - R$ {z.fee.toFixed(2)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label>Endereço</Label>
+                      <Input value={form.customer_address} onChange={(e) => setForm({ ...form, customer_address: e.target.value })} placeholder="Rua, número, complemento" required />
                     </div>
+                    {deliveryZones.length > 0 && (
+                      <div>
+                        <Label>Bairro</Label>
+                        <Select value={form.neighborhood} onValueChange={(v) => setForm({ ...form, neighborhood: v })}>
+                          <SelectTrigger><SelectValue placeholder="Selecione o bairro" /></SelectTrigger>
+                          <SelectContent>
+                            {deliveryZones.map((z) => (
+                              <SelectItem key={z.id} value={z.neighborhood}>{z.neighborhood} - R$ {z.fee.toFixed(2)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <div>
+                  <Label>Forma de pagamento</Label>
+                  <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pix">PIX</SelectItem>
+                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                      <SelectItem value="cartao_credito">Cartão de crédito</SelectItem>
+                      <SelectItem value="cartao_debito">Cartão de débito</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Observações</Label>
+                  <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Alguma observação?" rows={2} />
+                </div>
+
+                <div className="bg-muted/50 rounded-xl p-4 space-y-1 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
+                  {discount > 0 && <div className="flex justify-between text-green-600"><span>Desconto</span><span>-R$ {discount.toFixed(2)}</span></div>}
+                  {deliveryFee > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Entrega</span><span>R$ {deliveryFee.toFixed(2)}</span></div>}
+                  <div className="flex justify-between font-bold text-foreground text-base pt-1 border-t border-border"><span>Total</span><span>R$ {total.toFixed(2)}</span></div>
+                  {estimatedTime > 0 && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 pt-1">
+                      <Clock className="w-3 h-3" /> Estimativa: {estimatedTime} min
+                    </p>
                   )}
-                </>
-              )}
+                </div>
 
-              <div>
-                <Label>Forma de pagamento</Label>
-                <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                    <SelectItem value="cartao_credito">Cartão de crédito</SelectItem>
-                    <SelectItem value="cartao_debito">Cartão de débito</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Button variant="hero" size="lg" className="w-full" onClick={handleCheckout} disabled={isProcessing}>
+                  {isProcessing ? "Processando..." : (
+                    <><Check className="w-4 h-4 mr-2" /> Finalizar Pedido</>
+                  )}
+                </Button>
               </div>
-
-              <div>
-                <Label>Observações</Label>
-                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Alguma observação?" rows={2} />
-              </div>
-
-              <div className="bg-muted/50 rounded-xl p-4 space-y-1 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
-                {discount > 0 && <div className="flex justify-between text-green-600"><span>Desconto</span><span>-R$ {discount.toFixed(2)}</span></div>}
-                {deliveryFee > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Entrega</span><span>R$ {deliveryFee.toFixed(2)}</span></div>}
-                <div className="flex justify-between font-bold text-foreground text-base pt-1 border-t border-border"><span>Total</span><span>R$ {total.toFixed(2)}</span></div>
-                {estimatedTime > 0 && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 pt-1">
-                    <Clock className="w-3 h-3" /> Estimativa: {estimatedTime} min
-                  </p>
-                )}
-              </div>
-
-              <Button variant="hero" size="lg" className="w-full" onClick={handleCheckout} disabled={isProcessing}>
-                {isProcessing ? "Processando..." : (
-                  <><Check className="w-4 h-4 mr-2" /> Finalizar Pedido</>
-                )}
-              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Footer */}
       <div className="max-w-3xl mx-auto px-4 mt-12 pb-24 text-center border-t border-border pt-8">
@@ -941,17 +941,19 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         </a>
       </div>
 
-      {slug === "demo" && (
-        <div className="fixed bottom-0 left-0 right-0 z-[60] p-4 bg-background/80 backdrop-blur-md border-t border-border flex flex-col items-center gap-2">
-          <Button variant="hero" size="lg" className="w-full max-w-sm shadow-hero animate-pulse" asChild>
-            <Link to="/checkout">Crie sua loja agora mesmo!</Link>
-          </Button>
-          <Link to="/" className="text-sm font-semibold flex items-center gap-1 text-foreground hover:text-primary transition-colors">
-            Voltar ao site principal
-          </Link>
-        </div>
-      )}
-    </div>
+      {
+        slug === "demo" && (
+          <div className="fixed bottom-0 left-0 right-0 z-[60] p-4 bg-background/80 backdrop-blur-md border-t border-border flex flex-col items-center gap-2">
+            <Button variant="hero" size="lg" className="w-full max-w-sm shadow-hero animate-pulse" asChild>
+              <Link to="/checkout">Crie sua loja agora mesmo!</Link>
+            </Button>
+            <Link to="/" className="text-sm font-semibold flex items-center gap-1 text-foreground hover:text-primary transition-colors">
+              Voltar ao site principal
+            </Link>
+          </div>
+        )
+      }
+    </div >
   );
 };
 

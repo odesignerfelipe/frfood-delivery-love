@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Plus, Minus, Trash2, X, Search, Clock, MapPin, Phone, ArrowRight, Check } from "lucide-react";
+import { ShoppingBag, Plus, Minus, Trash2, X, Search, Clock, MapPin, Phone, ArrowRight, Check, Zap } from "lucide-react";
 
 const demoStore = {
   name: "Pizzaria do João",
@@ -135,38 +135,65 @@ const DemoStore = () => {
         </div>
       </div>
 
-      {/* Banner - identical to PublicStore */}
-      <div className="relative">
-        <div className="w-full h-48 md:h-[250px] gradient-hero" />
-        <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-4">
-          <div className="max-w-3xl mx-auto flex items-end gap-4">
-            <div className="w-16 h-16 rounded-xl bg-primary flex items-center justify-center border-2 border-background shadow-lg">
-              <span className="text-2xl">🍕</span>
-            </div>
-            <div className="flex-1">
-              <h1 className="text-2xl font-extrabold text-background">{demoStore.name}</h1>
-              <p className="text-background/80 text-sm">{demoStore.description}</p>
-            </div>
+      {/* Banner & Store Header */}
+      <div className="bg-slate-50 pt-4 md:pt-8 pb-10 border-b border-slate-100">
+        <div className="max-w-[1210px] mx-auto px-4">
+          {/* Banner Container */}
+          <div className="relative h-48 md:h-[250px] rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-lg bg-slate-200">
+            <div className="w-full h-full gradient-hero" />
           </div>
-        </div>
-      </div>
 
-      {/* Info bar - identical to PublicStore */}
-      <div className="max-w-3xl mx-auto px-4 mt-4">
-        <div className="flex flex-wrap items-center gap-3 py-4 text-sm bg-card rounded-2xl shadow-sm border border-border px-5">
-          <div className="flex items-center gap-2 font-medium px-3 py-1.5 rounded-full bg-green-100 text-green-700">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> Aberto
+          {/* Store Logo & Identity (Floating Overlap) */}
+          <div className="relative flex flex-col items-center -mt-12 md:-mt-16 z-20">
+            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-xl bg-white overflow-hidden flex-shrink-0 flex items-center justify-center">
+              <span className="text-4xl md:text-5xl">🍕</span>
+            </div>
+
+            <div className="mt-4 text-center px-4 max-w-2xl w-full">
+              <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight leading-tight">
+                {demoStore.name}
+              </h1>
+
+              <p className="mt-2 text-slate-500 text-sm md:text-base leading-relaxed line-clamp-2 italic">
+                "{demoStore.description}"
+              </p>
+
+              {/* Badges & Info Row */}
+              <div className="mt-4 flex flex-wrap justify-center items-center gap-2 md:gap-3">
+                <div className="inline-flex items-center gap-2 font-bold px-4 py-1.5 rounded-full text-[10px] uppercase tracking-wider shadow-sm bg-green-100 text-green-700">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  Aberto Agora
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  Hoje: 18:00 - 23:30
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                  <Zap className="w-3.5 h-3.5 text-amber-500 shadow-sm" />
+                  {demoStore.avg_delivery_time} min
+                </div>
+              </div>
+
+              {/* Extended Info Row (Address & Social) */}
+              <div className="mt-6 flex flex-col md:flex-row items-center justify-center gap-4 text-[10px] md:text-xs text-slate-400 font-medium border-t border-slate-100 pt-6">
+                <div className="flex items-center gap-1.5 group">
+                  <MapPin className="w-3.5 h-3.5 text-slate-300 group-hover:text-primary transition-colors" />
+                  <span className="group-hover:text-slate-600 transition-colors">{demoStore.address}, {demoStore.city}</span>
+                </div>
+
+                <a
+                  href="#"
+                  onClick={(e) => e.preventDefault()}
+                  className="flex items-center gap-1.5 text-primary hover:bg-primary hover:text-white transition-all bg-primary/5 px-4 py-2 rounded-full font-bold uppercase tracking-wide"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Atendimento WhatsApp</span>
+                </a>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full font-medium">
-            <Clock className="w-4 h-4" /> Tempo médio para entrega: {demoStore.avg_delivery_time} min
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground w-full sm:w-auto mt-2 sm:mt-0">
-            <MapPin className="w-4 h-4" /> {demoStore.address}, {demoStore.city}
-          </div>
-          <a href="#" onClick={(e) => e.preventDefault()} className="ml-auto flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full font-bold hover:bg-primary/20 transition-colors">
-            <Phone className="w-4 h-4" /> WhatsApp
-          </a>
         </div>
       </div>
 
