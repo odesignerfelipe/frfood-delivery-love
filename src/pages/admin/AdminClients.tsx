@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Search, Mail, Phone, Store, Calendar } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { Users, Search, Phone, Store, Calendar, Trash2, Edit2 } from "lucide-react";
 import { format } from "date-fns";
 
 const AdminClients = () => {
@@ -10,6 +12,13 @@ const AdminClients = () => {
     const [stores, setStores] = useState<any[]>([]);
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
+    // Edit
+    const [editProfile, setEditProfile] = useState<any>(null);
+    const [editName, setEditName] = useState("");
+    const [editPhone, setEditPhone] = useState("");
+    // Delete
+    const [deleteProfile, setDeleteProfile] = useState<any>(null);
+    const [deleting, setDeleting] = useState(false);
 
     const fetchData = useCallback(async () => {
         const [profilesRes, storesRes] = await Promise.all([
@@ -23,7 +32,6 @@ const AdminClients = () => {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    // Realtime
     useEffect(() => {
         const channel = supabase
             .channel("admin-clients")
@@ -44,6 +52,49 @@ const AdminClients = () => {
 
     const getStore = (userId: string) => stores.find((s) => s.owner_id === userId);
 
+    const openEdit = (profile: any) => {
+        setEditProfile(profile);
+        setEditName(profile.full_name || "");
+        setEditPhone(profile.phone || "");
+    };
+
+    const saveEdit = async () => {
+        if (!editProfile) return;
+        const { error } = await supabase
+            .from("profiles")
+            .update({ full_name: editName, phone: editPhone })
+            .eq("id", editProfile.id);
+        if (error) { toast.error("Erro ao atualizar"); console.error(error); }
+        else { toast.success("Cliente atualizado!"); setEditProfile(null); fetchData(); }
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteProfile) return;
+        setDeleting(true);
+
+        // Find and delete any associated store + data
+        const userStore = getStore(deleteProfile.user_id);
+        if (userStore) {
+            await supabase.from("order_items").delete().in("order_id",
+                (await supabase.from("orders").select("id").eq("store_id", userStore.id)).data?.map((o: any) => o.id) || []
+            );
+            await supabase.from("orders").delete().eq("store_id", userStore.id);
+            await supabase.from("product_variations").delete().in("product_id",
+                (await supabase.from("products").select("id").eq("store_id", userStore.id)).data?.map((p: any) => p.id) || []
+            );
+            await supabase.from("products").delete().eq("store_id", userStore.id);
+            await supabase.from("delivery_areas").delete().eq("store_id", userStore.id);
+            await supabase.from("coupons").delete().eq("store_id", userStore.id);
+            await supabase.from("stores").delete().eq("id", userStore.id);
+        }
+
+        // Delete profile
+        const { error } = await supabase.from("profiles").delete().eq("id", deleteProfile.id);
+        if (error) { toast.error("Erro ao remover: " + error.message); console.error(error); }
+        else { toast.success("Cliente removido com sucesso!"); setDeleteProfile(null); fetchData(); }
+        setDeleting(false);
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-24">
@@ -59,16 +110,9 @@ const AdminClients = () => {
                     <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Clientes</h1>
                     <p className="text-sm text-slate-500">{profiles.length} usuários registrados na plataforma</p>
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <Input
-                            placeholder="Buscar por nome, telefone..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="pl-10 w-72"
-                        />
-                    </div>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input placeholder="Buscar por nome, telefone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 w-72" />
                 </div>
             </div>
 
@@ -82,6 +126,7 @@ const AdminClients = () => {
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Loja</th>
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Plano</th>
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Cadastro</th>
+                                <th className="text-right px-6 py-4 font-semibold text-slate-600">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -124,11 +169,9 @@ const AdminClients = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             {userStore ? (
-                                                <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${userStore.plan_type === "yearly" ? "bg-purple-100 text-purple-700" :
-                                                        userStore.plan_type === "monthly" ? "bg-blue-100 text-blue-700" :
-                                                            "bg-slate-100 text-slate-600"
+                                                <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${userStore.plan_type === "yearly" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
                                                     }`}>
-                                                    {userStore.plan_type === "yearly" ? "Anual" : userStore.plan_type === "monthly" ? "Mensal" : userStore.plan_type === "trial" ? "Trial" : userStore.plan_type}
+                                                    {userStore.plan_type === "yearly" ? "Anual" : "Mensal"}
                                                 </span>
                                             ) : (
                                                 <span className="text-slate-400">—</span>
@@ -140,12 +183,22 @@ const AdminClients = () => {
                                                 {format(new Date(profile.created_at), "dd/MM/yyyy")}
                                             </span>
                                         </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(profile)} title="Editar">
+                                                    <Edit2 className="w-4 h-4 text-blue-500" />
+                                                </Button>
+                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setDeleteProfile(profile)} title="Remover">
+                                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                                </Button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 );
                             })}
                             {filteredProfiles.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-16 text-center text-slate-400">
+                                    <td colSpan={6} className="px-6 py-16 text-center text-slate-400">
                                         {search ? "Nenhum resultado encontrado." : "Nenhum usuário cadastrado."}
                                     </td>
                                 </tr>
@@ -154,6 +207,56 @@ const AdminClients = () => {
                     </table>
                 </div>
             </div>
+
+            {/* Edit Client Modal */}
+            <Dialog open={!!editProfile} onOpenChange={(v) => !v && setEditProfile(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Editar Cliente</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Nome Completo</label>
+                            <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Nome do cliente" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Telefone</label>
+                            <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="(00) 00000-0000" />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditProfile(null)}>Cancelar</Button>
+                        <Button onClick={saveEdit}>Salvar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Client Modal */}
+            <Dialog open={!!deleteProfile} onOpenChange={(v) => !v && setDeleteProfile(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-red-600">Remover Cliente</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 space-y-3">
+                        <p className="text-sm text-slate-600">
+                            Tem certeza que deseja remover o cliente <strong>{deleteProfile?.full_name || "Sem nome"}</strong>?
+                        </p>
+                        {getStore(deleteProfile?.user_id) && (
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+                                ⚠️ Este cliente possui a loja <strong>{getStore(deleteProfile?.user_id)?.name}</strong>. Todos os dados da loja (produtos, pedidos, etc.) serão permanentemente excluídos junto com o perfil.
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteProfile(null)} disabled={deleting}>Cancelar</Button>
+                        <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+                            {deleting ? (
+                                <><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" />Removendo...</>
+                            ) : "Sim, Remover"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
