@@ -69,29 +69,29 @@ export default function AdminSettings() {
             const val = v.value || {};
             setSettings({
                 primaryColor: v.primary_color || val.primaryColor || "#ea384c",
-                secondaryColor: val.secondaryColor || v.secondary_color || "#f97316",
+                secondaryColor: v.secondary_color || val.secondaryColor || "#f97316",
                 logoUrl: v.logo_url || val.logoUrl || "",
-                faviconUrl: val.faviconUrl || v.favicon_url || "",
-                siteName: val.siteName || v.site_name || "FRFood",
-                navbarButtonText: val.navbarButtonText || v.navbar_button_text || "Criar conta",
-                heroTitle: val.heroTitle || v.hero_title || "O melhor sistema para o seu Delivery",
-                heroSubtitle: val.heroSubtitle || v.hero_subtitle || "",
-                heroButtonText: val.heroButtonText || v.hero_button_text || "Começar agora",
-                heroImageUrl: val.heroImageUrl || v.hero_image_url || "",
-                heroBgType: val.heroBgType || v.hero_bg_type || "gradient",
-                heroBgColor: val.heroBgColor || v.hero_bg_color || "from-orange-500 to-orange-600",
-                heroBadgeText: val.heroBadgeText || v.hero_badge_text || "Plataforma completa de delivery",
-                heroStats: val.heroStats || v.hero_stats || [{ value: "5.000+", label: "Restaurantes" }, { value: "1M+", label: "Pedidos/mês" }, { value: "0%", label: "Taxa por pedido" }],
-                pricingTitle: val.pricingTitle || v.pricing_title || "Planos simples e transparentes",
-                pricingSubtitle: val.pricingSubtitle || v.pricing_subtitle || "",
-                monthlyPrice: val.monthlyPrice || v.monthly_price || "149,90",
-                yearlyPrice: val.yearlyPrice || v.yearly_price || "124,90",
-                ctaTitle: val.ctaTitle || v.cta_title || "Pronto para vender mais?",
-                ctaSubtitle: val.ctaSubtitle || v.cta_subtitle || "",
-                ctaButtonText: val.ctaButtonText || v.cta_button_text || "Criar minha loja agora",
-                faqItems: val.faqItems || v.faq_items || [],
-                footerText: val.footerText || v.footer_text || "",
-                features: val.features || [],
+                faviconUrl: v.favicon_url || val.faviconUrl || "",
+                siteName: v.site_name || val.siteName || "FRFood",
+                navbarButtonText: v.navbar_button_text || val.navbarButtonText || "Criar conta",
+                heroTitle: v.hero_title || val.heroTitle || "O melhor sistema para o seu Delivery",
+                heroSubtitle: v.hero_subtitle || val.heroSubtitle || "",
+                heroButtonText: v.hero_button_text || val.heroButtonText || "Começar agora",
+                heroImageUrl: v.hero_image_url || val.heroImageUrl || "",
+                heroBgType: v.hero_bg_type || val.heroBgType || "gradient",
+                heroBgColor: v.hero_bg_color || val.heroBgColor || "from-orange-500 to-orange-600",
+                heroBadgeText: v.hero_badge_text || val.heroBadgeText || "Plataforma completa de delivery",
+                heroStats: v.hero_stats || val.heroStats || [{ value: "5.000+", label: "Restaurantes" }, { value: "1M+", label: "Pedidos/mês" }, { value: "0%", label: "Taxa por pedido" }],
+                pricingTitle: v.pricing_title || val.pricingTitle || "Planos simples e transparentes",
+                pricingSubtitle: v.pricing_subtitle || val.pricingSubtitle || "",
+                monthlyPrice: v.monthly_price || val.monthlyPrice || "149,90",
+                yearlyPrice: v.yearly_price || val.yearlyPrice || "124,90",
+                ctaTitle: v.cta_title || val.ctaTitle || "Pronto para vender mais?",
+                ctaSubtitle: v.cta_subtitle || val.ctaSubtitle || "",
+                ctaButtonText: v.cta_button_text || val.ctaButtonText || "Criar minha loja agora",
+                faqItems: v.faq_items || val.faqItems || [],
+                footerText: v.footer_text || val.footerText || "",
+                features: v.features || val.features || [],
             });
         }
         setLoading(false);
@@ -101,10 +101,34 @@ export default function AdminSettings() {
         if (!settingsId) { toast.error("Erro: ID de configurações não encontrado."); return; }
         setSaving(true);
 
-        // Store ALL settings inside the 'value' JSONB column exactly as the DB expects
+        // Store settings inside individual columns and the 'value' JSONB column for backward compatibility
         const { error } = await supabase
             .from("platform_settings")
             .update({
+                primary_color: settings.primaryColor,
+                secondary_color: settings.secondaryColor,
+                logo_url: settings.logoUrl,
+                favicon_url: settings.faviconUrl,
+                site_name: settings.siteName,
+                navbar_button_text: settings.navbarButtonText,
+                hero_title: settings.heroTitle,
+                hero_subtitle: settings.heroSubtitle,
+                hero_button_text: settings.heroButtonText,
+                hero_image_url: settings.heroImageUrl,
+                hero_badge_text: settings.heroBadgeText,
+                hero_bg_type: settings.heroBgType,
+                hero_bg_color: settings.heroBgColor,
+                pricing_title: settings.pricingTitle,
+                pricing_subtitle: settings.pricingSubtitle,
+                monthly_price: settings.monthlyPrice,
+                yearly_price: settings.yearlyPrice,
+                cta_title: settings.ctaTitle,
+                cta_subtitle: settings.ctaSubtitle,
+                cta_button_text: settings.ctaButtonText,
+                footer_text: settings.footerText,
+                hero_stats: settings.heroStats as any,
+                faq_items: settings.faqItems as any,
+                features: settings.features as any,
                 value: settings as any,
             })
             .eq("id", settingsId);

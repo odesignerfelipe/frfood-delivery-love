@@ -519,12 +519,32 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         </div>
       </div>
       {/* Banner */}
-      <div className="relative">
-        {store.banner_url ? (
-          <img src={store.banner_url} alt={store.name} className="w-full h-48 md:h-[250px] object-cover" />
-        ) : (
-          <div className="w-full h-48 md:h-[250px] gradient-hero" />
-        )}
+      <div className="relative bg-black h-48 md:h-[250px] overflow-hidden">
+        {/* Desktop Banner (Centered & Constrained) */}
+        <div className="hidden md:flex items-center justify-center w-full h-full">
+          {store.banner_url ? (
+            <img
+              src={store.banner_url}
+              alt={store.name}
+              className="w-full h-full object-cover max-w-[1210px]"
+            />
+          ) : (
+            <div className="w-full h-full gradient-hero max-w-[1210px]" />
+          )}
+        </div>
+
+        {/* Mobile Banner (Full width) */}
+        <div className="flex md:hidden items-center justify-center w-full h-full">
+          {store.banner_mobile_url || store.banner_url ? (
+            <img
+              src={store.banner_mobile_url || store.banner_url}
+              alt={store.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full gradient-hero" />
+          )}
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-4">
           <div className="max-w-3xl mx-auto flex items-end gap-4">

@@ -69,7 +69,7 @@ const AdminPlans = () => {
             (await supabase.from("products").select("id").eq("store_id", deleteStore.id)).data?.map((p: any) => p.id) || []
         );
         await supabase.from("products").delete().eq("store_id", deleteStore.id);
-        await supabase.from("delivery_areas").delete().eq("store_id", deleteStore.id);
+        await supabase.from("delivery_zones").delete().eq("store_id", deleteStore.id);
         await supabase.from("coupons").delete().eq("store_id", deleteStore.id);
         const { error } = await supabase.from("stores").delete().eq("id", deleteStore.id);
         if (error) { toast.error("Erro ao remover loja: " + error.message); console.error(error); }
@@ -205,8 +205,8 @@ const AdminPlans = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${store.plan_status === "active" ? "bg-green-100 text-green-700" :
-                                                store.plan_status === "overdue" ? "bg-red-100 text-red-700" :
-                                                    "bg-slate-100 text-slate-600"
+                                            store.plan_status === "overdue" ? "bg-red-100 text-red-700" :
+                                                "bg-slate-100 text-slate-600"
                                             }`}>
                                             {store.plan_status === "active" ? "Ativo" : store.plan_status === "overdue" ? "Inadimplente" : store.plan_status === "cancelled" ? "Cancelado" : store.plan_status}
                                         </span>

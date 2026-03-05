@@ -51,6 +51,7 @@ const StoreSettings = () => {
     primary_color: (store as any)?.primary_color || "#ea580c",
     logo_url: (store as any)?.logo_url || "",
     banner_url: (store as any)?.banner_url || "",
+    banner_mobile_url: (store as any)?.banner_mobile_url || "",
     segment: (store as any)?.segment || "",
     pix_key: (store as any)?.pix_key || "",
     avg_prep_time: (store as any)?.avg_prep_time || 30,
@@ -79,6 +80,7 @@ const StoreSettings = () => {
         primary_color: (store as any).primary_color || "#ea580c",
         logo_url: (store as any).logo_url || "",
         banner_url: (store as any).banner_url || "",
+        banner_mobile_url: (store as any).banner_mobile_url || "",
         segment: (store as any).segment || "",
         pix_key: (store as any).pix_key || "",
         avg_prep_time: (store as any).avg_prep_time || 30,
@@ -100,7 +102,7 @@ const StoreSettings = () => {
     setSaving(false);
   };
 
-  const handleUpload = async (file: File, field: "logo_url" | "banner_url") => {
+  const handleUpload = async (file: File, field: "logo_url" | "banner_url" | "banner_mobile_url") => {
     if (!store) return;
     setUploading(field);
     const path = `${store.id}/${field}/${Date.now()}-${file.name}`;
@@ -379,13 +381,25 @@ const StoreSettings = () => {
                 </div>
               </div>
               <div>
-                <Label>Banner principal</Label>
+                <Label>Banner Desktop (1210x250)</Label>
                 <div className="flex items-center gap-3">
                   {form.banner_url && <img src={form.banner_url} alt="Banner" className="w-24 h-12 object-cover rounded-lg" />}
                   <label className="cursor-pointer">
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], "banner_url")} />
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors">
                       <Upload className="w-4 h-4" /> {uploading === "banner_url" ? "Enviando..." : "Enviar banner"}
+                    </div>
+                  </label>
+                </div>
+              </div>
+              <div>
+                <Label>Banner Mobile (Opcional)</Label>
+                <div className="flex items-center gap-3">
+                  {form.banner_mobile_url && <img src={form.banner_mobile_url} alt="Banner Mobile" className="w-24 h-12 object-cover rounded-lg" />}
+                  <label className="cursor-pointer">
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], "banner_mobile_url")} />
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors">
+                      <Upload className="w-4 h-4" /> {uploading === "banner_mobile_url" ? "Enviando..." : "Enviar banner"}
                     </div>
                   </label>
                 </div>

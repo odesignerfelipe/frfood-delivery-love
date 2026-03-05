@@ -31,14 +31,14 @@ const AdminLandingPage = () => {
             setContent({
                 id: row.id,
                 hero: {
-                    title: val.heroTitle || "",
-                    subtitle: val.heroSubtitle || "",
-                    buttonText: val.heroButtonText || "",
-                    imageUrl: val.heroImageUrl || "",
-                    bgType: val.heroBgType || "gradient",
-                    bgColor: val.heroBgColor || "",
+                    title: row.hero_title || val.heroTitle || "",
+                    subtitle: row.hero_subtitle || val.heroSubtitle || "",
+                    buttonText: row.hero_button_text || val.heroButtonText || "",
+                    imageUrl: row.hero_image_url || val.heroImageUrl || "",
+                    bgType: row.hero_bg_type || val.heroBgType || "gradient",
+                    bgColor: row.hero_bg_color || val.heroBgColor || "",
                 },
-                features: val.features || []
+                features: row.features || val.features || []
             });
         } else {
             // Initial fallback
@@ -69,6 +69,13 @@ const AdminLandingPage = () => {
         const { error } = await supabase
             .from("platform_settings")
             .update({
+                hero_title: content.hero.title,
+                hero_subtitle: content.hero.subtitle,
+                hero_button_text: content.hero.buttonText,
+                hero_image_url: content.hero.imageUrl,
+                hero_bg_type: content.hero.bgType,
+                hero_bg_color: content.hero.bgColor,
+                features: content.features as any,
                 value: {
                     ...currentVal,
                     heroTitle: content.hero.title,
