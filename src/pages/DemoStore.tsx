@@ -139,8 +139,8 @@ const DemoStore = () => {
       <div className="bg-slate-50 pt-4 md:pt-8 pb-10 border-b border-slate-100">
         <div className="max-w-[1210px] mx-auto px-4">
           {/* Banner Container */}
-          <div className="relative h-48 md:h-[250px] rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-lg bg-slate-200">
-            <div className="w-full h-full gradient-hero" />
+          <div className="relative rounded-2xl md:rounded-[2rem] overflow-hidden shadow-lg bg-slate-200">
+            <div className="w-full aspect-[1210/250] gradient-hero" />
           </div>
 
           {/* Store Logo & Identity (Floating Overlap) */}
@@ -153,6 +153,11 @@ const DemoStore = () => {
               <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight leading-tight">
                 {demoStore.name}
               </h1>
+
+              <div className="mt-1 flex items-center justify-center gap-1 text-[10px] md:text-xs text-slate-400 font-medium">
+                <MapPin className="w-3 h-3" />
+                <span>{demoStore.address}, {demoStore.city}</span>
+              </div>
 
               <p className="mt-2 text-slate-500 text-sm md:text-base leading-relaxed line-clamp-2 italic">
                 "{demoStore.description}"
@@ -176,20 +181,15 @@ const DemoStore = () => {
                 </div>
               </div>
 
-              {/* Extended Info Row (Address & Social) */}
+              {/* Contact Info (Simplified since address is now above) */}
               <div className="mt-6 flex flex-col md:flex-row items-center justify-center gap-4 text-[10px] md:text-xs text-slate-400 font-medium border-t border-slate-100 pt-6">
-                <div className="flex items-center gap-1.5 group">
-                  <MapPin className="w-3.5 h-3.5 text-slate-300 group-hover:text-primary transition-colors" />
-                  <span className="group-hover:text-slate-600 transition-colors">{demoStore.address}, {demoStore.city}</span>
-                </div>
-
                 <a
                   href="#"
                   onClick={(e) => e.preventDefault()}
-                  className="flex items-center gap-1.5 text-primary hover:bg-primary hover:text-white transition-all bg-primary/5 px-4 py-2 rounded-full font-bold uppercase tracking-wide"
+                  className="flex items-center gap-2 text-primary hover:bg-primary hover:text-white transition-all bg-primary/5 px-6 py-2 rounded-full font-bold uppercase tracking-wide border border-primary/10"
                 >
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>Atendimento WhatsApp</span>
+                  <Phone className="w-4 h-4" />
+                  <span>Chamar no WhatsApp</span>
                 </a>
               </div>
             </div>

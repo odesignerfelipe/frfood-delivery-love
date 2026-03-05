@@ -519,38 +519,30 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         </div>
       </div>
       {/* Banner & Store Header */}
-      <div className="bg-slate-50 pt-4 md:pt-8 pb-12">
+      <div className="bg-slate-50 pt-4 md:pt-8 pb-10 border-b border-slate-100">
         <div className="max-w-[1210px] mx-auto px-4">
           {/* Banner Container */}
-          <div className="relative h-48 md:h-[250px] rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-lg bg-slate-200">
-            {/* Desktop Banner Implementation */}
-            <div className="hidden md:block w-full h-full">
+          <div className="relative rounded-2xl md:rounded-[2rem] overflow-hidden shadow-lg bg-slate-200">
+            {/* Desktop Banner - Using aspect ratio for 1210x250 */}
+            <div className="hidden md:block w-full aspect-[1210/250]">
               {store.banner_url ? (
-                <img
-                  src={store.banner_url}
-                  alt={store.name}
-                  className="w-full h-full object-cover"
-                />
+                <img src={store.banner_url} alt={store.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full gradient-hero" />
               )}
             </div>
 
-            {/* Mobile Banner Implementation */}
-            <div className="block md:hidden w-full h-full">
+            {/* Mobile Banner */}
+            <div className="block md:hidden w-full h-48">
               {store.banner_mobile_url || store.banner_url ? (
-                <img
-                  src={store.banner_mobile_url || store.banner_url}
-                  alt={store.name}
-                  className="w-full h-full object-cover font-brand"
-                />
+                <img src={store.banner_mobile_url || store.banner_url} alt={store.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full gradient-hero" />
               )}
             </div>
           </div>
 
-          {/* Store Logo & Identity (Floating) */}
+          {/* Store Logo & Identity (Floating Overlap) */}
           <div className="relative flex flex-col items-center -mt-12 md:-mt-16 z-20">
             <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-xl bg-white overflow-hidden flex-shrink-0">
               {store.logo_url ? (
@@ -562,28 +554,57 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
               )}
             </div>
 
-            <div className="mt-4 text-center px-4 max-w-2xl">
+            <div className="mt-4 text-center px-4 max-w-2xl w-full">
               <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight leading-tight">
                 {store.name}
               </h1>
+
+              {store.address && (
+                <div className="mt-1 flex items-center justify-center gap-1 text-[10px] md:text-xs text-slate-400 font-medium">
+                  <MapPin className="w-3 h-3" />
+                  <span>{store.address}{store.city ? `, ${store.city}` : ""}</span>
+                </div>
+              )}
+
               {store.description && (
-                <p className="mt-1.5 text-slate-500 text-sm md:text-base leading-relaxed line-clamp-2">
-                  {store.description}
+                <p className="mt-2 text-slate-500 text-sm md:text-base leading-relaxed line-clamp-2 italic">
+                  "{store.description}"
                 </p>
               )}
 
-              <div className="mt-3 flex flex-wrap justify-center items-center gap-3">
-                <div className={`inline-flex items-center gap-2 font-bold px-4 py-1.5 rounded-full text-[10px] uppercase tracking-wider ${storeOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+              {/* Badges & Info Row */}
+              <div className="mt-4 flex flex-wrap justify-center items-center gap-2 md:gap-3">
+                <div className={`inline-flex items-center gap-2 font-bold px-4 py-1.5 rounded-full text-[10px] uppercase tracking-wider shadow-sm ${storeOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                   <span className={`w-2 h-2 rounded-full ${storeOpen ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
-                  {storeOpen ? "Aberto Agora" : "Fechado no Momento"}
+                  {storeOpen ? "Aberto Agora" : "Fechado"}
                 </div>
 
                 {todayHours && (
-                  <div className="inline-flex items-center gap-1.5 text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                    <Clock className="w-3 h-3" />
-                    Entregas: {todayHours}
+                  <div className="inline-flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    {todayHours}
                   </div>
                 )}
+
+                {(store as any).avg_delivery_time && (
+                  <div className="inline-flex items-center gap-1.5 text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                    <Zap className="w-3.5 h-3.5 text-amber-500 shadow-sm" />
+                    {(store as any).avg_delivery_time} min
+                  </div>
+                )}
+              </div>
+
+              {/* Contact Info (Simplified since address is now above) */}
+              <div className="mt-6 flex flex-col md:flex-row items-center justify-center gap-4 text-[10px] md:text-xs text-slate-400 font-medium border-t border-slate-100 pt-6">
+                <a
+                  href={`https://wa.me/55${store.phone.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-primary hover:bg-primary hover:text-white transition-all bg-primary/5 px-6 py-2 rounded-full font-bold uppercase tracking-wide border border-primary/10"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>Chamar no WhatsApp</span>
+                </a>
               </div>
             </div>
           </div>
