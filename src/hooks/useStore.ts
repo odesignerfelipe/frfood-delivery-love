@@ -10,13 +10,19 @@ export const useStore = (impersonateStoreId?: string) => {
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Read impersonate from URL if not explicitly provided as an argument
+  const effectiveImpersonateId =
+    impersonateStoreId ||
+    new URLSearchParams(window.location.search).get("impersonate") ||
+    undefined;
+
   const fetchStore = async () => {
     if (!user) return;
 
     let query = supabase.from("stores").select("*");
 
-    if (impersonateStoreId) {
-      query = query.eq("id", impersonateStoreId);
+    if (effectiveImpersonateId) {
+      query = query.eq("id", effectiveImpersonateId);
     } else {
       query = query.eq("owner_id", user.id);
     }
@@ -28,7 +34,7 @@ export const useStore = (impersonateStoreId?: string) => {
 
   useEffect(() => {
     fetchStore();
-  }, [user, impersonateStoreId]);
+  }, [user, effectiveImpersonateId]);
 
   useEffect(() => {
     if (!store?.id) return;

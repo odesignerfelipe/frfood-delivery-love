@@ -12,10 +12,12 @@ const AdminClients = () => {
     const [stores, setStores] = useState<any[]>([]);
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
-    // Edit
     const [editProfile, setEditProfile] = useState<any>(null);
     const [editName, setEditName] = useState("");
     const [editPhone, setEditPhone] = useState("");
+    const [editEmail, setEditEmail] = useState("");
+    const [editPassword, setEditPassword] = useState("");
+    const [savingEdit, setSavingEdit] = useState(false);
     // Delete
     const [deleteProfile, setDeleteProfile] = useState<any>(null);
     const [deleting, setDeleting] = useState(false);
@@ -56,16 +58,56 @@ const AdminClients = () => {
         setEditProfile(profile);
         setEditName(profile.full_name || "");
         setEditPhone(profile.phone || "");
+        setEditEmail("");
+        setEditPassword("");
     };
 
     const saveEdit = async () => {
         if (!editProfile) return;
-        const { error } = await supabase
+        setSavingEdit(true);
+
+        const { error: profileError } = await supabase
             .from("profiles")
             .update({ full_name: editName, phone: editPhone })
             .eq("id", editProfile.id);
-        if (error) { toast.error("Erro ao atualizar"); console.error(error); }
-        else { toast.success("Cliente atualizado!"); setEditProfile(null); fetchData(); }
+
+        if (profileError) {
+            toast.error("Erro ao atualizar perfil");
+            console.error(profileError);
+            setSavingEdit(false);
+            return;
+        }
+
+        if (editEmail || editPassword) {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-user-management`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${session?.access_token}`,
+                    },
+                    body: JSON.stringify({
+                        targetUserId: editProfile.user_id,
+                        email: editEmail || undefined,
+                        password: editPassword || undefined,
+                    }),
+                });
+
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || "Erro ao atualizar credenciais");
+                toast.success("Credenciais atualizadas com sucesso!");
+            } catch (error: any) {
+                toast.error("Perfil salvo, mas falha na senha/email: " + error.message);
+                setSavingEdit(false);
+                return;
+            }
+        }
+
+        toast.success("Cliente atualizado com sucesso!");
+        setEditProfile(null);
+        fetchData();
+        setSavingEdit(false);
     };
 
     const confirmDelete = async () => {
@@ -83,7 +125,7 @@ const AdminClients = () => {
                 (await supabase.from("products").select("id").eq("store_id", userStore.id)).data?.map((p: any) => p.id) || []
             );
             await supabase.from("products").delete().eq("store_id", userStore.id);
-            await supabase.from("delivery_areas").delete().eq("store_id", userStore.id);
+            await supabase.from("delivery_zones").delete().eq("store_id", userStore.id); // Fixed table name
             await supabase.from("coupons").delete().eq("store_id", userStore.id);
             await supabase.from("stores").delete().eq("id", userStore.id);
         }
@@ -223,10 +265,35 @@ const AdminClients = () => {
                             <label className="text-sm font-medium text-slate-700">Telefone</label>
                             <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="(00) 00000-0000" />
                         </div>
+                        <div className="border-t border-slate-200 mt-4 pt-4">
+                            <h3 className="text-sm font-semibold text-slate-800 mb-4">Acesso ao Sistema (Login)</h3>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-700">Novo E-mail</label>
+                                    <Input
+                                        type="email"
+                                        value={editEmail}
+                                        onChange={(e) => setEditEmail(e.target.value)}
+                                        placeholder="Deixe em branco para não alterar"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-700">Nova Senha</label>
+                                    <Input
+                                        type="password"
+                                        value={editPassword}
+                                        onChange={(e) => setEditPassword(e.target.value)}
+                                        placeholder="Deixe em branco para não alterar..."
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditProfile(null)}>Cancelar</Button>
-                        <Button onClick={saveEdit}>Salvar</Button>
+                        <Button onClick={saveEdit} disabled={savingEdit}>
+                            {savingEdit ? "Salvando..." : "Salvar"}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
