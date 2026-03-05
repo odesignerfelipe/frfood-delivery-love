@@ -17,15 +17,14 @@ type HeroStat = { value: string; label: string };
 export default function AdminSettings() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [settingsId, setSettingsId] = useState("");
     const [settings, setSettings] = useState({
-        id: "",
         primaryColor: "#ea384c",
         secondaryColor: "#f97316",
         logoUrl: "",
         faviconUrl: "",
         siteName: "FRFood",
         navbarButtonText: "Criar conta",
-        // Hero
         heroTitle: "O melhor sistema para o seu Delivery",
         heroSubtitle: "Receba pedidos ilimitados direto no seu WhatsApp. Sem comissões, sem taxas ocultas.",
         heroButtonText: "Começar agora",
@@ -38,20 +37,15 @@ export default function AdminSettings() {
             { value: "1M+", label: "Pedidos/mês" },
             { value: "0%", label: "Taxa por pedido" },
         ] as HeroStat[],
-        // Pricing
         pricingTitle: "Planos simples e transparentes",
         pricingSubtitle: "Todos os recursos inclusos em qualquer plano. Sem taxa por pedido.",
         monthlyPrice: "149,90",
         yearlyPrice: "124,90",
-        // CTA
         ctaTitle: "Pronto para vender mais?",
         ctaSubtitle: "Comece agora e tenha seu delivery online funcionando em minutos.",
         ctaButtonText: "Criar minha loja agora",
-        // FAQ
         faqItems: [] as FaqItem[],
-        // Footer
         footerText: "",
-        // Features
         features: [] as string[],
     });
     const navigate = useNavigate();
@@ -70,73 +64,56 @@ export default function AdminSettings() {
             console.error("Error fetching platform settings:", error);
         } else if (data) {
             const v = data as any;
+            setSettingsId(v.id || "");
+            // Read from the JSONB 'value' column first, then fall back to individual columns
+            const val = v.value || {};
             setSettings({
-                id: v.id || "",
-                primaryColor: v.primary_color || "#ea384c",
-                secondaryColor: v.secondary_color || "#f97316",
-                logoUrl: v.logo_url || "",
-                faviconUrl: v.favicon_url || "",
-                siteName: v.site_name || "FRFood",
-                navbarButtonText: v.navbar_button_text || "Criar conta",
-                heroTitle: v.hero_title || "O melhor sistema para o seu Delivery",
-                heroSubtitle: v.hero_subtitle || "",
-                heroButtonText: v.hero_button_text || "Começar agora",
-                heroImageUrl: v.hero_image_url || "",
-                heroBgType: v.hero_bg_type || "gradient",
-                heroBgColor: v.hero_bg_color || "from-orange-500 to-orange-600",
-                heroBadgeText: v.hero_badge_text || "Plataforma completa de delivery",
-                heroStats: v.hero_stats || [{ value: "5.000+", label: "Restaurantes" }, { value: "1M+", label: "Pedidos/mês" }, { value: "0%", label: "Taxa por pedido" }],
-                pricingTitle: v.pricing_title || "Planos simples e transparentes",
-                pricingSubtitle: v.pricing_subtitle || "",
-                monthlyPrice: v.monthly_price || "149,90",
-                yearlyPrice: v.yearly_price || "124,90",
-                ctaTitle: v.cta_title || "Pronto para vender mais?",
-                ctaSubtitle: v.cta_subtitle || "",
-                ctaButtonText: v.cta_button_text || "Criar minha loja agora",
-                faqItems: v.faq_items || [],
-                footerText: v.footer_text || "",
-                features: v.value?.features || [],
+                primaryColor: v.primary_color || val.primaryColor || "#ea384c",
+                secondaryColor: val.secondaryColor || v.secondary_color || "#f97316",
+                logoUrl: v.logo_url || val.logoUrl || "",
+                faviconUrl: val.faviconUrl || v.favicon_url || "",
+                siteName: val.siteName || v.site_name || "FRFood",
+                navbarButtonText: val.navbarButtonText || v.navbar_button_text || "Criar conta",
+                heroTitle: val.heroTitle || v.hero_title || "O melhor sistema para o seu Delivery",
+                heroSubtitle: val.heroSubtitle || v.hero_subtitle || "",
+                heroButtonText: val.heroButtonText || v.hero_button_text || "Começar agora",
+                heroImageUrl: val.heroImageUrl || v.hero_image_url || "",
+                heroBgType: val.heroBgType || v.hero_bg_type || "gradient",
+                heroBgColor: val.heroBgColor || v.hero_bg_color || "from-orange-500 to-orange-600",
+                heroBadgeText: val.heroBadgeText || v.hero_badge_text || "Plataforma completa de delivery",
+                heroStats: val.heroStats || v.hero_stats || [{ value: "5.000+", label: "Restaurantes" }, { value: "1M+", label: "Pedidos/mês" }, { value: "0%", label: "Taxa por pedido" }],
+                pricingTitle: val.pricingTitle || v.pricing_title || "Planos simples e transparentes",
+                pricingSubtitle: val.pricingSubtitle || v.pricing_subtitle || "",
+                monthlyPrice: val.monthlyPrice || v.monthly_price || "149,90",
+                yearlyPrice: val.yearlyPrice || v.yearly_price || "124,90",
+                ctaTitle: val.ctaTitle || v.cta_title || "Pronto para vender mais?",
+                ctaSubtitle: val.ctaSubtitle || v.cta_subtitle || "",
+                ctaButtonText: val.ctaButtonText || v.cta_button_text || "Criar minha loja agora",
+                faqItems: val.faqItems || v.faq_items || [],
+                footerText: val.footerText || v.footer_text || "",
+                features: val.features || [],
             });
         }
         setLoading(false);
     };
 
     const handleSave = async () => {
-        if (!settings.id) { toast.error("Erro: ID de configurações não encontrado."); return; }
+        if (!settingsId) { toast.error("Erro: ID de configurações não encontrado."); return; }
         setSaving(true);
+
+        // Store ALL settings inside the 'value' JSONB column + only the known base columns
         const { error } = await supabase
             .from("platform_settings")
             .update({
                 primary_color: settings.primaryColor,
-                secondary_color: settings.secondaryColor,
                 logo_url: settings.logoUrl,
-                favicon_url: settings.faviconUrl,
-                site_name: settings.siteName,
-                navbar_button_text: settings.navbarButtonText,
-                hero_title: settings.heroTitle,
-                hero_subtitle: settings.heroSubtitle,
-                hero_button_text: settings.heroButtonText,
-                hero_image_url: settings.heroImageUrl,
-                hero_bg_type: settings.heroBgType,
-                hero_bg_color: settings.heroBgColor,
-                hero_badge_text: settings.heroBadgeText,
-                hero_stats: settings.heroStats,
-                pricing_title: settings.pricingTitle,
-                pricing_subtitle: settings.pricingSubtitle,
-                monthly_price: settings.monthlyPrice,
-                yearly_price: settings.yearlyPrice,
-                cta_title: settings.ctaTitle,
-                cta_subtitle: settings.ctaSubtitle,
-                cta_button_text: settings.ctaButtonText,
-                faq_items: settings.faqItems,
-                footer_text: settings.footerText,
-                value: { features: settings.features },
+                value: settings as any,
             } as any)
-            .eq("id", settings.id);
+            .eq("id", settingsId);
 
         if (error) {
-            toast.error("Erro ao salvar configurações");
-            console.error(error);
+            console.error("Save error:", error);
+            toast.error("Erro ao salvar: " + (error.message || "Tente novamente"));
         } else {
             toast.success("Configurações salvas! Recarregue a página inicial para ver as mudanças.", { duration: 5000 });
         }
@@ -182,19 +159,17 @@ export default function AdminSettings() {
     const removeFeature = (i: number) => setSettings(prev => ({ ...prev, features: prev.features.filter((_, idx) => idx !== i) }));
 
     if (loading) return (
-        <div className="p-6 flex items-center justify-center min-h-screen">
+        <div className="p-6 flex items-center justify-center min-h-[60vh]">
             <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
     );
 
     return (
-        <div className="p-4 md:p-6 space-y-6 bg-slate-50 min-h-screen">
+        <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
-                        <ArrowLeft className="w-5 h-5" />
-                    </Button>
-                    <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">Configurações da Plataforma</h1>
+                <div>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Configurações da Plataforma</h1>
+                    <p className="text-sm text-slate-500">Personalize a aparência e conteúdo da landing page</p>
                 </div>
                 <Button onClick={handleSave} disabled={saving} size="lg">
                     {saving ? (
@@ -379,7 +354,7 @@ export default function AdminSettings() {
                     </Card>
                 </TabsContent>
 
-                {/* === EXTRAS (Features + Footer) === */}
+                {/* === EXTRAS === */}
                 <TabsContent value="extras">
                     <div className="grid gap-6 md:grid-cols-2">
                         <Card className="border-none shadow-sm">
