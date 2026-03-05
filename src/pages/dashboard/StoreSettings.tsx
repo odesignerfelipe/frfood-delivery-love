@@ -106,15 +106,30 @@ const StoreSettings = () => {
     if (!store) return;
     setUploading(field);
     const path = `${store.id}/${field}/${Date.now()}-${file.name}`;
-    const { error } = await supabase.storage.from("store-assets").upload(path, file);
-    if (error) {
+    const { error: uploadError } = await supabase.storage.from("store-assets").upload(path, file);
+
+    if (uploadError) {
       toast.error("Erro ao enviar imagem");
       setUploading(null);
       return;
     }
+
     const { data: { publicUrl } } = supabase.storage.from("store-assets").getPublicUrl(path);
-    setForm({ ...form, [field]: publicUrl });
-    toast.success("Imagem enviada!");
+
+    // Immediate save to database for images
+    const { error: updateError } = await supabase
+      .from("stores")
+      .update({ [field]: publicUrl })
+      .eq("id", store.id);
+
+    if (updateError) {
+      toast.error("Erro ao salvar imagem no banco de dados");
+    } else {
+      setForm({ ...form, [field]: publicUrl });
+      toast.success("Imagem atualizada com sucesso!");
+      refetch(); // Ensure context is updated
+    }
+
     setUploading(null);
   };
 
