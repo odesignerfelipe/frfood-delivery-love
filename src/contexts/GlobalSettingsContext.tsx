@@ -105,32 +105,33 @@ export const GlobalSettingsProvider = ({ children }: { children: React.ReactNode
                 }
 
                 if (data) {
-                    const val = data as any;
+                    const row = data as any;
+                    const val = row.value || {};
                     const newSettings: GlobalThemeSettings = {
-                        primaryColor: val.primary_color || defaultSettings.primaryColor,
-                        secondaryColor: val.secondary_color || defaultSettings.secondaryColor,
-                        logoUrl: val.logo_url || defaultSettings.logoUrl,
-                        faviconUrl: val.favicon_url || defaultSettings.faviconUrl,
-                        siteName: val.site_name || defaultSettings.siteName,
-                        navbarButtonText: val.navbar_button_text || defaultSettings.navbarButtonText,
-                        heroTitle: val.hero_title || defaultSettings.heroTitle,
-                        heroSubtitle: val.hero_subtitle || defaultSettings.heroSubtitle,
-                        heroButtonText: val.hero_button_text || defaultSettings.heroButtonText,
-                        heroImageUrl: val.hero_image_url || defaultSettings.heroImageUrl,
-                        heroBgType: val.hero_bg_type || defaultSettings.heroBgType,
-                        heroBgColor: val.hero_bg_color || defaultSettings.heroBgColor,
-                        heroBadgeText: val.hero_badge_text || defaultSettings.heroBadgeText,
-                        heroStats: val.hero_stats || defaultSettings.heroStats,
-                        pricingTitle: val.pricing_title || defaultSettings.pricingTitle,
-                        pricingSubtitle: val.pricing_subtitle || defaultSettings.pricingSubtitle,
-                        monthlyPrice: val.monthly_price || defaultSettings.monthlyPrice,
-                        yearlyPrice: val.yearly_price || defaultSettings.yearlyPrice,
-                        ctaTitle: val.cta_title || defaultSettings.ctaTitle,
-                        ctaSubtitle: val.cta_subtitle || defaultSettings.ctaSubtitle,
-                        ctaButtonText: val.cta_button_text || defaultSettings.ctaButtonText,
-                        faqItems: val.faq_items || defaultSettings.faqItems,
-                        footerText: val.footer_text || defaultSettings.footerText,
-                        features: (val.value as any)?.features || defaultSettings.features,
+                        primaryColor: row.primary_color || val.primaryColor || defaultSettings.primaryColor,
+                        secondaryColor: val.secondaryColor || row.secondary_color || defaultSettings.secondaryColor,
+                        logoUrl: row.logo_url || val.logoUrl || defaultSettings.logoUrl,
+                        faviconUrl: val.faviconUrl || row.favicon_url || defaultSettings.faviconUrl,
+                        siteName: val.siteName || row.site_name || defaultSettings.siteName,
+                        navbarButtonText: val.navbarButtonText || row.navbar_button_text || defaultSettings.navbarButtonText,
+                        heroTitle: val.heroTitle || row.hero_title || defaultSettings.heroTitle,
+                        heroSubtitle: val.heroSubtitle || row.hero_subtitle || defaultSettings.heroSubtitle,
+                        heroButtonText: val.heroButtonText || row.hero_button_text || defaultSettings.heroButtonText,
+                        heroImageUrl: val.heroImageUrl || row.hero_image_url || defaultSettings.heroImageUrl,
+                        heroBgType: val.heroBgType || row.hero_bg_type || defaultSettings.heroBgType,
+                        heroBgColor: val.heroBgColor || row.hero_bg_color || defaultSettings.heroBgColor,
+                        heroBadgeText: val.heroBadgeText || row.hero_badge_text || defaultSettings.heroBadgeText,
+                        heroStats: val.heroStats || row.hero_stats || defaultSettings.heroStats,
+                        pricingTitle: val.pricingTitle || row.pricing_title || defaultSettings.pricingTitle,
+                        pricingSubtitle: val.pricingSubtitle || row.pricing_subtitle || defaultSettings.pricingSubtitle,
+                        monthlyPrice: val.monthlyPrice || row.monthly_price || defaultSettings.monthlyPrice,
+                        yearlyPrice: val.yearlyPrice || row.yearly_price || defaultSettings.yearlyPrice,
+                        ctaTitle: val.ctaTitle || row.cta_title || defaultSettings.ctaTitle,
+                        ctaSubtitle: val.ctaSubtitle || row.cta_subtitle || defaultSettings.ctaSubtitle,
+                        ctaButtonText: val.ctaButtonText || row.cta_button_text || defaultSettings.ctaButtonText,
+                        faqItems: val.faqItems || row.faq_items || defaultSettings.faqItems,
+                        footerText: val.footerText || row.footer_text || defaultSettings.footerText,
+                        features: val.features || row.features || defaultSettings.features,
                     };
 
                     setSettings(newSettings);

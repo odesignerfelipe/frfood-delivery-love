@@ -26,17 +26,19 @@ const AdminLandingPage = () => {
         if (error) {
             toast.error("Erro ao carregar conteúdo");
         } else if (data) {
+            const row = data as any;
+            const val = row.value || {};
             setContent({
-                id: data.id,
+                id: row.id,
                 hero: {
-                    title: (data as any).hero_title || "",
-                    subtitle: (data as any).hero_subtitle || "",
-                    buttonText: (data as any).hero_button_text || "",
-                    imageUrl: (data as any).hero_image_url || "",
-                    bgType: (data as any).hero_bg_type || "gradient",
-                    bgColor: (data as any).hero_bg_color || "",
+                    title: val.heroTitle || row.hero_title || "",
+                    subtitle: val.heroSubtitle || row.hero_subtitle || "",
+                    buttonText: val.heroButtonText || row.hero_button_text || "",
+                    imageUrl: val.heroImageUrl || row.hero_image_url || "",
+                    bgType: val.heroBgType || row.hero_bg_type || "gradient",
+                    bgColor: val.heroBgColor || row.hero_bg_color || "",
                 },
-                features: (data.value as any)?.features || []
+                features: val.features || row.features || []
             });
         } else {
             // Initial fallback
@@ -59,16 +61,24 @@ const AdminLandingPage = () => {
             return;
         }
         setSaving(true);
+
+        // Fetch current values so we don't overwrite everything else stored in JSONB
+        const { data: currentData } = await supabase.from("platform_settings").select("value").eq("id", content.id).single();
+        const currentVal = (currentData?.value as any) || {};
+
         const { error } = await supabase
             .from("platform_settings")
             .update({
-                hero_title: content.hero.title,
-                hero_subtitle: content.hero.subtitle,
-                hero_button_text: content.hero.buttonText,
-                hero_image_url: content.hero.imageUrl,
-                hero_bg_type: content.hero.bgType,
-                hero_bg_color: content.hero.bgColor,
-                value: { features: content.features }
+                value: {
+                    ...currentVal,
+                    heroTitle: content.hero.title,
+                    heroSubtitle: content.hero.subtitle,
+                    heroButtonText: content.hero.buttonText,
+                    heroImageUrl: content.hero.imageUrl,
+                    heroBgType: content.hero.bgType,
+                    heroBgColor: content.hero.bgColor,
+                    features: content.features
+                } as any
             })
             .eq("id", content.id);
 
