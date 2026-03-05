@@ -6,13 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ShoppingBag, Plus, Minus, Trash2, X, Send, MapPin, Search, Star, Clock, Phone, Mail, Lock, Check } from "lucide-react";
+import { ShoppingBag, Plus, Minus, Trash2, X, Send, MapPin, Search, Star, Clock, Phone, Mail, Lock, Check, AlertTriangle } from "lucide-react";
 import { checkStoreStatus } from "@/lib/utils";
+
+interface SelectedVariation {
+  group: string;
+  selected: { name: string; price: number }[];
+}
+
 interface CartItem {
   product: any;
   quantity: number;
   notes: string;
+  variations: SelectedVariation[];
+  variationsPrice: number;
 }
 
 const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
@@ -22,6 +31,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   const [store, setStore] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [productVariations, setProductVariations] = useState<Record<string, any[]>>({});
   const [deliveryZones, setDeliveryZones] = useState<any[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -33,6 +43,11 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [stickySearchOpen, setStickySearchOpen] = useState(false);
+
+  // Variation modal state
+  const [variationModalOpen, setVariationModalOpen] = useState(false);
+  const [variationProduct, setVariationProduct] = useState<any>(null);
+  const [variationSelections, setVariationSelections] = useState<Record<string, { name: string; price: number }[]>>({});
 
   const [session, setSession] = useState<any>(null);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
@@ -85,6 +100,19 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     setCategories(cats.data || []);
     setProducts(prods.data || []);
     setDeliveryZones(zones.data || []);
+
+    // Fetch all variations for products
+    const productIds = (prods.data || []).map((p: any) => p.id);
+    if (productIds.length > 0) {
+      const { data: vars } = await supabase.from("product_variations").select("*").in("product_id", productIds).order("sort_order");
+      const varMap: Record<string, any[]> = {};
+      (vars || []).forEach((v: any) => {
+        if (!varMap[v.product_id]) varMap[v.product_id] = [];
+        varMap[v.product_id].push(v);
+      });
+      setProductVariations(varMap);
+    }
+
     setLoading(false);
   }, [slug]);
 
@@ -92,7 +120,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     fetchData();
   }, [fetchData]);
 
-  // Real-time store sync (feature 6)
+  // Real-time store sync
   useEffect(() => {
     if (!store) return;
     const channel = supabase
@@ -107,6 +135,20 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [store?.id]);
+
+  // Real-time product sync (for sold-out updates)
+  useEffect(() => {
+    if (!store) return;
+    const channel = supabase
+      .channel(`products-sync-${store.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products", filter: `store_id=eq.${store.id}` },
+        () => { fetchData(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [store?.id, fetchData]);
 
   // Dynamic Title and Favicon
   useEffect(() => {
@@ -124,7 +166,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     }
   }, [store?.name, store?.logo_url]);
 
-  // Sticky header on scroll (feature 7)
+  // Sticky header on scroll
   useEffect(() => {
     const handleScroll = () => {
       setShowStickyHeader(window.scrollY > 280);
@@ -146,7 +188,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   const storeOpen = checkStoreStatus(store);
   const todayHours = getTodayHours();
 
-  // Fechamento reativo de carrinho e avisos
+  // Close cart on store close
   useEffect(() => {
     if (!loading && store && !storeOpen) {
       if (cartOpen || checkoutOpen) {
@@ -157,28 +199,98 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     }
   }, [storeOpen, loading, store, cartOpen, checkoutOpen]);
 
-  const addToCart = (product: any) => {
+  const handleAddToCart = (product: any) => {
     if (!storeOpen) { toast.error("Loja fechada no momento"); return; }
+    if (product.is_sold_out) { toast.error("Este produto está esgotado"); return; }
+
+    const vars = productVariations[product.id];
+    if (vars && vars.length > 0) {
+      // Open variation modal
+      setVariationProduct(product);
+      setVariationSelections({});
+      setVariationModalOpen(true);
+    } else {
+      // Add directly
+      addToCartDirect(product, [], 0);
+    }
+  };
+
+  const addToCartDirect = (product: any, selectedVariations: SelectedVariation[], variationsPrice: number) => {
     setCart((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id);
-      if (existing) return prev.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { product, quantity: 1, notes: "" }];
+      // For products with variations, always add as new item (different selections)
+      if (selectedVariations.length > 0) {
+        return [...prev, { product, quantity: 1, notes: "", variations: selectedVariations, variationsPrice }];
+      }
+      const existing = prev.find((i) => i.product.id === product.id && i.variations.length === 0);
+      if (existing) return prev.map((i) => i.product.id === product.id && i.variations.length === 0 ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { product, quantity: 1, notes: "", variations: [], variationsPrice: 0 }];
     });
     toast.success(`${product.name} adicionado!`);
   };
 
-  const updateQuantity = (productId: string, delta: number) => {
-    setCart((prev) => prev.map((i) => i.product.id === productId ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i).filter((i) => i.quantity > 0));
+  const confirmVariationSelection = () => {
+    if (!variationProduct) return;
+    const vars = productVariations[variationProduct.id] || [];
+
+    // Validate required variations
+    for (const v of vars) {
+      if (v.required) {
+        const selected = variationSelections[v.id] || [];
+        if (selected.length === 0) {
+          toast.error(`Selecione uma opção para "${v.name}"`);
+          return;
+        }
+      }
+    }
+
+    // Build selections
+    const selectedVariations: SelectedVariation[] = [];
+    let totalVarPrice = 0;
+    for (const v of vars) {
+      const selected = variationSelections[v.id] || [];
+      if (selected.length > 0) {
+        selectedVariations.push({ group: v.name, selected });
+        totalVarPrice += selected.reduce((sum, s) => sum + s.price, 0);
+      }
+    }
+
+    addToCartDirect(variationProduct, selectedVariations, totalVarPrice);
+    setVariationModalOpen(false);
+    setVariationProduct(null);
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((i) => i.product.id !== productId));
+  const toggleVariationOption = (variationId: string, option: { name: string; price: number }, maxSelections: number) => {
+    setVariationSelections(prev => {
+      const current = prev[variationId] || [];
+      const exists = current.find(o => o.name === option.name);
+      if (exists) {
+        return { ...prev, [variationId]: current.filter(o => o.name !== option.name) };
+      }
+      if (maxSelections === 1) {
+        return { ...prev, [variationId]: [option] };
+      }
+      if (current.length >= maxSelections) {
+        toast.error(`Máximo de ${maxSelections} opções`);
+        return prev;
+      }
+      return { ...prev, [variationId]: [...current, option] };
+    });
   };
 
-  const subtotal = cart.reduce((s, i) => {
-    const price = i.product.promotional_price > 0 ? Number(i.product.promotional_price) : Number(i.product.price);
-    return s + price * i.quantity;
-  }, 0);
+  const updateQuantity = (index: number, delta: number) => {
+    setCart((prev) => prev.map((item, i) => i === index ? { ...item, quantity: Math.max(0, item.quantity + delta) } : item).filter((i) => i.quantity > 0));
+  };
+
+  const removeFromCart = (index: number) => {
+    setCart((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const getItemPrice = (item: CartItem) => {
+    const basePrice = item.product.promotional_price > 0 ? Number(item.product.promotional_price) : Number(item.product.price);
+    return basePrice + item.variationsPrice;
+  };
+
+  const subtotal = cart.reduce((s, i) => s + getItemPrice(i) * i.quantity, 0);
 
   // Dynamic Coupon Verification
   useEffect(() => {
@@ -256,9 +368,10 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         product_id: i.product.id,
         product_name: i.product.name,
         quantity: i.quantity,
-        unit_price: i.product.promotional_price > 0 ? Number(i.product.promotional_price) : Number(i.product.price),
-        subtotal: (i.product.promotional_price > 0 ? Number(i.product.promotional_price) : Number(i.product.price)) * i.quantity,
+        unit_price: getItemPrice(i),
+        subtotal: getItemPrice(i) * i.quantity,
         notes: i.notes,
+        variations: (i.variations.length > 0 ? i.variations : []) as any,
       }))
     );
 
@@ -320,7 +433,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   }
 
 
-  // Dynamic color theming (feature 2)
+  // Dynamic color theming
   const storeColor = store?.primary_color || "#ea580c";
   const hexToHSL = (hex: string) => {
     let r = 0, g = 0, b = 0;
@@ -348,7 +461,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   return (
     <div className="min-h-screen bg-muted/50 pb-24" style={{ "--primary": primaryHSL, "--store-color": storeColor } as React.CSSProperties}>
 
-      {/* Sticky Compact Header (feature 7) */}
+      {/* Sticky Compact Header */}
       <div
         className={`fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-b border-border shadow-sm transition-all duration-300 ${showStickyHeader ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
           }`}
@@ -505,7 +618,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
               <h2 className="text-lg font-bold text-foreground mb-3 border-b border-border pb-2">{cat.name}</h2>
               <div className="space-y-3">
                 {cat.products.map((p: any) => (
-                  <ProductCard key={p.id} product={p} onAdd={() => addToCart(p)} />
+                  <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />
                 ))}
               </div>
             </div>
@@ -516,7 +629,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
           <div className="mb-8">
             <h2 className="text-lg font-bold text-foreground mb-3 border-b border-border pb-2">Outros</h2>
             <div className="space-y-3">
-              {uncategorized.map((p) => <ProductCard key={p.id} product={p} onAdd={() => addToCart(p)} />)}
+              {uncategorized.map((p) => <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />)}
             </div>
           </div>
         )}
@@ -527,6 +640,94 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
           </p>
         )}
       </div>
+
+      {/* Variation Selection Modal */}
+      {variationModalOpen && variationProduct && (
+        <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}>
+          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                {variationProduct.image_url && (
+                  <img src={variationProduct.image_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                )}
+                <div>
+                  <p className="text-lg font-bold">{variationProduct.name}</p>
+                  <p className="text-sm text-primary font-medium">
+                    R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}
+                  </p>
+                </div>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-5 mt-2">
+              {(productVariations[variationProduct.id] || []).map((v: any) => (
+                <div key={v.id}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="font-bold text-foreground text-sm">{v.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {v.required ? "Obrigatório" : "Opcional"} • {v.max_selections === 1 ? "Escolha 1" : `Até ${v.max_selections}`}
+                      </p>
+                    </div>
+                    {v.required && (
+                      <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">OBRIGATÓRIO</span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    {(v.options || []).map((opt: any, oi: number) => {
+                      const isSelected = (variationSelections[v.id] || []).some(s => s.name === opt.name);
+                      return (
+                        <button
+                          key={oi}
+                          onClick={() => toggleVariationOption(v.id, opt, v.max_selections)}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm transition-all ${isSelected
+                            ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/30"
+                            : "border-border bg-card text-muted-foreground hover:border-primary/30"
+                            }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"}`}>
+                              {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                            </div>
+                            <span className={isSelected ? "font-medium text-foreground" : ""}>{opt.name}</span>
+                          </div>
+                          {opt.price > 0 && (
+                            <span className="text-xs font-medium text-primary">+R$ {opt.price.toFixed(2)}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {/* Price preview */}
+              <div className="bg-muted/50 rounded-xl p-3 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Produto</span>
+                  <span>R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}</span>
+                </div>
+                {Object.values(variationSelections).flat().filter(s => s.price > 0).length > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Opcionais</span>
+                    <span>+R$ {Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0).toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-foreground text-base pt-1 border-t border-border mt-1">
+                  <span>Total</span>
+                  <span>R$ {(
+                    (variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price) +
+                    Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0)
+                  ).toFixed(2)}</span>
+                </div>
+              </div>
+
+              <Button variant="hero" className="w-full" onClick={confirmVariationSelection}>
+                <Plus className="w-4 h-4 mr-2" /> Adicionar ao pedido
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Cart FAB */}
       {totalItems > 0 && (
@@ -555,8 +756,8 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {cart.map((item) => (
-                <div key={item.product.id} className="bg-muted/50 rounded-xl p-4">
+              {cart.map((item, idx) => (
+                <div key={idx} className="bg-muted/50 rounded-xl p-4">
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="font-semibold text-foreground">{item.product.name}</p>
@@ -564,20 +765,30 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
                         {item.product.promotional_price > 0 ? (
                           <>
                             <span className="text-xs text-muted-foreground line-through">R$ {(item.product.price * item.quantity).toFixed(2)}</span>
-                            <span className="text-sm text-primary font-bold">R$ {(item.product.promotional_price * item.quantity).toFixed(2)}</span>
+                            <span className="text-sm text-primary font-bold">R$ {(getItemPrice(item) * item.quantity).toFixed(2)}</span>
                           </>
                         ) : (
-                          <span className="text-sm text-primary font-medium">R$ {(item.product.price * item.quantity).toFixed(2)}</span>
+                          <span className="text-sm text-primary font-medium">R$ {(getItemPrice(item) * item.quantity).toFixed(2)}</span>
                         )}
                       </div>
                     </div>
-                    <button onClick={() => removeFromCart(item.product.id)}><Trash2 className="w-4 h-4 text-destructive" /></button>
+                    <button onClick={() => removeFromCart(idx)}><Trash2 className="w-4 h-4 text-destructive" /></button>
                   </div>
+                  {/* Variation details in cart */}
+                  {item.variations.length > 0 && (
+                    <div className="mt-1.5 space-y-0.5">
+                      {item.variations.map((v, vi) => (
+                        <p key={vi} className="text-xs text-muted-foreground">
+                          <span className="font-medium">{v.group}:</span> {v.selected.map(s => `${s.name}${s.price > 0 ? ` (+R$${s.price.toFixed(2)})` : ""}`).join(", ")}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   {item.product.description && <p className="text-xs text-muted-foreground mt-1 mb-2 line-clamp-1">{item.product.description}</p>}
                   <div className="flex items-center gap-3 mt-2">
-                    <button onClick={() => updateQuantity(item.product.id, -1)} className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center"><Minus className="w-3 h-3" /></button>
+                    <button onClick={() => updateQuantity(idx, -1)} className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center"><Minus className="w-3 h-3" /></button>
                     <span className="font-bold text-foreground">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.product.id, 1)} className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Plus className="w-3 h-3" /></button>
+                    <button onClick={() => updateQuantity(idx, 1)} className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Plus className="w-3 h-3" /></button>
                   </div>
                 </div>
               ))}
@@ -724,43 +935,65 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   );
 };
 
-const ProductCard = ({ product, onAdd }: { product: any; onAdd: () => void }) => (
-  <div className="bg-card rounded-xl border border-border/50 shadow-card overflow-hidden flex" style={{ minHeight: product.image_url ? '130px' : undefined }}>
-    {product.image_url && (
-      <div className="w-[130px] flex-shrink-0 relative">
-        <img src={product.image_url} alt={product.name} className="absolute inset-0 w-full h-full object-cover object-center rounded-l-xl" loading="lazy" />
-      </div>
-    )}
-    <div className="flex-1 p-4 flex flex-col justify-between">
-      <div>
-        <h3 className="font-bold text-foreground">{product.name}</h3>
-        {product.description && <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{product.description}</p>}
-        {product.serves_people > 0 && (
-          <p className="text-xs font-medium text-primary bg-primary/10 inline-block px-2 py-0.5 rounded-full mt-2">
-            Serve até {product.serves_people} {product.serves_people === 1 ? 'pessoa' : 'pessoas'}
-          </p>
-        )}
-      </div>
-      <div className="flex items-center justify-between mt-3">
-        <div className="flex flex-col">
-          {product.promotional_price > 0 ? (
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground line-through text-xs font-medium">R$ {Number(product.price).toFixed(2)}</span>
-              <span className="text-primary font-bold text-lg">R$ {Number(product.promotional_price).toFixed(2)}</span>
+const ProductCard = ({ product, onAdd, hasVariations }: { product: any; onAdd: () => void; hasVariations?: boolean }) => {
+  const isSoldOut = product.is_sold_out;
+
+  return (
+    <div className={`bg-card rounded-xl border border-border/50 shadow-card overflow-hidden flex ${isSoldOut ? "opacity-80" : ""}`} style={{ minHeight: product.image_url ? '130px' : undefined }}>
+      {product.image_url && (
+        <div className="w-[130px] flex-shrink-0 relative">
+          <img src={product.image_url} alt={product.name} className={`absolute inset-0 w-full h-full object-cover object-center rounded-l-xl ${isSoldOut ? "grayscale" : ""}`} loading="lazy" />
+          {isSoldOut && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-l-xl">
+              <span className="bg-red-600 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">ESGOTADO</span>
             </div>
-          ) : (
-            <span className="text-primary font-bold text-lg">R$ {Number(product.price).toFixed(2)}</span>
           )}
         </div>
-        <button
-          onClick={onAdd}
-          className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity shadow-sm"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
+      )}
+      <div className="flex-1 p-4 flex flex-col justify-between">
+        <div>
+          <h3 className={`font-bold ${isSoldOut ? "text-muted-foreground" : "text-foreground"}`}>{product.name}</h3>
+          {product.description && <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{product.description}</p>}
+          {product.serves_people > 0 && (
+            <p className="text-xs font-medium text-primary bg-primary/10 inline-block px-2 py-0.5 rounded-full mt-2">
+              Serve até {product.serves_people} {product.serves_people === 1 ? 'pessoa' : 'pessoas'}
+            </p>
+          )}
+          {hasVariations && !isSoldOut && (
+            <p className="text-[10px] font-medium text-blue-600 bg-blue-50 inline-block px-2 py-0.5 rounded-full mt-1 ml-1">
+              Personalizável
+            </p>
+          )}
+        </div>
+        {isSoldOut ? (
+          <div className="mt-3">
+            <p className="text-xs text-red-600 leading-relaxed">
+              Infelizmente o(a) <span className="font-bold">{product.name}</span> acabou. Porém, temos diversos outros pratos deliciosos e disponíveis!
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between mt-3">
+            <div className="flex flex-col">
+              {product.promotional_price > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground line-through text-xs font-medium">R$ {Number(product.price).toFixed(2)}</span>
+                  <span className="text-primary font-bold text-lg">R$ {Number(product.promotional_price).toFixed(2)}</span>
+                </div>
+              ) : (
+                <span className="text-primary font-bold text-lg">R$ {Number(product.price).toFixed(2)}</span>
+              )}
+            </div>
+            <button
+              onClick={onAdd}
+              className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity shadow-sm"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default PublicStore;

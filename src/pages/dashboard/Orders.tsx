@@ -2,6 +2,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/hooks/useStore";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Clock, Check, ChefHat, Truck, X, Printer, GripVertical } from "lucide-react";
 import { format, isToday, isThisWeek, isThisMonth, isThisYear, parseISO, subDays } from "date-fns";
@@ -24,6 +27,11 @@ const Orders = () => {
   const [orderItems, setOrderItems] = useState<Record<string, any[]>>({});
   const [viewMode, setViewMode] = useState<"kanban" | "history">("kanban");
   const [historyFilter, setHistoryFilter] = useState<"today" | "week" | "month" | "year" | "all">("today");
+
+  // Cancellation modal state
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   const fetchOrders = useCallback(async () => {
     if (!store) return;
@@ -52,10 +60,26 @@ const Orders = () => {
     fetchOrders();
   };
 
-  const cancelOrder = async (orderId: string) => {
-    if (!confirm("Cancelar este pedido?")) return;
-    await supabase.from("orders").update({ status: "cancelled" }).eq("id", orderId);
+  const openCancelModal = (orderId: string) => {
+    setCancelOrderId(orderId);
+    setCancelReason("");
+    setCancelModalOpen(true);
+  };
+
+  const confirmCancel = async () => {
+    if (!cancelOrderId) return;
+    if (!cancelReason.trim()) {
+      toast.error("Informe o motivo do cancelamento");
+      return;
+    }
+    await supabase.from("orders").update({
+      status: "cancelled",
+      cancellation_reason: cancelReason.trim(),
+    }).eq("id", cancelOrderId);
     toast.success("Pedido cancelado");
+    setCancelModalOpen(false);
+    setCancelOrderId(null);
+    setCancelReason("");
     fetchOrders();
   };
 
@@ -94,12 +118,30 @@ const Orders = () => {
       setDragging(null);
       return;
     }
+    if (targetStatus === "cancelled") {
+      openCancelModal(orderId);
+      setDragging(null);
+      return;
+    }
     await updateStatus(orderId, targetStatus);
     setDragging(null);
   };
 
+  const renderVariations = (item: any) => {
+    const variations = item.variations;
+    if (!variations || !Array.isArray(variations) || variations.length === 0) return null;
+    return (
+      <div className="mt-1 space-y-0.5">
+        {variations.map((v: any, i: number) => (
+          <p key={i} className="text-[11px] text-muted-foreground pl-3">
+            <span className="font-medium">{v.group}:</span> {Array.isArray(v.selected) ? v.selected.map((s: any) => `${s.name}${s.price > 0 ? ` (+R$${s.price.toFixed(2)})` : ""}`).join(", ") : v.selected}
+          </p>
+        ))}
+      </div>
+    );
+  };
+
   const handlePrint = async (order: any) => {
-    // We need the items to print properly
     let itemsToPrint = orderItems[order.id];
     if (!itemsToPrint) {
       const { data } = await supabase.from("order_items").select("*").eq("order_id", order.id);
@@ -114,6 +156,15 @@ const Orders = () => {
       cartao_debito: "Cartão de Débito",
     };
     const paymentLabel = order.payment_method ? (paymentLabels[order.payment_method] || order.payment_method.toUpperCase()) : "";
+
+    const renderItemVariations = (item: any) => {
+      const vars = item.variations;
+      if (!vars || !Array.isArray(vars) || vars.length === 0) return "";
+      return vars.map((v: any) => {
+        const selected = Array.isArray(v.selected) ? v.selected.map((s: any) => `${s.name}${s.price > 0 ? ` (+R$${s.price.toFixed(2)})` : ""}`).join(", ") : v.selected;
+        return `<div class="item-note">${v.group}: ${selected}</div>`;
+      }).join("");
+    };
 
     const printContent = `
       <html>
@@ -148,6 +199,7 @@ const Orders = () => {
               <span class="item-name">${item.quantity}x ${item.product_name}</span>
               <span>R$ ${item.subtotal.toFixed(2)}</span>
             </div>
+            ${renderItemVariations(item)}
             ${item.notes ? `<div class="item-note">Obs: ${item.notes}</div>` : ""}
           </div>
         `).join('')}
@@ -212,6 +264,38 @@ const Orders = () => {
         </div>
       </div>
 
+      {/* Cancel Order Modal */}
+      <Dialog open={cancelModalOpen} onOpenChange={setCancelModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <X className="w-5 h-5" /> Cancelar Pedido
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="font-medium">Motivo do cancelamento *</Label>
+              <p className="text-xs text-muted-foreground mb-2">Este motivo será exibido para o cliente no acompanhamento do pedido.</p>
+              <Textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Ex: Ingrediente indisponível, loja fechando, pedido duplicado..."
+                rows={3}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setCancelModalOpen(false)}>
+                Voltar
+              </Button>
+              <Button variant="destructive" className="flex-1" onClick={confirmCancel}>
+                Confirmar Cancelamento
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {viewMode === "kanban" ? (
         <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: "70vh" }}>
           {columns.map((col) => {
@@ -263,14 +347,20 @@ const Orders = () => {
                           {order.payment_method && (
                             <p className="text-xs text-muted-foreground">💳 {order.payment_method}</p>
                           )}
+                          {order.cancellation_reason && (
+                            <p className="text-xs text-red-600 font-medium">❌ Motivo: {order.cancellation_reason}</p>
+                          )}
 
                           {orderItems[order.id] && (
                             <div className="space-y-1">
                               <p className="text-xs font-semibold text-foreground">Itens:</p>
                               {orderItems[order.id].map((item: any) => (
-                                <p key={item.id} className="text-xs text-muted-foreground">
-                                  {item.quantity}x {item.product_name} — R$ {item.subtotal.toFixed(2)}
-                                </p>
+                                <div key={item.id}>
+                                  <p className="text-xs text-muted-foreground">
+                                    {item.quantity}x {item.product_name} — R$ {item.subtotal.toFixed(2)}
+                                  </p>
+                                  {renderVariations(item)}
+                                </div>
                               ))}
                             </div>
                           )}
@@ -279,8 +369,8 @@ const Orders = () => {
                             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); handlePrint(order); }}>
                               <Printer className="w-3 h-3 mr-1" /> Imprimir
                             </Button>
-                            {col.id === "pending" && (
-                              <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={(e) => { e.stopPropagation(); cancelOrder(order.id); }}>
+                            {col.id !== "cancelled" && col.id !== "delivered" && (
+                              <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={(e) => { e.stopPropagation(); openCancelModal(order.id); }}>
                                 <X className="w-3 h-3 mr-1" /> Cancelar
                               </Button>
                             )}
@@ -369,6 +459,11 @@ const Orders = () => {
                         <span className={`px-2 py-1 rounded-full text-xs border ${statusInfo.color.split(' ')[0]} ${statusInfo.color.split(' ')[1]} text-foreground`}>
                           {statusInfo.label}
                         </span>
+                        {order.cancellation_reason && order.status === "cancelled" && (
+                          <p className="text-[10px] text-red-500 mt-1 max-w-[200px] truncate" title={order.cancellation_reason}>
+                            Motivo: {order.cancellation_reason}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handlePrint(order)}>

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, Link2 } from "lucide-react";
+import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, Link2, XCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 export default function OrderStatus() {
@@ -66,6 +66,8 @@ export default function OrderStatus() {
         );
     }
 
+    const isCancelled = order.status === "cancelled";
+
     const steps = [
         { id: "pending", label: "Pedido Realizado" },
         { id: "confirmed", label: "Pedido Confirmado" },
@@ -75,6 +77,23 @@ export default function OrderStatus() {
     ];
 
     const currentStepIndex = steps.findIndex(s => s.id === order.status);
+
+    const renderItemVariations = (item: any) => {
+        const vars = item.variations;
+        if (!vars || !Array.isArray(vars) || vars.length === 0) return null;
+        return (
+            <div className="mt-0.5 space-y-0.5">
+                {vars.map((v: any, i: number) => (
+                    <p key={i} className="text-xs text-muted-foreground">
+                        <span className="font-medium">{v.group}:</span>{" "}
+                        {Array.isArray(v.selected)
+                            ? v.selected.map((s: any) => `${s.name}${s.price > 0 ? ` (+R$${s.price.toFixed(2)})` : ""}`).join(", ")
+                            : v.selected}
+                    </p>
+                ))}
+            </div>
+        );
+    };
 
     return (
         <div className="min-h-screen bg-muted/50 pb-24">
@@ -94,45 +113,84 @@ export default function OrderStatus() {
 
             <div className="max-w-2xl mx-auto p-4 space-y-6 mt-6">
 
-                {/* Status Tracker */}
-                <div className="bg-card rounded-2xl p-6 shadow-card border border-border/50">
-                    <h2 className="text-lg font-bold text-foreground mb-6 text-center">Status do seu Pedido</h2>
-                    <div className="relative">
-                        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-muted-foreground/20" />
-                        <div className="space-y-6 relative">
-                            {steps.map((step, index) => {
-                                const isCompleted = currentStepIndex >= index;
-                                const isCurrent = currentStepIndex === index;
-
-                                return (
-                                    <div key={step.id} className="flex items-center gap-4">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center relative z-10 transition-colors ${isCompleted ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground border-2 border-muted-foreground/20"
-                                            }`}>
-                                            {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <div className="w-2.5 h-2.5 rounded-full bg-current opacity-20" />}
-                                        </div>
-                                        <div>
-                                            <p className={`font-bold ${isCurrent ? "text-primary text-lg" : isCompleted ? "text-foreground" : "text-muted-foreground"}`}>
-                                                {step.label}
-                                            </p>
-                                            {isCurrent && (
-                                                <p className="text-sm text-muted-foreground">
-                                                    {step.id === "pending" && "O restaurante recebeu seu pedido."}
-                                                    {step.id === "confirmed" && "Seu pedido foi confirmado pelo restaurante."}
-                                                    {step.id === "preparing" && "Seu pedido está sendo feito com carinho."}
-                                                    {step.id === "delivering" && "Seu pedido já está a caminho!"}
-                                                    {step.id === "delivered" && "Bom apetite!"}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                {/* Cancelled Order Banner */}
+                {isCancelled && (
+                    <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6 text-center space-y-4">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                            <XCircle className="w-8 h-8 text-red-600" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-red-700">Pedido Cancelado</h2>
+                            <p className="text-red-600 text-sm mt-1">
+                                Infelizmente seu pedido foi cancelado pelo estabelecimento.
+                            </p>
+                        </div>
+                        {order.cancellation_reason && (
+                            <div className="bg-white rounded-xl p-4 border border-red-200">
+                                <p className="text-xs font-semibold text-red-500 uppercase tracking-wider mb-1">Motivo do cancelamento</p>
+                                <p className="text-sm text-foreground font-medium">{order.cancellation_reason}</p>
+                            </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-3 pt-2">
+                            <Link to={`/loja/${store.slug}`} className="contents">
+                                <Button variant="hero" className="flex-col h-auto py-4">
+                                    <ShoppingBag className="w-6 h-6 mb-2" />
+                                    <span className="text-sm font-medium">Fazer Novo Pedido</span>
+                                </Button>
+                            </Link>
+                            <Button
+                                variant="outline"
+                                className="flex-col h-auto py-4 bg-white"
+                                onClick={() => window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Olá! Meu pedido #${order.order_number} foi cancelado. Gostaria de mais informações.`)}`, "_blank")}
+                            >
+                                <MessageCircle className="w-6 h-6 text-green-500 mb-2" />
+                                <span className="text-sm font-medium">Falar com a Loja</span>
+                            </Button>
                         </div>
                     </div>
-                </div>
+                )}
+
+                {/* Status Tracker - only show if NOT cancelled */}
+                {!isCancelled && (
+                    <div className="bg-card rounded-2xl p-6 shadow-card border border-border/50">
+                        <h2 className="text-lg font-bold text-foreground mb-6 text-center">Status do seu Pedido</h2>
+                        <div className="relative">
+                            <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-muted-foreground/20" />
+                            <div className="space-y-6 relative">
+                                {steps.map((step, index) => {
+                                    const isCompleted = currentStepIndex >= index;
+                                    const isCurrent = currentStepIndex === index;
+
+                                    return (
+                                        <div key={step.id} className="flex items-center gap-4">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center relative z-10 transition-colors ${isCompleted ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground border-2 border-muted-foreground/20"
+                                                }`}>
+                                                {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <div className="w-2.5 h-2.5 rounded-full bg-current opacity-20" />}
+                                            </div>
+                                            <div>
+                                                <p className={`font-bold ${isCurrent ? "text-primary text-lg" : isCompleted ? "text-foreground" : "text-muted-foreground"}`}>
+                                                    {step.label}
+                                                </p>
+                                                {isCurrent && (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {step.id === "pending" && "O restaurante recebeu seu pedido."}
+                                                        {step.id === "confirmed" && "Seu pedido foi confirmado pelo restaurante."}
+                                                        {step.id === "preparing" && "Seu pedido está sendo feito com carinho."}
+                                                        {step.id === "delivering" && "Seu pedido já está a caminho!"}
+                                                        {step.id === "delivered" && "Bom apetite!"}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Pix Payment Info */}
-                {order.payment_method === 'pix' && store.pix_key && (
+                {order.payment_method === 'pix' && store.pix_key && !isCancelled && (
                     <div className="bg-card rounded-2xl p-6 shadow-card border border-primary/20 bg-primary/5 text-center">
                         <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
                             <span className="text-primary font-bold text-xl">P</span>
@@ -190,22 +248,25 @@ export default function OrderStatus() {
                         <Link2 className="w-4 h-4" /> Copiar link de acompanhamento
                     </button>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <Button
-                        variant="outline"
-                        className="flex-col h-auto py-4 bg-card"
-                        onClick={() => window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}`, "_blank")}
-                    >
-                        <MessageCircle className="w-6 h-6 text-green-500 mb-2" />
-                        <span className="text-sm font-medium">Falar com a loja</span>
-                    </Button>
-                    <Link to={`/loja/${store.slug}`} className="contents">
-                        <Button variant="hero" className="flex-col h-auto py-4">
-                            <ShoppingBag className="w-6 h-6 mb-2" />
-                            <span className="text-sm font-medium">Novo pedido</span>
+
+                {!isCancelled && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <Button
+                            variant="outline"
+                            className="flex-col h-auto py-4 bg-card"
+                            onClick={() => window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}`, "_blank")}
+                        >
+                            <MessageCircle className="w-6 h-6 text-green-500 mb-2" />
+                            <span className="text-sm font-medium">Falar com a loja</span>
                         </Button>
-                    </Link>
-                </div>
+                        <Link to={`/loja/${store.slug}`} className="contents">
+                            <Button variant="hero" className="flex-col h-auto py-4">
+                                <ShoppingBag className="w-6 h-6 mb-2" />
+                                <span className="text-sm font-medium">Novo pedido</span>
+                            </Button>
+                        </Link>
+                    </div>
+                )}
 
                 {/* Order Details */}
                 <div className="bg-card rounded-2xl p-6 shadow-card border border-border/50 space-y-4">
@@ -213,9 +274,12 @@ export default function OrderStatus() {
 
                     <div className="space-y-3">
                         {order.order_items.map((item: any) => (
-                            <div key={item.id} className="flex justify-between text-sm">
-                                <span><span className="font-bold text-primary">{item.quantity}x</span> {item.product_name}</span>
-                                <span className="font-medium">R$ {item.subtotal.toFixed(2)}</span>
+                            <div key={item.id}>
+                                <div className="flex justify-between text-sm">
+                                    <span><span className="font-bold text-primary">{item.quantity}x</span> {item.product_name}</span>
+                                    <span className="font-medium">R$ {item.subtotal.toFixed(2)}</span>
+                                </div>
+                                {renderItemVariations(item)}
                             </div>
                         ))}
                     </div>

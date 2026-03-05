@@ -2,6 +2,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import AdminLayout from "./AdminLayout";
 
 const AdminRoute = () => {
     const { user, loading: authLoading } = useAuth();
@@ -47,7 +48,7 @@ const AdminRoute = () => {
         return <Navigate to="/" replace />;
     }
 
-    return <Outlet />;
+    return <AdminLayout />;
 };
 
 export default AdminRoute;
