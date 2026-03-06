@@ -8,18 +8,28 @@ export const useOrderNotifications = (storeId: string | undefined, audioNotifica
     useEffect(() => {
         if (!storeId || !audioNotificationsEnabled) return;
 
-        // Using an iFood-style notification sound
-        audioRef.current = new Audio("https://www.myinstants.com/media/sounds/notificacao-ifood.mp3");
+        // Som de telefone clássico (ringing)
+        audioRef.current = new Audio("https://www.myinstants.com/media/sounds/old-telephone-ring.mp3");
+
+        // Solicita permissão para notificações do sistema operacional (Desktop Push)
+        if ("Notification" in window && Notification.permission === "default") {
+            Notification.requestPermission();
+        }
 
         const playNotification = async () => {
             if (!audioRef.current) return;
 
             try {
+                // Recarrega o áudio para garantir que toque novamente se já foi tocado
                 audioRef.current.currentTime = 0;
-                audioRef.current.loop = true; // Repetir o som curto do ifood 
-                await audioRef.current.play();
+                audioRef.current.loop = true; // Repetir o som do telefone
 
-                // Stop after 3 seconds
+                const playPromise = audioRef.current.play();
+                if (playPromise !== undefined) {
+                    await playPromise;
+                }
+
+                // Parar após 3 segundos
                 setTimeout(() => {
                     if (audioRef.current) {
                         audioRef.current.pause();
@@ -28,7 +38,17 @@ export const useOrderNotifications = (storeId: string | undefined, audioNotifica
                     }
                 }, 3000);
             } catch (err) {
-                console.warn("Audio playback failed:", err);
+                console.warn("Audio playback failed (browser auto-play policy):", err);
+            }
+        };
+
+        const triggerSystemNotification = (orderNumber: number) => {
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(`🔔 Novo Pedido #${orderNumber}!`, {
+                    body: "Um novo pedido acabou de chegar na sua loja.",
+                    icon: "/logo-icon.png",
+                    requireInteraction: true // Mantém a notificação na tela até clicar
+                });
             }
         };
 
@@ -39,6 +59,7 @@ export const useOrderNotifications = (storeId: string | undefined, audioNotifica
                 { event: "INSERT", schema: "public", table: "orders", filter: `store_id=eq.${storeId}` },
                 (payload: any) => {
                     playNotification();
+                    triggerSystemNotification(payload.new.order_number);
                     toast.info(`🔔 Novo pedido #${payload.new.order_number}!`, {
                         duration: 10000,
                         description: "Toque para ver os detalhes.",
