@@ -19,6 +19,7 @@ import {
   X,
   ExternalLink,
   AlertCircle,
+  Newspaper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -38,6 +39,7 @@ const links = [
   { to: "/dashboard/delivery-zones", icon: MapPin, label: "Taxas de Entrega" },
   { to: "/dashboard/reports", icon: BarChart3, label: "Relatórios" },
   { to: "/dashboard/customers", icon: Users, label: "Clientes" },
+  { to: "/dashboard/updates", icon: Newspaper, label: "Novidades e Tutoriais" },
 ];
 
 const DashboardLayout = () => {

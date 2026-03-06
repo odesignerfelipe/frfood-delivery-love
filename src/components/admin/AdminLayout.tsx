@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { LayoutDashboard, Store, Users, CreditCard, BarChart3, Settings, FileText, LogOut, Menu, X, ChevronLeft } from "lucide-react";
+import { LayoutDashboard, Store, Users, CreditCard, BarChart3, Settings, FileText, LogOut, Menu, X, ChevronLeft, Newspaper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ const navItems = [
     { to: "/admin/reports", label: "Relatórios", icon: BarChart3 },
     { to: "/admin/settings", label: "Configurações", icon: Settings },
     { to: "/admin/landing-page", label: "Landing Page", icon: FileText },
+    { to: "/admin/updates", label: "Atualizações", icon: Newspaper },
 ];
 
 const AdminLayout = () => {

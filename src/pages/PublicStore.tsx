@@ -170,6 +170,31 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     }
   }, [store?.name, store?.logo_url, store?.id]);
 
+  // Check active order status
+  useEffect(() => {
+    const checkActiveOrderStatus = async () => {
+      if (!activeOrderId || !store) return;
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("status")
+          .eq("id", activeOrderId)
+          .single();
+
+        if (data) {
+          if (["delivered", "picked_up", "cancelled"].includes(data.status)) {
+            localStorage.removeItem(`latest_order_${store.id}`);
+            setActiveOrderId(null);
+          }
+        }
+      } catch (err) {
+        console.error("Error checking active order status:", err);
+      }
+    };
+
+    checkActiveOrderStatus();
+  }, [activeOrderId, store]);
+
   // Sticky header on scroll
   useEffect(() => {
     const handleScroll = () => {
