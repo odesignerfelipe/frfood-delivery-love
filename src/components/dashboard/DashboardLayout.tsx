@@ -112,10 +112,11 @@ const DashboardLayout = () => {
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {links.map((link) => {
             const isDisabled = isOverdue && link.to !== "/dashboard";
+            const targetTo = isDisabled ? "#" : (impersonateStoreId ? `${link.to}?impersonate=${impersonateStoreId}` : link.to);
             return (
               <NavLink
                 key={link.to}
-                to={isDisabled ? "#" : link.to}
+                to={targetTo}
                 end={link.end}
                 onClick={(e) => {
                   if (isDisabled) {

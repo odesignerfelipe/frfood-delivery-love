@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Clock, Check, ChefHat, Truck, X, Printer, GripVertical } from "lucide-react";
+import { Clock, Check, ChefHat, Truck, X, Printer, GripVertical, Store } from "lucide-react";
 import { format, isToday, isThisWeek, isThisMonth, isThisYear, parseISO, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -14,8 +14,10 @@ const columns = [
   { id: "pending", label: "Pendente", icon: Clock, color: "border-yellow-400 bg-yellow-50" },
   { id: "confirmed", label: "Confirmado", icon: Check, color: "border-blue-400 bg-blue-50" },
   { id: "preparing", label: "Preparando", icon: ChefHat, color: "border-orange-400 bg-orange-50" },
+  { id: "ready_for_pickup", label: "Pronto p/ Retirada", icon: Store, color: "border-teal-400 bg-teal-50" },
   { id: "delivering", label: "Em Entrega", icon: Truck, color: "border-purple-400 bg-purple-50" },
   { id: "delivered", label: "Entregue", icon: Check, color: "border-green-400 bg-green-50" },
+  { id: "picked_up", label: "Retirado", icon: Check, color: "border-indigo-400 bg-indigo-50" },
   { id: "cancelled", label: "Cancelado", icon: X, color: "border-red-400 bg-red-50" },
 ];
 
@@ -236,7 +238,7 @@ const Orders = () => {
 
     const matchesStatus = () => {
       if (statusFilter === "all") return true;
-      if (statusFilter === "completed") return o.status === "delivered";
+      if (statusFilter === "completed") return o.status === "delivered" || o.status === "picked_up";
       if (statusFilter === "cancelled") return o.status === "cancelled";
       return o.status === statusFilter;
     };
@@ -369,7 +371,7 @@ const Orders = () => {
                             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); handlePrint(order); }}>
                               <Printer className="w-3 h-3 mr-1" /> Imprimir
                             </Button>
-                            {col.id !== "cancelled" && col.id !== "delivered" && (
+                            {col.id !== "cancelled" && col.id !== "delivered" && col.id !== "picked_up" && (
                               <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={(e) => { e.stopPropagation(); openCancelModal(order.id); }}>
                                 <X className="w-3 h-3 mr-1" /> Cancelar
                               </Button>

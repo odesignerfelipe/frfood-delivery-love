@@ -43,6 +43,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [stickySearchOpen, setStickySearchOpen] = useState(false);
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
   // Variation modal state
   const [variationModalOpen, setVariationModalOpen] = useState(false);
@@ -154,6 +155,9 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   useEffect(() => {
     if (store) {
       document.title = store.name;
+      const orderId = localStorage.getItem(`latest_order_${store.id}`);
+      if (orderId) setActiveOrderId(orderId);
+
       if (store.logo_url) {
         let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
         if (!link) {
@@ -164,7 +168,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         link.href = store.logo_url;
       }
     }
-  }, [store?.name, store?.logo_url]);
+  }, [store?.name, store?.logo_url, store?.id]);
 
   // Sticky header on scroll
   useEffect(() => {
@@ -379,6 +383,8 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
       await supabase.from("coupons").update({ current_uses: appliedCoupon.current_uses + 1 }).eq("id", appliedCoupon.id);
     }
 
+    localStorage.setItem(`latest_order_${store.id}`, orderId);
+
     setCart([]);
     setCheckoutOpen(false);
     setCartOpen(false);
@@ -460,6 +466,19 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
   return (
     <div className="min-h-screen bg-muted/50 pb-24" style={{ "--primary": primaryHSL, "--store-color": storeColor } as React.CSSProperties}>
+
+      {/* Active Order Banner */}
+      {activeOrderId && (
+        <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between shadow-md z-40 relative">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 animate-bounce" />
+            <span className="font-bold text-sm">Você tem um pedido recém-realizado!</span>
+          </div>
+          <Link to={`/pedido/${activeOrderId}`} className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full text-xs font-bold transition-colors shadow-sm">
+            Acompanhar
+          </Link>
+        </div>
+      )}
 
       {/* Sticky Compact Header */}
       <div

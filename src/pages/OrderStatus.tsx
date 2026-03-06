@@ -68,12 +68,22 @@ export default function OrderStatus() {
 
     const isCancelled = order.status === "cancelled";
 
-    const steps = [
+    const estimatedMinutes = ((store as any).avg_prep_time || 25) + (order.delivery_type === "delivery" ? ((store as any).avg_delivery_time || 40) : 0);
+    const etaDate = new Date(new Date(order.created_at).getTime() + estimatedMinutes * 60000);
+    const etaString = etaDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    const steps = order.delivery_type === "delivery" ? [
         { id: "pending", label: "Pedido Realizado" },
         { id: "confirmed", label: "Pedido Confirmado" },
         { id: "preparing", label: "Preparando" },
         { id: "delivering", label: "Saiu para Entrega" },
         { id: "delivered", label: "Entregue" },
+    ] : [
+        { id: "pending", label: "Pedido Realizado" },
+        { id: "confirmed", label: "Pedido Confirmado" },
+        { id: "preparing", label: "Preparando" },
+        { id: "ready_for_pickup", label: "Pronto para Retirada" },
+        { id: "picked_up", label: "Retirado" },
     ];
 
     const currentStepIndex = steps.findIndex(s => s.id === order.status);
@@ -153,7 +163,15 @@ export default function OrderStatus() {
                 {/* Status Tracker - only show if NOT cancelled */}
                 {!isCancelled && (
                     <div className="bg-card rounded-2xl p-6 shadow-card border border-border/50">
-                        <h2 className="text-lg font-bold text-foreground mb-6 text-center">Status do seu Pedido</h2>
+                        <div className="flex flex-col items-center mb-6 border-b border-border/50 pb-4">
+                            <h2 className="text-lg font-bold text-foreground">Status do seu Pedido</h2>
+                            {order.status !== "delivered" && order.status !== "picked_up" && (
+                                <div className="mt-2 inline-flex items-center gap-1.5 text-primary bg-primary/10 px-3 py-1.5 rounded-full text-sm font-semibold">
+                                    <Clock className="w-4 h-4" />
+                                    Horário Previsto: ~ {etaString}
+                                </div>
+                            )}
+                        </div>
                         <div className="relative">
                             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-muted-foreground/20" />
                             <div className="space-y-6 relative">
@@ -178,6 +196,8 @@ export default function OrderStatus() {
                                                         {step.id === "preparing" && "Seu pedido está sendo feito com carinho."}
                                                         {step.id === "delivering" && "Seu pedido já está a caminho!"}
                                                         {step.id === "delivered" && "Bom apetite!"}
+                                                        {step.id === "ready_for_pickup" && "Seu pedido está pronto e aguardando retirada no local."}
+                                                        {step.id === "picked_up" && "Pedido retirado. Bom apetite!"}
                                                     </p>
                                                 )}
                                             </div>
@@ -262,7 +282,7 @@ export default function OrderStatus() {
                         <Link to={`/loja/${store.slug}`} className="contents">
                             <Button variant="hero" className="flex-col h-auto py-4">
                                 <ShoppingBag className="w-6 h-6 mb-2" />
-                                <span className="text-sm font-medium">Novo pedido</span>
+                                <span className="text-sm font-medium">Voltar ao Cardápio</span>
                             </Button>
                         </Link>
                     </div>
