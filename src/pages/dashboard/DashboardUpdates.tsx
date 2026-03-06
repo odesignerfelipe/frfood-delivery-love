@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Newspaper, Video, Search, Calendar as CalendarIcon } from "lucide-react";
+import { Newspaper, Video, Search, Calendar as CalendarIcon, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 // Helper function to extract YouTube video ID
 const getYoutubeId = (url: string) => {
@@ -172,7 +173,7 @@ export default function DashboardUpdates() {
                     )}
                 </div>
             ) : (
-                <div className={`grid gap-6 ${activeTab === 'tutorial' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3' : 'grid-cols-1 md:grid-cols-2 lg:max-w-4xl'}`}>
+                <div className={`grid gap-6 ${activeTab === 'tutorial' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
                     {filteredUpdates.map((item) => (
                         <div key={item.id} className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group flex flex-col">
 
@@ -188,13 +189,13 @@ export default function DashboardUpdates() {
                                     ></iframe>
                                 </div>
                             ) : activeTab === 'update' && item.image_url ? (
-                                <div className="w-full aspect-video sm:aspect-[21/9] bg-muted relative overflow-hidden">
+                                <Link to={`/dashboard/updates/${item.id}`} className="w-full aspect-video sm:aspect-[21/9] bg-muted relative overflow-hidden block">
                                     <img
                                         src={item.image_url}
                                         alt={item.title}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                     />
-                                </div>
+                                </Link>
                             ) : null}
 
                             {/* Text Content */}
@@ -211,14 +212,32 @@ export default function DashboardUpdates() {
                                     )}
                                 </div>
 
-                                <h3 className="text-xl font-bold text-foreground mb-3 leading-tight group-hover:text-primary transition-colors">
-                                    {item.title}
-                                </h3>
+                                {activeTab === 'update' ? (
+                                    <Link to={`/dashboard/updates/${item.id}`} className="block mb-3">
+                                        <h3 className="text-xl font-bold text-foreground leading-tight group-hover:text-primary transition-colors">
+                                            {item.title}
+                                        </h3>
+                                    </Link>
+                                ) : (
+                                    <h3 className="text-xl font-bold text-foreground mb-3 leading-tight group-hover:text-primary transition-colors">
+                                        {item.title}
+                                    </h3>
+                                )}
 
                                 {item.content && activeTab === 'update' && (
-                                    <div className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap flex-1">
-                                        {item.content}
-                                    </div>
+                                    <div
+                                        className="text-muted-foreground text-sm leading-relaxed flex-1 line-clamp-3 prose prose-sm prose-neutral dark:prose-invert prose-p:my-0"
+                                        dangerouslySetInnerHTML={{ __html: item.content }}
+                                    />
+                                )}
+
+                                {activeTab === 'update' && (
+                                    <Link
+                                        to={`/dashboard/updates/${item.id}`}
+                                        className="mt-4 flex items-center text-sm font-semibold text-primary hover:underline gap-1 w-full"
+                                    >
+                                        Ler mais <ArrowRight className="w-4 h-4" />
+                                    </Link>
                                 )}
                             </div>
                         </div>

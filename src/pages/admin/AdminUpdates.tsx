@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import { toast } from "sonner";
 import {
     Newspaper,
@@ -181,13 +182,24 @@ export default function AdminUpdates() {
                             <>
                                 <div className="space-y-2">
                                     <Label>Conteúdo da Atualização</Label>
-                                    <Textarea
-                                        value={content}
-                                        onChange={e => setContent(e.target.value)}
-                                        placeholder="Descreva as novidades ou correções aqui..."
-                                        rows={6}
-                                        required
-                                    />
+                                    <div className="bg-background">
+                                        <ReactQuill
+                                            theme="snow"
+                                            value={content}
+                                            onChange={setContent}
+                                            placeholder="Descreva as novidades ou correções aqui..."
+                                            modules={{
+                                                toolbar: [
+                                                    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                                                    ['bold', 'italic', 'underline', 'strike'],
+                                                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                                                    ['link', 'blockquote', 'code-block'],
+                                                    ['clean']
+                                                ]
+                                            }}
+                                            className="min-h-[200px]"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Imagem ou GIF (Opcional)</Label>

@@ -22,6 +22,7 @@ import DeliveryZones from "./pages/dashboard/DeliveryZones";
 import Reports from "./pages/dashboard/Reports";
 import Customers from "./pages/dashboard/Customers";
 import DashboardUpdates from "./pages/dashboard/DashboardUpdates";
+import DashboardUpdateDetail from "./pages/dashboard/DashboardUpdateDetail";
 import PublicStore from "./pages/PublicStore";
 import OrderStatus from "./pages/OrderStatus";
 import NotFound from "./pages/NotFound";
@@ -80,6 +81,7 @@ const AppRouter = () => {
         <Route path="reports" element={<Reports />} />
         <Route path="customers" element={<Customers />} />
         <Route path="updates" element={<DashboardUpdates />} />
+        <Route path="updates/:id" element={<DashboardUpdateDetail />} />
       </Route>
       <Route path="/loja/:slug" element={<PublicStore />} />
       <Route path="/pedido/:id" element={<OrderStatus />} />
