@@ -77,8 +77,10 @@ const DashboardHome = () => {
     pending: "Pendente",
     confirmed: "Confirmado",
     preparing: "Preparando",
+    ready_for_pickup: "Pronto p/ Retirada",
     delivering: "Em entrega",
     delivered: "Entregue",
+    picked_up: "Retirado",
     cancelled: "Cancelado",
   };
 
@@ -86,8 +88,10 @@ const DashboardHome = () => {
     pending: "bg-yellow-100 text-yellow-800",
     confirmed: "bg-blue-100 text-blue-800",
     preparing: "bg-orange-100 text-orange-800",
+    ready_for_pickup: "bg-emerald-100 text-emerald-800",
     delivering: "bg-purple-100 text-purple-800",
     delivered: "bg-green-100 text-green-800",
+    picked_up: "bg-indigo-100 text-indigo-800",
     cancelled: "bg-red-100 text-red-800",
   };
 
