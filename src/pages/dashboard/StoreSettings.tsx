@@ -95,7 +95,8 @@ const StoreSettings = () => {
     setSaving(true);
     const { error } = await updateStore(form as any);
     if (error) {
-      toast.error("Erro ao salvar");
+      console.error("Erro ao salvar configurações da loja:", error);
+      toast.error(`Erro ao salvar: ${(error as any).message || 'Verifique o console'}`);
     } else {
       toast.success("Loja atualizada!");
     }
