@@ -4,12 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, Link2, XCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { useCustomerOrderNotifications } from "@/hooks/useCustomerOrderNotifications";
 
 export default function OrderStatus() {
     const { id } = useParams();
     const [order, setOrder] = useState<any>(null);
     const [store, setStore] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+
+    useCustomerOrderNotifications(order?.id, order?.status);
 
     useEffect(() => {
         fetchOrder();

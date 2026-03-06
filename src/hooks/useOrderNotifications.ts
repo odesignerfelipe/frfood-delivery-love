@@ -20,25 +20,28 @@ export const useOrderNotifications = (storeId: string | undefined, audioNotifica
             if (!audioRef.current) return;
 
             try {
-                // Recarrega o áudio para garantir que toque novamente se já foi tocado
+                // Ensure audio is reset
+                audioRef.current.pause();
                 audioRef.current.currentTime = 0;
-                audioRef.current.loop = true; // Repetir o som do telefone
+                audioRef.current.loop = true; // Loop the ringing sound
 
+                // Muted autoplay is usually allowed, but we want unmuted. Browsers might throw if no user interaction.
+                // We catch it silently to prevent crashes.
                 const playPromise = audioRef.current.play();
                 if (playPromise !== undefined) {
                     await playPromise;
-                }
 
-                // Parar após 3 segundos
-                setTimeout(() => {
-                    if (audioRef.current) {
-                        audioRef.current.pause();
-                        audioRef.current.loop = false;
-                        audioRef.current.currentTime = 0;
-                    }
-                }, 3000);
+                    // Force stop exactly after 3 seconds
+                    setTimeout(() => {
+                        if (audioRef.current) {
+                            audioRef.current.pause();
+                            audioRef.current.loop = false;
+                            audioRef.current.currentTime = 0;
+                        }
+                    }, 3000);
+                }
             } catch (err) {
-                console.warn("Audio playback failed (browser auto-play policy):", err);
+                console.warn("Audio playback failed (browser auto-play policy). User must interact with DOM first.", err);
             }
         };
 
