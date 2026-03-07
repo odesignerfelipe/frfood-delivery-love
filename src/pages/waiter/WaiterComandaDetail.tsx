@@ -382,7 +382,7 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
                                     Fechar Conta
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-md">
+                            <DialogContent className="sm:max-w-md max-h-[95vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle>Fechamento de Conta</DialogTitle>
                                 </DialogHeader>

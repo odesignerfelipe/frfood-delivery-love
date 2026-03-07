@@ -57,6 +57,8 @@ const StoreSettings = () => {
     avg_prep_time: (store as any)?.avg_prep_time || 30,
     avg_delivery_time: (store as any)?.avg_delivery_time || 40,
     delivery_radius: (store as any)?.delivery_radius || 5,
+    razao_social: (store as any)?.razao_social || "",
+    cnpj: (store as any)?.cnpj || "",
     opening_hours: openingHours,
   });
 
@@ -86,6 +88,8 @@ const StoreSettings = () => {
         avg_prep_time: (store as any).avg_prep_time || 30,
         avg_delivery_time: (store as any).avg_delivery_time || 40,
         delivery_radius: (store as any).delivery_radius || 5,
+        razao_social: (store as any).razao_social || "",
+        cnpj: (store as any).cnpj || "",
         opening_hours: store.opening_hours && Array.isArray(store.opening_hours) && store.opening_hours.length > 0 ? (store.opening_hours as any[]) : defaultHours(),
       });
     }
@@ -376,6 +380,16 @@ const StoreSettings = () => {
               <div>
                 <Label>WhatsApp</Label>
                 <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                <div className="mt-4 space-y-4">
+                  <div className="space-y-2">
+                    <Label>CNPJ</Label>
+                    <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Razão Social</Label>
+                    <Input value={form.razao_social} onChange={(e) => setForm({ ...form, razao_social: e.target.value })} placeholder="Nome Jurídico do Estabelecimento" />
+                  </div>
+                </div>
               </div>
               <div>
                 <Label>Chave PIX</Label>

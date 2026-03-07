@@ -45,6 +45,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   const [stickySearchOpen, setStickySearchOpen] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [tableSession, setTableSession] = useState<any>(null);
+  const [infoDialogOpen, setInfoDialogOpen] = useState(false);
 
   // Variation modal state
   const [variationModalOpen, setVariationModalOpen] = useState(false);
@@ -487,6 +488,13 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.description || "").toLowerCase().includes(search.toLowerCase());
     const matchCat = !activeCategory || p.category_id === activeCategory;
     return matchSearch && matchCat;
+  }).sort((a, b) => {
+    // First, sort by availability (available first)
+    if (a.is_sold_out && !b.is_sold_out) return 1;
+    if (!a.is_sold_out && b.is_sold_out) return -1;
+
+    // Then maintain sort_order if available
+    return (a.sort_order || 0) - (b.sort_order || 0);
   });
 
   const productsByCategory = categories.map((cat) => ({
@@ -594,7 +602,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
                 <button
                   key={cat.id}
                   onClick={() => { setActiveCategory(cat.id); document.getElementById(`cat-${cat.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
-                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors flex-shrink-0 ${activeCategory === cat.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                  className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors flex-shrink-0 ${activeCategory === cat.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                 >
                   {cat.name}
                 </button>
@@ -650,7 +658,10 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
           {/* Store Logo & Identity (Floating Overlap) */}
           <div className="relative flex flex-col items-center -mt-12 md:-mt-16 z-20">
-            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-xl bg-white overflow-hidden flex-shrink-0">
+            <div
+              onClick={() => setInfoDialogOpen(true)}
+              className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-xl bg-white overflow-hidden flex-shrink-0 cursor-pointer transform transition-transform active:scale-95 hover:ring-2 hover:ring-primary/20"
+            >
               {store.logo_url ? (
                 <img src={store.logo_url} alt={store.name} className="w-full h-full object-cover" />
               ) : (
@@ -1092,18 +1103,101 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         </a>
       </div>
 
-      {
-        slug === "demo" && (
-          <div className="fixed bottom-0 left-0 right-0 z-[60] p-4 bg-background/80 backdrop-blur-md border-t border-border flex flex-col items-center gap-2">
-            <Button variant="hero" size="lg" className="w-full max-w-sm shadow-hero animate-pulse" asChild>
-              <Link to="/checkout">Crie sua loja agora mesmo!</Link>
-            </Button>
-            <Link to="/" className="text-sm font-semibold flex items-center gap-1 text-foreground hover:text-primary transition-colors">
-              Voltar ao site principal
-            </Link>
+      {/* Info Dialog */}
+      <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}>
+        <DialogContent className="max-w-[540px] p-0 overflow-hidden border-none rounded-3xl">
+          <div className="relative">
+            {/* Banner Background */}
+            <div className="h-32 w-full bg-slate-200 relative">
+              {store.banner_url ? (
+                <img src={store.banner_url} alt={store.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full gradient-hero" />
+              )}
+              <div className="absolute inset-0 bg-black/20" />
+            </div>
+
+            <button
+              onClick={() => setInfoDialogOpen(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors z-10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Content Area */}
+            <div className="px-6 pb-8 -mt-10 relative z-10">
+              <div className="flex flex-col items-center">
+                <div className="w-20 h-20 rounded-2xl border-4 border-white shadow-lg bg-white overflow-hidden mb-3">
+                  {store.logo_url ? (
+                    <img src={store.logo_url} alt={store.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-primary flex items-center justify-center">
+                      <span className="text-primary-foreground font-black text-xl">{store.name.charAt(0)}</span>
+                    </div>
+                  )}
+                </div>
+                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{store.name}</h2>
+              </div>
+
+              <div className="mt-6 space-y-6">
+                {/* Status Pills */}
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5 ${storeOpen ? "bg-green-50 text-green-600 border border-green-100" : "bg-red-50 text-red-600 border border-red-100"}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${storeOpen ? "bg-green-600 animate-pulse" : "bg-red-600"}`} />
+                    {storeOpen ? "Aberto Agora" : "Fechado"}
+                  </div>
+                  {store.delivery_enabled && (
+                    <div className="px-3 py-1.5 rounded-full text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShoppingBag className="w-3 h-3" /> Delivery
+                    </div>
+                  )}
+                  {store.pickup_enabled && (
+                    <div className="px-3 py-1.5 rounded-full text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin className="w-3 h-3" /> Retirada
+                    </div>
+                  )}
+                  <div className="px-3 py-1.5 rounded-full text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-3 h-3" /> {(store as any).avg_delivery_time || 45} min
+                  </div>
+                </div>
+
+                {/* Info Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" /> Horário de Hoje
+                    </p>
+                    <p className="font-bold text-slate-700">{todayHours || "Fechado"}</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5" /> Contato
+                    </p>
+                    <p className="font-bold text-slate-700">{store.phone}</p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5" /> Endereço
+                  </p>
+                  <p className="font-bold text-slate-700 text-sm">{store.address}{store.city ? `, ${store.city}` : ""}</p>
+                </div>
+
+                {(store.razao_social || store.cnpj) && (
+                  <div className="pt-4 border-t border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Informações Legais</p>
+                    <div className="space-y-1">
+                      {store.razao_social && <p className="text-xs text-slate-500"><span className="font-bold">Razão Social:</span> {store.razao_social}</p>}
+                      {store.cnpj && <p className="text-xs text-slate-500"><span className="font-bold">CNPJ:</span> {store.cnpj}</p>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        )
-      }
+        </DialogContent>
+      </Dialog>
     </div >
   );
 };

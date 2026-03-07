@@ -30,6 +30,7 @@ const Financials = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("all"); // 'all', 'entry', 'exit'
     const [search, setSearch] = useState("");
+    const [timePeriod, setTimePeriod] = useState("month"); // 'day', 'week', 'month', 'year', 'all'
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -38,18 +39,39 @@ const Financials = () => {
         type: "exit",
         category_id: "",
         due_date: format(new Date(), "yyyy-MM-dd"),
-        status: "pending"
+        status: "pending",
+        is_recurring: false,
+        frequency: "monthly"
     });
 
     const fetchData = useCallback(async () => {
         if (!store) return;
         setLoading(true);
 
+        let query = supabase.from("financial_transactions")
+            .select("*, financial_categories(name)")
+            .eq("store_id", store.id)
+            .order("due_date", { ascending: false });
+
+        const now = new Date();
+        if (timePeriod === "day") {
+            query = query.gte("due_date", format(now, "yyyy-MM-dd"));
+        } else if (timePeriod === "week") {
+            const lastWeek = new Date();
+            lastWeek.setDate(now.getDate() - 7);
+            query = query.gte("due_date", format(lastWeek, "yyyy-MM-dd"));
+        } else if (timePeriod === "month") {
+            const lastMonth = new Date();
+            lastMonth.setMonth(now.getMonth() - 1);
+            query = query.gte("due_date", format(lastMonth, "yyyy-MM-dd"));
+        } else if (timePeriod === "year") {
+            const lastYear = new Date();
+            lastYear.setFullYear(now.getFullYear() - 1);
+            query = query.gte("due_date", format(lastYear, "yyyy-MM-dd"));
+        }
+
         const [tRes, cRes] = await Promise.all([
-            supabase.from("financial_transactions")
-                .select("*, financial_categories(name)")
-                .eq("store_id", store.id)
-                .order("due_date", { ascending: false }),
+            query,
             supabase.from("financial_categories")
                 .select("*")
                 .eq("store_id", store.id)
@@ -58,7 +80,7 @@ const Financials = () => {
         setTransactions(tRes.data || []);
         setCategories(cRes.data || []);
         setLoading(false);
-    }, [store]);
+    }, [store, timePeriod]);
 
     useEffect(() => {
         fetchData();
@@ -77,7 +99,9 @@ const Financials = () => {
                 category_id: formData.category_id || null,
                 due_date: formData.due_date,
                 status: formData.status,
-                paid_at: formData.status === "paid" ? new Date().toISOString() : null
+                paid_at: formData.status === "paid" ? new Date().toISOString() : null,
+                is_recurring: formData.is_recurring,
+                frequency: formData.is_recurring ? formData.frequency : null
             });
 
             if (error) throw error;
@@ -90,7 +114,9 @@ const Financials = () => {
                 type: "exit",
                 category_id: "",
                 due_date: format(new Date(), "yyyy-MM-dd"),
-                status: "pending"
+                status: "pending",
+                is_recurring: false,
+                frequency: "monthly"
             });
             fetchData();
         } catch (err: any) {
@@ -205,16 +231,44 @@ const Financials = () => {
                                 </select>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    id="is_paid"
-                                    checked={formData.status === 'paid'}
-                                    onChange={e => setFormData({ ...formData, status: e.target.checked ? 'paid' : 'pending' })}
-                                    className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
-                                />
-                                <Label htmlFor="is_paid" className="cursor-pointer">Marcar como Pago/Recebido</Label>
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="is_paid"
+                                        checked={formData.status === 'paid'}
+                                        onChange={e => setFormData({ ...formData, status: e.target.checked ? 'paid' : 'pending' })}
+                                        className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                                    />
+                                    <Label htmlFor="is_paid" className="cursor-pointer text-xs">Pago/Recebido</Label>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="is_recurring"
+                                        checked={formData.is_recurring}
+                                        onChange={e => setFormData({ ...formData, is_recurring: e.target.checked })}
+                                        className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                                    />
+                                    <Label htmlFor="is_recurring" className="cursor-pointer text-xs">Recorrente</Label>
+                                </div>
                             </div>
+
+                            {formData.is_recurring && (
+                                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <Label>Frequência</Label>
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                        value={formData.frequency}
+                                        onChange={e => setFormData({ ...formData, frequency: e.target.value })}
+                                    >
+                                        <option value="weekly">Semanal</option>
+                                        <option value="monthly">Mensal</option>
+                                        <option value="yearly">Anual</option>
+                                    </select>
+                                </div>
+                            )}
 
                             <Button type="submit" className="w-full h-12 text-lg">Confirmar Registro</Button>
                         </form>
@@ -253,6 +307,13 @@ const Financials = () => {
                     <div className="relative flex-1 w-full sm:max-w-xs">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input className="pl-9 h-10" placeholder="Buscar descrição..." value={search} onChange={e => setSearch(e.target.value)} />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 bg-muted p-1 rounded-lg w-full sm:w-auto overflow-x-auto">
+                        <button onClick={() => setTimePeriod('day')} className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${timePeriod === 'day' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground'}`}>Dia</button>
+                        <button onClick={() => setTimePeriod('week')} className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${timePeriod === 'week' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground'}`}>Semana</button>
+                        <button onClick={() => setTimePeriod('month')} className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${timePeriod === 'month' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground'}`}>Mês</button>
+                        <button onClick={() => setTimePeriod('year')} className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${timePeriod === 'year' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground'}`}>Ano</button>
+                        <button onClick={() => setTimePeriod('all')} className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${timePeriod === 'all' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground'}`}>Tudo</button>
                     </div>
                     <div className="flex items-center gap-2 bg-muted p-1 rounded-lg w-full sm:w-auto">
                         <button onClick={() => setFilter('all')} className={`flex-1 sm:px-4 py-1.5 rounded-md text-xs font-bold transition-all ${filter === 'all' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground'}`}>Todos</button>

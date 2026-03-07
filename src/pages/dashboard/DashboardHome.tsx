@@ -26,6 +26,7 @@ const DashboardHome = () => {
   const [closeRegisterOpen, setCloseRegisterOpen] = useState(false);
   const [openingBalance, setOpeningBalance] = useState<string>("0");
   const [isProcessingSession, setIsProcessingSession] = useState(false);
+  const [tables, setTables] = useState<any[]>([]);
   const isOpenNow = checkStoreStatus(store);
 
   useOrderNotifications(store?.id, (store as any)?.audio_notifications !== false);
@@ -33,12 +34,13 @@ const DashboardHome = () => {
   const fetchStats = useCallback(async () => {
     if (!store) return;
     const todayStr = new Date().toISOString().split("T")[0];
-    const [ordersRes, productsRes, todayRes, recentRes, sessionRes] = await Promise.all([
+    const [ordersRes, productsRes, todayRes, recentRes, sessionRes, tablesRes] = await Promise.all([
       supabase.from("orders").select("id, total").eq("store_id", store.id),
       supabase.from("products").select("id").eq("store_id", store.id),
       supabase.from("orders").select("id, total, delivery_type, status, payment_method").eq("store_id", store.id).gte("created_at", todayStr),
       supabase.from("orders").select("*, table:tables(name), waiter:waiters(name)").eq("store_id", store.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("cashier_sessions").select("*").eq("store_id", store.id).eq("status", "open").maybeSingle(),
+      supabase.from("tables").select("*, comandas(id, status)").eq("store_id", store.id).order("name"),
     ]);
 
     setStats({
@@ -49,6 +51,7 @@ const DashboardHome = () => {
     });
     setRecentOrders(recentRes.data || []);
     setActiveSession(sessionRes.data);
+    setTables(tablesRes.data || []);
   }, [store]);
 
   useEffect(() => {
@@ -135,6 +138,44 @@ const DashboardHome = () => {
         <h2 className="text-2xl font-bold text-foreground">Frente de Caixa</h2>
         <div className="text-xs text-muted-foreground font-medium hidden sm:block">
           {format(new Date(), "EEEE, dd 'de' MMMM", { locale: ptBR })}
+        </div>
+      </div>
+
+      {/* Tables Status Grid */}
+      <div className="bg-card rounded-2xl p-6 shadow-sm border border-border/50">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-black text-foreground uppercase tracking-tight flex items-center gap-2">
+            <LayoutDashboard className="w-5 h-5 text-primary" /> Mapa de Mesas
+          </h3>
+          <div className="flex items-center gap-4 text-[10px] uppercase font-bold tracking-wider">
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-green-500" /> Livre</div>
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-orange-500" /> Ocupada</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+          {tables.map(table => {
+            const hasActiveComanda = table.comandas?.some((c: any) => c.status === 'open');
+            return (
+              <button
+                key={table.id}
+                onClick={() => navigate("/dashboard/tables")}
+                className={`h-24 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all hover:scale-105 active:scale-95 shadow-sm ${hasActiveComanda
+                  ? 'bg-orange-50 border-orange-200 text-orange-700'
+                  : 'bg-green-50 border-green-200 text-green-700'
+                  }`}
+              >
+                <span className="text-xl font-black">{table.name.replace('Mesa ', '')}</span>
+                <span className="text-[9px] font-bold uppercase tracking-tighter">{hasActiveComanda ? 'Em Uso' : 'Disponível'}</span>
+              </button>
+            );
+          })}
+          {tables.length === 0 && (
+            <div className="col-span-full py-8 text-center bg-muted/30 rounded-2xl border-2 border-dashed border-border/50">
+              <p className="text-sm text-muted-foreground italic mb-2">Nenhuma mesa cadastrada.</p>
+              <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/tables")}>Cadastrar Mesas</Button>
+            </div>
+          )}
         </div>
       </div>
 
