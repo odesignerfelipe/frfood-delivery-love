@@ -65,7 +65,11 @@ export const useOrderNotifications = (storeId: string | undefined, audioNotifica
                     triggerSystemNotification(payload.new.order_number);
                     toast.info(`🔔 Novo pedido #${payload.new.order_number}!`, {
                         duration: 10000,
-                        description: "Toque para ver os detalhes.",
+                        description: "Clique aqui para gerenciar.",
+                        action: {
+                            label: "Ver Pedido",
+                            onClick: () => window.location.hash = "/dashboard/orders"
+                        }
                     });
                 }
             )
