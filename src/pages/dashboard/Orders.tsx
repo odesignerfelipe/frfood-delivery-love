@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/hooks/useStore";
+import { printerService } from "@/lib/printer";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ const Orders = () => {
   const [orderItems, setOrderItems] = useState<Record<string, any[]>>({});
   const [viewMode, setViewMode] = useState<"kanban" | "history">("kanban");
   const [historyFilter, setHistoryFilter] = useState<"today" | "week" | "month" | "year" | "all">("today");
+  const [printerSettings, setPrinterSettings] = useState<any[]>([]);
 
   // Cancellation modal state
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -41,9 +43,16 @@ const Orders = () => {
     setOrders(data || []);
   }, [store]);
 
+  const fetchPrinterSettings = useCallback(async () => {
+    if (!store) return;
+    const { data } = await supabase.from("printer_settings").select("*").eq("store_id", store.id).eq("is_active", true);
+    setPrinterSettings(data || []);
+  }, [store]);
+
   useEffect(() => {
     fetchOrders();
-  }, [fetchOrders]);
+    fetchPrinterSettings();
+  }, [fetchOrders, fetchPrinterSettings]);
 
   useEffect(() => {
     if (!store) return;
@@ -59,6 +68,13 @@ const Orders = () => {
   const updateStatus = async (orderId: string, status: string) => {
     await supabase.from("orders").update({ status }).eq("id", orderId);
     toast.success("Status atualizado!");
+
+    // Auto-print to kitchen if confirmed
+    if (status === "confirmed" || status === "preparing") {
+      const order = orders.find(o => o.id === orderId);
+      if (order) handleAutoPrint(order);
+    }
+
     fetchOrders();
   };
 
@@ -229,8 +245,54 @@ const Orders = () => {
         ${paymentLabel ? `<p class="bold text-center">PAGAMENTO: ${paymentLabel}</p>` : ""}
       </body></html>
     `;
-    const win = window.open("", "_blank", "width=350,height=600");
-    if (win) { win.document.write(printContent); win.document.close(); win.print(); }
+
+    const cashierPrinter = printerSettings.find(s => s.type === 'cashier');
+    if (cashierPrinter) {
+      await printerService.printHTML(cashierPrinter.identifier, printContent);
+    } else {
+      const win = window.open("", "_blank", "width=350,height=600");
+      if (win) { win.document.write(printContent); win.document.close(); win.print(); }
+    }
+  };
+
+  const handleAutoPrint = async (order: any) => {
+    let items = orderItems[order.id];
+    if (!items) {
+      const { data } = await supabase.from("order_items").select("*, product:products(categories(name))").eq("order_id", order.id);
+      items = data || [];
+    }
+
+    const kitchenPrinter = printerSettings.find(s => s.type === 'kitchen');
+    const barPrinter = printerSettings.find(s => s.type === 'bar');
+
+    if (!kitchenPrinter && !barPrinter) return;
+
+    // Filter items for kitchen vs bar based on category name (simple logic)
+    const kitchenItems = items.filter((i: any) => !i.product?.categories?.name?.toLowerCase().includes("bebida"));
+    const barItems = items.filter((i: any) => i.product?.categories?.name?.toLowerCase().includes("bebida"));
+
+    const generateSimpleHTML = (orderItems: any[]) => `
+        <html><body>
+        <h2 style="text-align:center">PEDIDO #${order.order_number}</h2>
+        <p style="text-align:center">${format(new Date(), "HH:mm")}</p>
+        <hr/>
+        ${order.table ? `<p><b>MESA:</b> ${order.table?.name}</p>` : ""}
+        <hr/>
+        ${orderItems.map(i => `
+            <div><b>${i.quantity}x ${i.product_name}</b></div>
+            ${i.notes ? `<div>Obs: ${i.notes}</div>` : ""}
+            <br/>
+        `).join('')}
+        </body></html>
+    `;
+
+    if (kitchenPrinter && kitchenItems.length > 0) {
+      await printerService.printHTML(kitchenPrinter.identifier, generateSimpleHTML(kitchenItems));
+    }
+
+    if (barPrinter && barItems.length > 0) {
+      await printerService.printHTML(barPrinter.identifier, generateSimpleHTML(barItems));
+    }
   };
 
   const [statusFilter, setStatusFilter] = useState<string>("all");

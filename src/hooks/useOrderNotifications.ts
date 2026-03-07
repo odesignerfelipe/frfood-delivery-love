@@ -56,7 +56,7 @@ export const useOrderNotifications = (storeId: string | undefined, audioNotifica
         };
 
         const channel = supabase
-            .channel(`order-notifications-${storeId}`)
+            .channel(`all-notifications-${storeId}`)
             .on(
                 "postgres_changes",
                 { event: "INSERT", schema: "public", table: "orders", filter: `store_id=eq.${storeId}` },
@@ -67,6 +67,19 @@ export const useOrderNotifications = (storeId: string | undefined, audioNotifica
                         duration: 10000,
                         description: "Toque para ver os detalhes.",
                     });
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "order_payments", filter: `store_id=eq.${storeId}` },
+                (payload: any) => {
+                    if (payload.new.status === 'pending' && (payload.new.payment_method === 'cartao_credito' || payload.new.payment_method === 'cartao_debito')) {
+                        playNotification();
+                        toast.warning(`💳 Pagamento no Caixa: R$ ${payload.new.amount.toFixed(2)}`, {
+                            duration: 15000,
+                            description: `O cliente está a caminho para pagar via ${payload.new.payment_method.replace('cartao_', '')}.`,
+                        });
+                    }
                 }
             )
             .subscribe();

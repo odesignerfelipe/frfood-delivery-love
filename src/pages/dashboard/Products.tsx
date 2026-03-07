@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, AlertTriangle, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, AlertTriangle, GripVertical, BookOpen, X } from "lucide-react";
 
 type VariationOption = { name: string; price: number };
 type Variation = {
@@ -41,15 +41,22 @@ const Products = () => {
     stock_quantity: 0,
   });
   const [variations, setVariations] = useState<Variation[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [recipeOpen, setRecipeOpen] = useState(false);
+  const [recipeProduct, setRecipeProduct] = useState<any>(null);
+  const [recipeItems, setRecipeItems] = useState<any[]>([]);
+  const [isSavingRecipe, setIsSavingRecipe] = useState(false);
 
   const fetchAll = async () => {
     if (!store) return;
-    const [p, c] = await Promise.all([
+    const [p, c, i] = await Promise.all([
       supabase.from("products").select("*, categories(name)").eq("store_id", store.id).order("sort_order"),
       supabase.from("categories").select("*").eq("store_id", store.id).order("sort_order"),
+      supabase.from("inventory_items").select("*").eq("store_id", store.id).order("name"),
     ]);
     setProducts(p.data || []);
     setCategories(c.data || []);
+    setInventoryItems(i.data || []);
   };
 
   useEffect(() => { fetchAll(); }, [store]);
@@ -225,6 +232,61 @@ const Products = () => {
     const updated = [...variations];
     updated[varIndex].options = updated[varIndex].options.filter((_, i) => i !== optIndex);
     setVariations(updated);
+  };
+
+  // Recipe helpers
+  const openRecipe = async (p: any) => {
+    setRecipeProduct(p);
+    const { data } = await supabase
+      .from("product_recipe_items")
+      .select("*, inventory_items(*)")
+      .eq("product_id", p.id);
+
+    setRecipeItems((data || []).map(r => ({
+      id: r.id,
+      inventory_item_id: r.inventory_item_id,
+      quantity: r.quantity
+    })));
+    setRecipeOpen(true);
+  };
+
+  const addRecipeItem = () => {
+    setRecipeItems([...recipeItems, { inventory_item_id: "", quantity: 1 }]);
+  };
+
+  const removeRecipeItem = (index: number) => {
+    setRecipeItems(recipeItems.filter((_, i) => i !== index));
+  };
+
+  const handleSaveRecipe = async () => {
+    if (!recipeProduct) return;
+    setIsSavingRecipe(true);
+
+    try {
+      // Delete old
+      await supabase.from("product_recipe_items").delete().eq("product_id", recipeProduct.id);
+
+      // Insert new
+      const toInsert = recipeItems
+        .filter(ri => ri.inventory_item_id)
+        .map(ri => ({
+          product_id: recipeProduct.id,
+          inventory_item_id: ri.inventory_item_id,
+          quantity: ri.quantity
+        }));
+
+      if (toInsert.length > 0) {
+        const { error } = await supabase.from("product_recipe_items").insert(toInsert);
+        if (error) throw error;
+      }
+
+      toast.success("Ficha técnica salva!");
+      setRecipeOpen(false);
+    } catch (err: any) {
+      toast.error("Erro ao salvar: " + err.message);
+    } finally {
+      setIsSavingRecipe(false);
+    }
   };
 
   return (
@@ -406,6 +468,71 @@ const Products = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Recipe Modal */}
+        <Dialog open={recipeOpen} onOpenChange={setRecipeOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Ficha Técnica: {recipeProduct?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <p className="text-xs text-muted-foreground bg-muted p-2 rounded border border-border">
+                Defina os ingredientes que compõem este produto. O estoque será deduzido automaticamente a cada venda.
+              </p>
+
+              <div className="space-y-3">
+                {recipeItems.map((item, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <Select
+                        value={item.inventory_item_id}
+                        onValueChange={v => {
+                          const updated = [...recipeItems];
+                          updated[index].inventory_item_id = v;
+                          setRecipeItems(updated);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Insumo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {inventoryItems.map(inv => (
+                            <SelectItem key={inv.id} value={inv.id}>{inv.name} ({inv.unit})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-24">
+                      <Input
+                        type="number"
+                        step="0.001"
+                        value={item.quantity}
+                        onChange={e => {
+                          const updated = [...recipeItems];
+                          updated[index].quantity = parseFloat(e.target.value) || 0;
+                          setRecipeItems(updated);
+                        }}
+                        placeholder="Qtd"
+                      />
+                    </div>
+                    <Button variant="ghost" size="icon" className="shrink-0 text-destructive h-8 w-8" onClick={() => removeRecipeItem(index)}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              <Button variant="outline" className="w-full border-dashed" onClick={addRecipeItem}>
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar Insumo
+              </Button>
+
+              <Button className="w-full" onClick={handleSaveRecipe} disabled={isSavingRecipe}>
+                {isSavingRecipe ? "Salvando..." : "Salvar Ficha Técnica"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -445,9 +572,12 @@ const Products = () => {
                   Estoque: {p.stock_quantity} un
                 </span>
               )}
-              <div className="flex gap-2 mt-3">
+              <div className="flex flex-wrap gap-2 mt-3">
                 <Button variant="outline" size="sm" onClick={() => openEdit(p)}>
                   <Pencil className="w-3 h-3 mr-1" /> Editar
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => openRecipe(p)} className="border-primary/50 text-primary">
+                  <BookOpen className="w-3 h-3 mr-1" /> Ficha Téc.
                 </Button>
                 <Button
                   variant={p.is_sold_out ? "default" : "ghost"}

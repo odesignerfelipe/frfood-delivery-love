@@ -9,11 +9,13 @@ import {
   Store,
   FolderOpen,
   Package,
+  Printer,
   ShoppingBag,
   Tag,
   MapPin,
   BarChart3,
   Users,
+  DollarSign,
   LogOut,
   Menu,
   X,
@@ -22,6 +24,7 @@ import {
   Newspaper,
   QrCode,
   UserCircle,
+  History
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -36,6 +39,9 @@ const links = [
   { to: "/dashboard/store", icon: Store, label: "Minha Loja" },
   { to: "/dashboard/categories", icon: FolderOpen, label: "Categorias" },
   { to: "/dashboard/products", icon: Package, label: "Produtos" },
+  { to: "/dashboard/inventory", icon: History, label: "Estoque" },
+  { to: "/dashboard/financials", icon: DollarSign, label: "Financeiro" },
+  { to: "/dashboard/printer-settings", icon: Printer, label: "Impressoras" },
   { to: "/dashboard/orders", icon: ShoppingBag, label: "Pedidos" },
   { to: "/dashboard/tables", icon: QrCode, label: "Mesas" },
   { to: "/dashboard/waiters", icon: UserCircle, label: "Garçons" },

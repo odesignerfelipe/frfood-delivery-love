@@ -32,6 +32,9 @@ import WaiterDashboard from "./pages/waiter/WaiterDashboard";
 import WaiterComandaDetail from "./pages/waiter/WaiterComandaDetail";
 import WaiterCatalog from "./pages/waiter/WaiterCatalog";
 import TableRedirect from "./pages/waiter/TableRedirect";
+import Inventory from "./pages/dashboard/Inventory";
+import Financials from "./pages/dashboard/Financials";
+import PrinterSettings from "./pages/dashboard/PrinterSettings";
 
 import PublicStore from "./pages/PublicStore";
 import OrderStatus from "./pages/OrderStatus";
@@ -98,6 +101,9 @@ const AppRouter = () => {
         <Route path="delivery-zones" element={<DeliveryZones />} />
         <Route path="reports" element={<Reports />} />
         <Route path="customers" element={<Customers />} />
+        <Route path="inventory" element={<Inventory />} />
+        <Route path="financials" element={<Financials />} />
+        <Route path="printer-settings" element={<PrinterSettings />} />
         <Route path="tables" element={<Tables />} />
         <Route path="waiters" element={<Waiters />} />
         <Route path="updates" element={<DashboardUpdates />} />

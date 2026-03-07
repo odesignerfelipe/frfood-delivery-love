@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, QrCode as QrCodeIcon, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { printerService } from "@/lib/printer";
 
 const Tables = () => {
     const { store } = useStore();
@@ -18,6 +19,7 @@ const Tables = () => {
 
     const [qrOpen, setQrOpen] = useState(false);
     const [selectedTable, setSelectedTable] = useState<any>(null);
+    const [printerSettings, setPrinterSettings] = useState<any[]>([]);
 
     const fetchTables = async () => {
         if (!store) return;
@@ -31,7 +33,14 @@ const Tables = () => {
 
     useEffect(() => {
         fetchTables();
+        fetchPrinterSettings();
     }, [store]);
+
+    const fetchPrinterSettings = async () => {
+        if (!store) return;
+        const { data } = await supabase.from("printer_settings").select("*").eq("store_id", store.id).eq("is_active", true);
+        setPrinterSettings(data || []);
+    };
 
     const handleSave = async () => {
         if (!store || !name.trim()) return;
@@ -72,16 +81,12 @@ const Tables = () => {
         setQrOpen(true);
     };
 
-    const handlePrint = () => {
-        const printWindow = window.open("", "_blank");
-        if (!printWindow || !selectedTable || !store) return;
+    const handlePrint = async () => {
+        if (!selectedTable || !store) return;
 
-        const tableUrl = `${window.location.protocol}//${window.location.host}/mesa/${selectedTable.id}`;
-
-        // Obter o SVG do QR Code desenhado na tela
         const svgElement = document.getElementById("qr-code-svg")?.outerHTML;
 
-        printWindow.document.write(`
+        const html = `
       <html>
         <head>
           <title>Imprimir QR Code - ${selectedTable.name}</title>
@@ -96,10 +101,6 @@ const Tables = () => {
               margin: 0;
               background-color: #fff;
             }
-            @media print {
-              body { background-color: white; }
-              @page { margin: 0; size: auto; }
-            }
             .card {
               border: 1px solid #E5E7EB;
               border-radius: 16px;
@@ -110,72 +111,37 @@ const Tables = () => {
               text-align: center;
               box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
             }
-            .logo {
-              max-height: 48px;
-              max-width: 180px;
-              margin-bottom: 20px;
-              object-fit: contain;
-            }
-            .title {
-              font-size: 16px;
-              font-weight: 800;
-              margin-bottom: 6px;
-              color: #111827;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-            .instruction {
-              font-size: 12px;
-              margin-bottom: 20px;
-              color: #6B7280;
-              line-height: 1.4;
-            }
-            .qr-container {
-              background: white;
-              padding: 12px;
-              border-radius: 12px;
-              display: inline-block;
-              margin-bottom: 20px;
-              border: 1px solid #E5E7EB;
-              box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-            }
-            svg {
-              width: 160px !important;
-              height: 160px !important;
-              display: block;
-            }
-            .table-name {
-              font-size: 14px;
-              font-weight: 800;
-              color: #374151;
-              padding: 8px 16px;
-              background-color: #F3F4F6;
-              border-radius: 8px;
-              display: inline-block;
-            }
+            .logo { max-height: 48px; max-width: 180px; margin-bottom: 20px; object-fit: contain; }
+            .title { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: #111827; text-transform: uppercase; letter-spacing: 0.5px; }
+            .instruction { font-size: 12px; margin-bottom: 20px; color: #6B7280; line-height: 1.4; }
+            .qr-container { background: white; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 20px; border: 1px solid #E5E7EB; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); }
+            svg { width: 160px !important; height: 160px !important; display: block; }
+            .table-name { font-size: 14px; font-weight: 800; color: #374151; padding: 8px 16px; background-color: #F3F4F6; border-radius: 8px; display: inline-block; }
           </style>
         </head>
         <body>
           <div class="card">
             ${store.logo_url ? `<img src="${store.logo_url}" class="logo" alt="Logo" />` : ''}
             <div class="title">Faça seu Pedido</div>
-            <div class="instruction">
-              Escaneie este código para acessar nosso cardápio digital
-            </div>
-            <div class="qr-container">
-              ${svgElement || ''}
-            </div>
+            <div class="instruction">Escaneie este código para acessar nosso cardápio digital</div>
+            <div class="qr-container">${svgElement || ''}</div>
             <div class="table-name">${selectedTable.name}</div>
           </div>
-          <script>
-            window.onload = () => {
-              window.print();
-            }
-          </script>
         </body>
       </html>
-    `);
-        printWindow.document.close();
+    `;
+
+        const cashierPrinter = printerSettings.find(s => s.type === 'cashier');
+        if (cashierPrinter) {
+            await printerService.printHTML(cashierPrinter.identifier, html);
+        } else {
+            const printWindow = window.open("", "_blank");
+            if (printWindow) {
+                printWindow.document.write(html);
+                printWindow.document.close();
+                printWindow.print();
+            }
+        }
     };
 
     return (

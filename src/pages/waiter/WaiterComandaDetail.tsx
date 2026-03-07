@@ -3,12 +3,14 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useStorePublic } from "@/hooks/useStorePublic";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Receipt, PlusCircle, CheckCircle2, Clock, MapPin, Calculator, X } from "lucide-react";
+import { Loader2, ArrowLeft, Receipt, PlusCircle, CheckCircle2, Clock, MapPin, Calculator, X, Bell, Printer } from "lucide-react";
+import { printerService } from "@/lib/printer";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { QRCodeSVG } from "qrcode.react";
 
 interface WaiterComandaDetailProps {
     explicitSlug?: string;
@@ -30,7 +32,10 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
     const [closeOpen, setCloseOpen] = useState(false);
     const [discount, setDiscount] = useState<string>("0");
     const [paymentMethod, setPaymentMethod] = useState("dinheiro");
+    const [splitCount, setSplitCount] = useState<number>(1);
+    const [amountTendered, setAmountTendered] = useState<string>("");
     const [isClosing, setIsClosing] = useState(false);
+    const [printerSettings, setPrinterSettings] = useState<any[]>([]);
 
     useEffect(() => {
         if (store && !storeLoading) {
@@ -42,6 +47,7 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
             try {
                 setWaiterSession(JSON.parse(sessionStr));
                 fetchDetails();
+                fetchPrinterSettings();
             } catch (e) {
                 navigate(explicitSlug ? "/garcom" : `/loja/${store.slug}/garcom`);
             }
@@ -91,6 +97,12 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
         }
     };
 
+    const fetchPrinterSettings = async () => {
+        if (!store) return;
+        const { data } = await supabase.from("printer_settings").select("*").eq("store_id", store.id).eq("is_active", true);
+        setPrinterSettings(data || []);
+    };
+
     // Realtime updates
     useEffect(() => {
         if (!store || !comandaId) return;
@@ -137,6 +149,49 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
         }
     };
 
+    const handlePrint = async () => {
+        if (!comanda || !store) return;
+
+        const subtotal = calculateSubtotal();
+        const discountVal = Number(discount) || 0;
+        const total = subtotal - discountVal;
+
+        const html = `
+            <html><body style="font-family:monospace; width:300px">
+                <h2 style="text-align:center">${store.name}</h2>
+                <p style="text-align:center; font-size:12px">MESA: ${table?.name}</p>
+                <p style="text-align:center; font-size:10px">${new Date().toLocaleString()}</p>
+                <hr/>
+                ${orders.filter(o => o.status !== 'cancelled').map(o => `
+                    ${o.order_items.map((i: any) => `
+                        <div style="display:flex; justify-content:space-between">
+                            <span>${i.quantity}x ${i.product_name}</span>
+                            <span>${formatCurrency(i.subtotal)}</span>
+                        </div>
+                    `).join('')}
+                `).join('')}
+                <hr/>
+                <div style="display:flex; justify-content:space-between; font-weight:bold">
+                    <span>Subtotal</span>
+                    <span>${formatCurrency(subtotal)}</span>
+                </div>
+                ${discountVal > 0 ? `<div style="display:flex; justify-content:space-between"><span>Desconto</span><span>-${formatCurrency(discountVal)}</span></div>` : ""}
+                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:16px; mt-2; border-top:1px solid #000; pt-2">
+                    <span>TOTAL</span>
+                    <span>${formatCurrency(total)}</span>
+                </div>
+            </body></html>
+        `;
+
+        const cashierPrinter = printerSettings.find(s => s.type === 'cashier');
+        if (cashierPrinter) {
+            await printerService.printHTML(cashierPrinter.identifier, html);
+        } else {
+            const win = window.open("", "_blank", "width=350,height=600");
+            if (win) { win.document.write(html); win.document.close(); win.print(); }
+        }
+    };
+
     const handleCloseBill = async () => {
         if (!comanda) return;
         setIsClosing(true);
@@ -145,6 +200,25 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
         const finalTotal = Math.max(0, subtotal - discountVal);
 
         try {
+            // Se for pagamento em cartão no caixa, apenas avisa e não fecha a comanda agora?
+            // De acordo com o fluxo do usuário, o garçom "dispara um alerta no dashboard do caixa".
+            if (paymentMethod === 'credito_caixa' || paymentMethod === 'debito_caixa') {
+                const { error: notifyError } = await supabase
+                    .from("order_payments")
+                    .insert({
+                        store_id: store.id,
+                        order_id: orders[0]?.id, // Vincula ao primeiro pedido para referência
+                        payment_method: paymentMethod === 'credito_caixa' ? 'cartao_credito' : 'cartao_debito',
+                        amount: finalTotal,
+                        status: 'pending'
+                    });
+
+                if (notifyError) throw notifyError;
+                toast.success("Caixa notificado! Aguarde a conclusão no balcão.");
+                setCloseOpen(false);
+                return;
+            }
+
             const { error } = await supabase
                 .from("comandas")
                 .update({
@@ -191,6 +265,9 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
                         <p className="text-xs text-muted-foreground leading-tight">Comanda #{comanda.id.split('-')[0].toUpperCase()}</p>
                     </div>
                 </div>
+                <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 shadow-sm">
+                    <Printer className="w-4 h-4 mr-1" /> Imprimir
+                </Button>
             </header>
 
             <main className="max-w-3xl mx-auto p-4 md:p-6 mt-2 space-y-6">
@@ -331,22 +408,98 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
                                     <div className="space-y-3">
                                         <Label>Forma de Pagamento</Label>
                                         <div className="grid grid-cols-2 gap-2">
-                                            {['dinheiro', 'pix', 'credito', 'debito'].map(method => (
+                                            {[
+                                                { id: 'dinheiro', label: 'Dinheiro', icon: '💵' },
+                                                { id: 'pix', label: 'PIX (Aqui)', icon: '📱' },
+                                                { id: 'credito_caixa', label: 'Cartão (No Caixa)', icon: '💳' },
+                                                { id: 'debito_caixa', label: 'Débito (No Caixa)', icon: '💳' },
+                                            ].map(method => (
                                                 <Button
-                                                    key={method}
-                                                    variant={paymentMethod === method ? "hero" : "outline"}
-                                                    className={`w-full capitalize ${paymentMethod === method ? "ring-2 ring-primary ring-offset-2" : ""}`}
-                                                    onClick={() => setPaymentMethod(method)}
-                                                    style={{ backgroundColor: paymentMethod === method ? store?.primary_color : undefined }}
+                                                    key={method.id}
+                                                    variant={paymentMethod === method.id ? "hero" : "outline"}
+                                                    className={`w-full text-xs font-bold leading-tight h-14 ${paymentMethod === method.id ? "ring-2 ring-primary ring-offset-2" : ""}`}
+                                                    onClick={() => setPaymentMethod(method.id)}
+                                                    style={{ backgroundColor: paymentMethod === method.id ? store?.primary_color : undefined }}
                                                 >
-                                                    {method === 'credito' ? 'Cartão Crédito' : method === 'debito' ? 'Cartão Débito' : method}
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-lg">{method.icon}</span>
+                                                        {method.label}
+                                                    </div>
                                                 </Button>
                                             ))}
                                         </div>
                                     </div>
 
+                                    {paymentMethod === 'dinheiro' && (
+                                        <div className="bg-muted/50 p-4 rounded-xl space-y-3 border border-border">
+                                            <div className="flex justify-between items-center">
+                                                <Label>Valor Entregue</Label>
+                                                <Input
+                                                    type="number"
+                                                    className="w-32 text-right font-bold"
+                                                    value={amountTendered}
+                                                    onChange={e => setAmountTendered(e.target.value)}
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                            {Number(amountTendered) > Math.max(0, subtotal - (Number(discount) || 0)) && (
+                                                <div className="flex justify-between items-center text-green-600 font-bold">
+                                                    <span>Troco:</span>
+                                                    <span>{formatCurrency(Number(amountTendered) - (subtotal - (Number(discount) || 0)))}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {paymentMethod === 'pix' && (
+                                        <div className="bg-muted/50 p-4 rounded-xl space-y-3 border border-border">
+                                            <div className="space-y-2">
+                                                <Label>Dividir conta?</Label>
+                                                <div className="flex items-center gap-3">
+                                                    <Button variant="outline" size="icon" onClick={() => setSplitCount(Math.max(1, splitCount - 1))}>-</Button>
+                                                    <span className="font-bold text-lg w-8 text-center">{splitCount}</span>
+                                                    <Button variant="outline" size="icon" onClick={() => setSplitCount(splitCount + 1)}>+</Button>
+                                                    <span className="text-xs text-muted-foreground ml-auto">pessoas</span>
+                                                </div>
+                                            </div>
+                                            <div className="pt-2 border-t border-border/50">
+                                                <p className="text-sm font-bold text-center mb-2">QR Code PIX {splitCount > 1 ? `(1/${splitCount})` : '(Integral)'}</p>
+                                                <div className="bg-white p-3 rounded-lg w-44 h-44 mx-auto flex items-center justify-center border shadow-sm">
+                                                    {store?.pix_key ? (
+                                                        <QRCodeSVG
+                                                            value={store.pix_key}
+                                                            size={150}
+                                                            level="H"
+                                                            includeMargin={true}
+                                                            imageSettings={store.logo_url ? {
+                                                                src: store.logo_url,
+                                                                x: undefined,
+                                                                y: undefined,
+                                                                height: 24,
+                                                                width: 24,
+                                                                excavate: true,
+                                                            } : undefined}
+                                                        />
+                                                    ) : (
+                                                        <div className="text-[10px] text-center text-muted-foreground">
+                                                            PIX não configurado
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p className="text-[10px] text-center mt-2 break-all font-mono text-muted-foreground bg-muted p-1 rounded">
+                                                    Chave: {store?.pix_key || 'Chave não cadastrada'}
+                                                </p>
+                                                {splitCount > 1 && (
+                                                    <p className="text-center font-black text-primary mt-2">
+                                                        {formatCurrency((subtotal - (Number(discount) || 0)) / splitCount)} por pessoa
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="flex items-center justify-between p-4 bg-primary/10 rounded-xl border border-primary/20 text-primary">
-                                        <span className="font-bold text-lg">Total a Pagar</span>
+                                        <span className="font-bold text-lg">{paymentMethod.includes('caixa') ? 'Total para Receber' : 'Total a Pagar'}</span>
                                         <span className="font-black text-2xl">{formatCurrency(Math.max(0, subtotal - (Number(discount) || 0)))}</span>
                                     </div>
 
@@ -357,7 +510,12 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
                                         disabled={isClosing}
                                         style={{ backgroundColor: store?.primary_color }}
                                     >
-                                        {isClosing ? <Loader2 className="w-6 h-6 animate-spin" /> : "Confirmar Recebimento"}
+                                        {isClosing ? <Loader2 className="w-6 h-6 animate-spin" /> : (
+                                            <>
+                                                {paymentMethod.includes('caixa') ? <Bell className="w-5 h-5 mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                                                {paymentMethod.includes('caixa') ? "Notificar Caixa" : "Confirmar Recebimento"}
+                                            </>
+                                        )}
                                     </Button>
                                 </div>
                             </DialogContent>

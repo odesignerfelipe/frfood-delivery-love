@@ -20,11 +20,17 @@ const Reports = () => {
     revenue: 0,
     orderCount: 0,
     ticketMedio: 0,
-    topProducts: [] as { name: string, quantity: number, revenue: number }[],
+    topProducts: [] as { name: string, id: string, quantity: number, revenue: number, cost: number, profit: number }[],
     leastSoldProducts: [] as { name: string, quantity: number, revenue: number }[],
     topCustomers: [] as { name: string, phone: string, orders: number, total: number }[],
     waiterMetrics: [] as { name: string, orders: number, revenue: number }[],
     chartData: [] as { label: string, amount: number }[],
+    financials: {
+      entries: 0,
+      exits: 0,
+      netProfit: 0,
+      categories: [] as { name: string, amount: number, type: string }[]
+    }
   });
   const [loading, setLoading] = useState(true);
 
@@ -132,37 +138,58 @@ const Reports = () => {
         // Fetch Order Items for the closed orders to calculate top products
         const { data: orderItems, error: itemsError } = await supabase
           .from("order_items")
-          .select("quantity, unit_price, product:products(name)")
+          .select("product_id, quantity, unit_price, product:products(id, name)")
           .in("order_id", orderIds);
 
         if (itemsError) throw itemsError;
 
         // Aggregate products
-        const productMap: Record<string, { quantity: number, revenue: number }> = {};
+        const productMap: Record<string, { id: string, name: string, quantity: number, revenue: number }> = {};
         (orderItems || []).forEach((item: any) => {
+          const productId = item.product_id;
           const productName = item.product?.name || "Produto Removido";
-          if (!productMap[productName]) {
-            productMap[productName] = { quantity: 0, revenue: 0 };
+          if (!productMap[productId]) {
+            productMap[productId] = { id: productId, name: productName, quantity: 0, revenue: 0 };
           }
-          productMap[productName].quantity += item.quantity;
-          productMap[productName].revenue += (item.quantity * Number(item.unit_price));
+          productMap[productId].quantity += item.quantity;
+          productMap[productId].revenue += (item.quantity * Number(item.unit_price));
         });
 
-        const allProducts = Object.entries(productMap)
-          .map(([name, stats]) => ({ name, ...stats }));
+        // Calculate Profitability
+        const { data: recipes } = await supabase
+          .from("product_recipe_items")
+          .select("product_id, quantity, inventory_items(unit_cost)")
+          .in("product_id", Object.keys(productMap));
+
+        const recipeCostMap: Record<string, number> = {};
+        (recipes || []).forEach((r: any) => {
+          const cost = r.quantity * (r.inventory_items?.unit_cost || 0);
+          recipeCostMap[r.product_id] = (recipeCostMap[r.product_id] || 0) + cost;
+        });
+
+        const allProductsWithProfit = Object.values(productMap).map(p => {
+          const unitCost = recipeCostMap[p.id] || 0;
+          const totalCost = unitCost * p.quantity;
+          return {
+            ...p,
+            cost: totalCost,
+            profit: p.revenue - totalCost
+          };
+        });
 
         // Sort by quantity sold
-        topProducts = [...allProducts].sort((a, b) => b.quantity - a.quantity).slice(0, 10);
+        topProducts = [...allProductsWithProfit].sort((a, b) => b.quantity - a.quantity).slice(0, 10);
 
         // Least sold (but excluding 0 since they wouldn't be in the order_items)
-        leastSoldProducts = [...allProducts].sort((a, b) => a.quantity - b.quantity).slice(0, 5);
+        leastSoldProducts = [...allProductsWithProfit].sort((a, b) => a.quantity - b.quantity).slice(0, 5);
       }
 
       setMetrics({
         revenue, orderCount, ticketMedio,
         topProducts, leastSoldProducts,
         topCustomers, waiterMetrics,
-        chartData
+        chartData,
+        financials: await fetchFinancials(startDate, endDate)
       });
     } catch (err) {
       console.error("Error fetching metrics:", err);
@@ -182,6 +209,35 @@ const Reports = () => {
       .lte("created_at", endDate.toISOString())
       .order("created_at", { ascending: true });
   }
+
+  const fetchFinancials = async (startDate: Date, endDate: Date) => {
+    if (!store) return metrics.financials;
+
+    const { data: trans } = await supabase
+      .from("financial_transactions")
+      .select("*, financial_categories(name)")
+      .eq("store_id", store.id)
+      .gte("due_date", startDate.toISOString().split('T')[0])
+      .lte("due_date", endDate.toISOString().split('T')[0]);
+
+    const stats = (trans || []).reduce((acc, t) => {
+      if (t.type === 'entry') acc.entries += Number(t.amount);
+      else acc.exits += Number(t.amount);
+
+      const catName = t.financial_categories?.name || (t.order_id ? "Vendas" : "Outros");
+      if (!acc.catMap[catName]) acc.catMap[catName] = { name: catName, amount: 0, type: t.type };
+      acc.catMap[catName].amount += Number(t.amount);
+
+      return acc;
+    }, { entries: 0, exits: 0, catMap: {} as any });
+
+    return {
+      entries: stats.entries,
+      exits: stats.exits,
+      netProfit: stats.entries - stats.exits,
+      categories: Object.values(stats.catMap) as { name: string, amount: number, type: string }[]
+    };
+  };
 
   useEffect(() => {
     if (store) {
@@ -408,19 +464,22 @@ const Reports = () => {
                       <div key={index} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${index === 0 ? 'bg-amber-100 text-amber-700 shadow-sm' :
-                              index === 1 ? 'bg-slate-200 text-slate-700 shadow-sm' :
-                                index === 2 ? 'bg-orange-100 text-orange-700 shadow-sm' :
-                                  'bg-muted text-muted-foreground'
+                            index === 1 ? 'bg-slate-200 text-slate-700 shadow-sm' :
+                              index === 2 ? 'bg-orange-100 text-orange-700 shadow-sm' :
+                                'bg-muted text-muted-foreground'
                             }`}>
                             {index === 0 ? <Medal className="w-4 h-4" /> : index + 1}
                           </div>
                           <div>
                             <p className="font-bold text-foreground text-sm">{product.name}</p>
-                            <p className="text-xs text-muted-foreground">{product.quantity} unidades vendidas</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {product.quantity} un • CM: {formatCurrency(product.revenue / product.quantity)}
+                            </p>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-emerald-600">{formatCurrency(product.revenue)}</p>
+                          <p className="text-[10px] text-primary font-bold">Lucro: {formatCurrency(product.profit)}</p>
                         </div>
                       </div>
                     ))}
@@ -563,6 +622,69 @@ const Reports = () => {
               </CardContent>
             </Card>
 
+            {/* Final Financial P&L (DRE) */}
+            <Card className="shadow-sm border-border lg:col-span-2 print:break-inside-avoid">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                  Demonstrativo de Resultados (DRE Simplificado)
+                </CardTitle>
+                <CardDescription>Fluxo financeiro consolidado entre vendas e despesas.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-xl bg-green-50 border border-green-100">
+                      <p className="text-xs font-bold text-green-700 uppercase">Receita Bruta</p>
+                      <p className="text-2xl font-black text-green-800">{formatCurrency(metrics.financials.entries)}</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-red-50 border border-red-100">
+                      <p className="text-xs font-bold text-red-700 uppercase">Total Despesas</p>
+                      <p className="text-2xl font-black text-red-800">{formatCurrency(metrics.financials.exits)}</p>
+                    </div>
+                    <div className={`p-4 rounded-xl border ${metrics.financials.netProfit >= 0 ? "bg-primary/10 border-primary/20" : "bg-destructive/10 border-destructive/20"}`}>
+                      <p className={`text-xs font-bold uppercase ${metrics.financials.netProfit >= 0 ? "text-primary" : "text-destructive"}`}>Lucro Líquido</p>
+                      <p className={`text-2xl font-black ${metrics.financials.netProfit >= 0 ? "text-primary-foreground" : "text-destructive"}`}>
+                        {formatCurrency(metrics.financials.netProfit)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border border-border rounded-xl overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Categoria</th>
+                          <th className="px-4 py-2 text-left">Tipo</th>
+                          <th className="px-4 py-2 text-right">Valor</th>
+                          <th className="px-4 py-2 text-right">%</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {metrics.financials.categories
+                          .sort((a, b) => b.amount - a.amount)
+                          .map((cat, i) => (
+                            <tr key={i} className="hover:bg-muted/30">
+                              <td className="px-4 py-3 font-medium">{cat.name}</td>
+                              <td className="px-4 py-3">
+                                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${cat.type === 'entry' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                  {cat.type === 'entry' ? "Receita" : "Despesa"}
+                                </span>
+                              </td>
+                              <td className={`px-4 py-3 text-right font-bold ${cat.type === 'entry' ? "text-green-600" : "text-red-600"}`}>
+                                {formatCurrency(cat.amount)}
+                              </td>
+                              <td className="px-4 py-3 text-right text-muted-foreground italic">
+                                {metrics.financials.entries > 0 ? ((cat.amount / metrics.financials.entries) * 100).toFixed(1) : 0}%
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </>
       )}
