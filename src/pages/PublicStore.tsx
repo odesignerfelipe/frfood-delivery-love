@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ShoppingBag, Plus, Minus, Trash2, X, Send, MapPin, Search, Star, Clock, Phone, Mail, Lock, Check, AlertTriangle, Zap } from "lucide-react";
+import { ShoppingBag, Plus, Minus, Trash2, X, Send, MapPin, Search, Star, Clock, Phone, Mail, Lock, Check, AlertTriangle, Zap, Bike, Store, Utensils, ChevronLeft } from "lucide-react";
 import { checkStoreStatus } from "@/lib/utils";
 
 interface SelectedVariation {
@@ -41,6 +41,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [tableSession, setTableSession] = useState<any>(null);
@@ -122,10 +123,27 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   }, [store?.name, store?.id]);
 
   useEffect(() => {
-    const handleScroll = () => { setShowStickyHeader(window.scrollY > 280); };
+    const handleScroll = () => {
+      setShowStickyHeader(window.scrollY > 280);
+
+      // ScrollSpy logic
+      const sections = categories.map(cat => document.getElementById(`cat-${cat.id}`));
+      const scrollPosition = window.scrollY + 200;
+
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const section = sections[i];
+        if (section && scrollPosition >= section.offsetTop) {
+          setActiveSection(categories[i].id);
+          break;
+        }
+      }
+      if (scrollPosition < (sections[0]?.offsetTop || 0)) {
+        setActiveSection(null);
+      }
+    };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [categories]);
 
   const getTodayHours = () => {
     if (!store?.opening_hours || !Array.isArray(store.opening_hours)) return null;
@@ -321,13 +339,44 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
           <Link to={`/pedido/${activeOrderId}`} className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold">Ver Status</Link>
         </div>
       )}
-      <div className="relative h-48 md:h-64 mb-6"><img src={store.banner_url || store.banner_mobile_url || ""} className="w-full h-full object-cover bg-primary/20" />
-        <div className="absolute inset-0 bg-black/20" />
-        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-20 h-20 md:w-28 md:h-28 rounded-full border-4 border-white bg-white overflow-hidden shadow-hero">
-          <img src={store.logo_url || ""} className="w-full h-full object-cover" />
+      {/* Sticky Header */}
+      {showStickyHeader && (
+        <div className="fixed top-0 left-0 right-0 z-40 bg-card border-b border-border shadow-md animate-in slide-in-from-top duration-300">
+          <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-4">
+            <div className="flex-shrink-0">
+              <img src={store.logo_url || ""} className="w-10 h-10 rounded-full object-cover border border-border" />
+            </div>
+            <div className="flex-1 overflow-x-auto scrollbar-hide flex gap-2">
+              {categories.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    document.getElementById(`cat-${cat.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeSection === cat.id ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => { setSearch(""); window.scrollTo({ top: 300, behavior: 'smooth' }); }} className="p-2 text-muted-foreground">
+              <Search className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Banner Section */}
+      <div className="max-w-[1210px] mx-auto px-4 pt-4 md:pt-6">
+        <div className="relative h-48 md:h-[250px] rounded-2xl md:rounded-[24px] overflow-hidden shadow-sm">
+          <img src={store.banner_url || store.banner_mobile_url || ""} className="w-full h-full object-cover bg-primary/20" />
+          <div className="absolute inset-0 bg-black/20" />
+          <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-20 h-20 md:w-32 md:h-32 rounded-full border-4 border-white bg-white overflow-hidden shadow-hero z-10">
+            <img src={store.logo_url || ""} className="w-full h-full object-cover" onClick={() => setInfoDialogOpen(true)} />
+          </div>
         </div>
       </div>
-      <div className="max-w-3xl mx-auto px-4 space-y-4 pt-10 text-center">
+      <div className="max-w-7xl mx-auto px-4 space-y-4 pt-12 text-center">
         <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">{store.name}</h1>
         <div className="flex items-center justify-center gap-4 text-sm font-medium">
           <button onClick={() => setInfoDialogOpen(true)} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors"><Star className="w-4 h-4 text-yellow-400 fill-yellow-400" /> Ver mais</button>
@@ -339,17 +388,27 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
           <button onClick={() => setActiveCategory(null)} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${!activeCategory ? "bg-primary text-white" : "bg-card border"}`}>Todos</button>
           {categories.map(cat => <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${activeCategory === cat.id ? "bg-primary text-white" : "bg-card border"}`}>{cat.name}</button>)}
         </div>
-        <div className="space-y-8 text-left">
+        <div className="space-y-12 text-left mt-8">
           {productsByCategory.map(cat => cat.products.length > 0 && (
-            <div key={cat.id} className="space-y-4 pt-4">
-              <h2 className="text-lg font-bold border-b pb-2">{cat.name}</h2>
-              <div className="grid grid-cols-1 gap-3">{cat.products.map(p => <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />)}</div>
+            <div key={cat.id} id={`cat-${cat.id}`} className="space-y-6 scroll-mt-24">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-bold text-foreground whitespace-nowrap">{cat.name}</h2>
+                <div className="h-px bg-border flex-1" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {cat.products.map(p => <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />)}
+              </div>
             </div>
           ))}
           {uncategorized.length > 0 && (
-            <div className="space-y-4 pt-4">
-              <h2 className="text-lg font-bold border-b pb-2">Outros</h2>
-              <div className="grid grid-cols-1 gap-3">{uncategorized.map(p => <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />)}</div>
+            <div className="space-y-6 scroll-mt-24">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-bold text-foreground whitespace-nowrap">Outros</h2>
+                <div className="h-px bg-border flex-1" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {uncategorized.map(p => <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />)}
+              </div>
             </div>
           )}
         </div>
@@ -401,15 +460,107 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         )}
         <Button variant="hero" className="w-full h-12 font-bold mt-4" disabled={isProcessing} onClick={handleCheckout}>{isProcessing ? "Enviando..." : "Confirmar Pedido"}</Button>
       </div></DialogContent></Dialog>
-      <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}><DialogContent className="sm:max-w-[420px] p-0 border-none rounded-2xl overflow-hidden"><div className="p-6 space-y-6 text-center">
-        <div className="w-24 h-24 rounded-full mx-auto border-4 border-white shadow-lg overflow-hidden"><img src={store.logo_url || ""} /></div>
-        <div><h2 className="text-2xl font-black">{store.name}</h2><p className="text-muted-foreground text-sm mt-1">{store.address}</p></div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-muted p-3 rounded-xl"><p className="text-[10px] uppercase font-bold text-muted-foreground">WhatsApp</p><p className="text-xs font-bold">{store.phone}</p></div>
-          <div className="bg-muted p-3 rounded-xl"><p className="text-[10px] uppercase font-bold text-muted-foreground">Status</p><p className={`text-xs font-bold ${storeOpen ? "text-green-600" : "text-destructive"}`}>{storeOpen ? "Aberto" : "Fechado"}</p></div>
-        </div>
-        <Button variant="outline" className="w-full rounded-xl" onClick={() => setInfoDialogOpen(false)}>Fechar</Button>
-      </div></DialogContent></Dialog>
+      <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}>
+        <DialogContent className="sm:max-w-[480px] p-0 border-none rounded-2xl overflow-hidden bg-background max-h-[90vh] overflow-y-auto">
+          <div className="relative">
+            {/* Header Image */}
+            <div className="h-32 md:h-40 bg-primary/20">
+              <img src={store.banner_url || store.banner_mobile_url || ""} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/30" />
+              <button onClick={() => setInfoDialogOpen(false)} className="absolute top-4 left-4 w-10 h-10 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-colors">
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Logo and Name */}
+            <div className="relative px-6 pb-6 text-center">
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full border-4 border-background bg-background overflow-hidden shadow-lg">
+                <img src={store.logo_url || ""} className="w-full h-full object-cover" />
+              </div>
+              <div className="pt-14 pb-4">
+                <h2 className="text-2xl font-black uppercase tracking-tight">{store.name}</h2>
+                <div className="mt-3 flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  <span>25-95min</span>
+                  <span>•</span>
+                  <p className="flex items-center gap-1">
+                    <span className="font-bold">Mínimo R$ {Number(store.min_order_value || 0).toFixed(2)}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-px bg-border w-full my-6" />
+
+              {/* Delivery Options */}
+              <div className="text-left space-y-4">
+                <h3 className="font-bold text-lg">Opções de entrega</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${store.delivery_enabled ? "border-primary/20 bg-primary/5" : "opacity-40 grayscale"}`}>
+                    <Bike className={`w-6 h-6 ${store.delivery_enabled ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className="text-[10px] font-bold uppercase">Delivery</span>
+                  </div>
+                  <div className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${store.pickup_enabled ? "border-primary/20 bg-primary/5" : "opacity-40 grayscale"}`}>
+                    <ShoppingBag className={`w-6 h-6 ${store.pickup_enabled ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className="text-[10px] font-bold uppercase">Retirada</span>
+                  </div>
+                  <div className={`p-4 rounded-xl border flex flex-col items-center gap-2 opacity-40 grayscale`}>
+                    <Utensils className="w-6 h-6 text-muted-foreground" />
+                    <span className="text-[10px] font-bold uppercase">Local</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="h-px bg-border w-full my-6" />
+
+              {/* Opening Hours */}
+              <div className="text-left space-y-4">
+                <h3 className="font-bold text-lg">Horário de funcionamento</h3>
+                <div className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase ${storeOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                  {storeOpen ? "Aberto" : "Fechado"}
+                </div>
+                <div className="space-y-1.5 mt-2">
+                  {(store.opening_hours || []).map((day: any, i: number) => (
+                    <div key={i} className={`flex justify-between text-xs font-medium ${day.day === new Date().toLocaleDateString('pt-BR', { weekday: 'long' }).split('-')[0].charAt(0).toUpperCase() + new Date().toLocaleDateString('pt-BR', { weekday: 'long' }).split('-')[0].slice(1) ? "font-bold" : "text-muted-foreground"}`}>
+                      <span className="uppercase">{day.day.substring(0, 3)}</span>
+                      <span>{day.enabled ? (day.periods && day.periods[0] ? `${day.periods[0].open} às ${day.periods[0].close}` : "Fechado") : "Fechado"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-px bg-border w-full my-6" />
+
+              {/* Payment Methods */}
+              <div className="text-left space-y-4">
+                <h3 className="font-bold text-lg">Formas de Pagamento</h3>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-bold text-muted-foreground mb-2">Pagamento online:</p>
+                    <div className="flex flex-wrap gap-2 text-[10px] font-bold">
+                      <span className="px-3 py-1.5 bg-muted rounded-md uppercase">Pix</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-muted-foreground mb-2">Na entrega:</p>
+                    <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase">
+                      <span className="px-3 py-1.5 bg-muted rounded-md tracking-tight">Dinheiro</span>
+                      <span className="px-3 py-1.5 bg-muted rounded-md tracking-tight">Cartão de Crédito</span>
+                      <span className="px-3 py-1.5 bg-muted rounded-md tracking-tight">Cartão de Débito</span>
+                      <span className="px-3 py-1.5 bg-muted rounded-md tracking-tight">Pix Manual</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Business Info */}
+              <div className="mt-8 pt-6 border-t border-border/50 text-center space-y-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Razão Social: {store.social_name || store.name}</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">CNPJ: {store.cnpj || "00.000.000/0000-00"}</p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
