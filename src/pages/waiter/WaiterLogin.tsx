@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useStore } from "@/hooks/useStore";
+import { useStorePublic } from "@/hooks/useStorePublic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,11 +15,12 @@ interface WaiterLoginProps {
 const WaiterLogin = ({ explicitSlug }: WaiterLoginProps) => {
     const { slug: paramSlug } = useParams();
     const activeSlug = explicitSlug || paramSlug;
-    const { store, loading, error } = useStore(activeSlug);
+    const { store, loading, error } = useStorePublic(activeSlug);
     const navigate = useNavigate();
 
     const [login, setLogin] = useState("");
     const [password, setPassword] = useState("");
+    const [storeSlugInput, setStoreSlugInput] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -48,12 +50,57 @@ const WaiterLogin = ({ explicitSlug }: WaiterLoginProps) => {
         );
     }
 
+    if (!activeSlug) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-muted/30">
+                <div className="w-full max-w-sm bg-card rounded-2xl shadow-xl border border-border/50 p-6 sm:p-8">
+                    <div className="flex flex-col items-center mb-8">
+                        <div className="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center mb-4 text-primary">
+                            <ShieldCheck className="w-8 h-8" />
+                        </div>
+                        <h1 className="text-2xl font-bold text-foreground text-center line-clamp-1">Portal do Garçom</h1>
+                        <p className="text-muted-foreground text-sm font-medium mt-1">Identifique o restaurante</p>
+                    </div>
+
+                    <form onSubmit={(e) => {
+                        e.preventDefault();
+                        if (storeSlugInput.trim()) {
+                            navigate(`/loja/${storeSlugInput.trim()}/garcom`);
+                        } else {
+                            toast.error("Informe o código da loja");
+                        }
+                    }} className="space-y-4">
+                        <div className="space-y-1">
+                            <Label htmlFor="storeSlug">Código da Loja (Link)</Label>
+                            <Input
+                                id="storeSlug"
+                                placeholder="Ex: minha-loja"
+                                value={storeSlugInput}
+                                onChange={(e) => setStoreSlugInput(e.target.value)}
+                                className="bg-muted/50"
+                            />
+                        </div>
+
+                        <Button
+                            type="submit"
+                            variant="hero"
+                            className="w-full h-11 text-base shadow-md mt-4"
+                        >
+                            Continuar
+                        </Button>
+                    </form>
+                </div>
+            </div>
+        );
+    }
+
     if (error || !store) {
         return (
-            <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="min-h-screen flex items-center justify-center p-4 flex-col gap-4">
                 <div className="text-center max-w-md">
                     <h2 className="text-2xl font-bold mb-2">Loja não encontrada</h2>
-                    <p className="text-muted-foreground">O endereço acessado não corresponde a nenhuma loja ativa no momento.</p>
+                    <p className="text-muted-foreground mb-4">O código "{activeSlug}" não corresponde a nenhuma loja ativa no momento.</p>
+                    <Button onClick={() => navigate("/garcom")} variant="outline">Tentar outro código</Button>
                 </div>
             </div>
         );

@@ -86,61 +86,71 @@ const Tables = () => {
         <head>
           <title>Imprimir QR Code - ${selectedTable.name}</title>
           <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
             body {
-              font-family: system-ui, -apple-system, sans-serif;
+              font-family: 'Inter', sans-serif;
               display: flex;
-              flex-direction: column;
-              align-items: center;
               justify-content: center;
+              align-items: center;
               height: 100vh;
               margin: 0;
-              text-align: center;
-              color: #333;
+              background-color: #fff;
+            }
+            @media print {
+              body { background-color: white; }
+              @page { margin: 0; size: auto; }
             }
             .card {
-              border: 2px solid ${store.primary_color || '#ea580c'};
-              border-radius: 20px;
-              padding: 40px;
-              max-width: 400px;
-              box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+              border: 1px solid #E5E7EB;
+              border-radius: 16px;
+              padding: 24px;
+              width: 280px;
+              box-sizing: border-box;
+              background: #fff;
+              text-align: center;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
             }
             .logo {
-              max-height: 80px;
-              max-width: 250px;
+              max-height: 48px;
+              max-width: 180px;
               margin-bottom: 20px;
-              border-radius: 8px;
+              object-fit: contain;
             }
             .title {
-              font-size: 28px;
-              font-weight: bold;
-              margin-bottom: 10px;
-              color: ${store.primary_color || '#ea580c'};
+              font-size: 16px;
+              font-weight: 800;
+              margin-bottom: 6px;
+              color: #111827;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
             }
             .instruction {
-              font-size: 18px;
-              margin-bottom: 30px;
-              color: #555;
+              font-size: 12px;
+              margin-bottom: 20px;
+              color: #6B7280;
+              line-height: 1.4;
             }
             .qr-container {
               background: white;
-              padding: 20px;
+              padding: 12px;
               border-radius: 12px;
               display: inline-block;
               margin-bottom: 20px;
-              border: 1px solid #ddd;
+              border: 1px solid #E5E7EB;
+              box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
             }
             svg {
-              width: 250px !important;
-              height: 250px !important;
+              width: 160px !important;
+              height: 160px !important;
+              display: block;
             }
             .table-name {
-              font-size: 24px;
-              font-weight: bold;
-              color: #000;
-              margin-top: 10px;
-              padding: 10px 20px;
-              background-color: #f5f5f5;
-              border-radius: 10px;
+              font-size: 14px;
+              font-weight: 800;
+              color: #374151;
+              padding: 8px 16px;
+              background-color: #F3F4F6;
+              border-radius: 8px;
               display: inline-block;
             }
           </style>
@@ -148,9 +158,9 @@ const Tables = () => {
         <body>
           <div class="card">
             ${store.logo_url ? `<img src="${store.logo_url}" class="logo" alt="Logo" />` : ''}
-            <div class="title">Faça seu pedido</div>
+            <div class="title">Faça seu Pedido</div>
             <div class="instruction">
-              Aponte a câmera do seu celular para este QR Code e acesse nosso cardápio digital.
+              Escaneie este código para acessar nosso cardápio digital
             </div>
             <div class="qr-container">
               ${svgElement || ''}
@@ -249,7 +259,7 @@ const Tables = () => {
                                     size={200}
                                     level={"H"}
                                     includeMargin={false}
-                                    fgColor={store.primary_color || "#000000"}
+                                    fgColor={"#000000"}
                                     imageSettings={store.logo_url ? {
                                         src: store.logo_url,
                                         x: undefined,

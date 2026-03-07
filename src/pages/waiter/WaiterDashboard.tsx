@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useStore } from "@/hooks/useStore";
+import { useStorePublic } from "@/hooks/useStorePublic";
 import { Button } from "@/components/ui/button";
 import { Loader2, LogOut, Coffee, ArrowRight, UserCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ interface WaiterDashboardProps {
 const WaiterDashboard = ({ explicitSlug }: WaiterDashboardProps) => {
     const { slug: paramSlug } = useParams();
     const activeSlug = explicitSlug || paramSlug;
-    const { store, loading } = useStore(activeSlug);
+    const { store, loading } = useStorePublic(activeSlug);
     const navigate = useNavigate();
 
     const [waiterSession, setWaiterSession] = useState<any>(null);
@@ -196,8 +196,8 @@ const WaiterDashboard = ({ explicitSlug }: WaiterDashboardProps) => {
                                     key={table.id}
                                     onClick={() => handleTableClick(table, activeComanda)}
                                     className={`relative flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all text-left ${isOccupied
-                                            ? "bg-primary/5 border-primary shadow-sm hover:bg-primary/10"
-                                            : "bg-card border-border hover:border-primary/50 shadow-sm"
+                                        ? "bg-primary/5 border-primary shadow-sm hover:bg-primary/10"
+                                        : "bg-card border-border hover:border-primary/50 shadow-sm"
                                         }`}
                                 >
                                     {isOccupied && (

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useStore } from "@/hooks/useStore";
+import { useStorePublic } from "@/hooks/useStorePublic";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, ArrowLeft, Search, Check, ShoppingBag, Plus, Minus, Trash2, Send } from "lucide-react";
@@ -29,7 +29,7 @@ interface WaiterCatalogProps {
 const WaiterCatalog = ({ explicitSlug }: WaiterCatalogProps) => {
     const { id: comandaId, slug: paramSlug } = useParams();
     const activeSlug = explicitSlug || paramSlug;
-    const { store, loading: storeLoading } = useStore(activeSlug);
+    const { store, loading: storeLoading } = useStorePublic(activeSlug);
     const navigate = useNavigate();
 
     const [waiterSession, setWaiterSession] = useState<any>(null);

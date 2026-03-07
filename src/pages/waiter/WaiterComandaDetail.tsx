@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useStore } from "@/hooks/useStore";
+import { useStorePublic } from "@/hooks/useStorePublic";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, Receipt, PlusCircle, CheckCircle2, Clock, MapPin, Calculator, X } from "lucide-react";
 import { toast } from "sonner";
@@ -17,7 +17,7 @@ interface WaiterComandaDetailProps {
 const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
     const { id: comandaId, slug: paramSlug } = useParams();
     const activeSlug = explicitSlug || paramSlug;
-    const { store, loading: storeLoading } = useStore(activeSlug);
+    const { store, loading: storeLoading } = useStorePublic(activeSlug);
     const navigate = useNavigate();
 
     const [waiterSession, setWaiterSession] = useState<any>(null);

@@ -108,6 +108,7 @@ const AppRouter = () => {
       <Route path="/mesa/:id" element={<TableRedirect />} />
 
       {/* Waiter routes for Main Domain */}
+      <Route path="/garcom" element={<WaiterLogin />} />
       <Route path="/loja/:slug/garcom" element={<WaiterLogin />} />
       <Route path="/loja/:slug/garcom/mesas" element={<WaiterDashboard />} />
       <Route path="/loja/:slug/garcom/comanda/:id" element={<WaiterComandaDetail />} />
