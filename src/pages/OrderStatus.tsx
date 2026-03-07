@@ -67,6 +67,22 @@ export default function OrderStatus() {
         setLoading(false);
     };
 
+    useEffect(() => {
+        if (store) {
+            document.title = `Pedido #${order?.order_number || ''} - ${store.name}`;
+
+            if (store.logo_url) {
+                let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+                if (!link) {
+                    link = document.createElement('link');
+                    link.rel = 'icon';
+                    document.getElementsByTagName('head')[0].appendChild(link);
+                }
+                link.href = store.logo_url;
+            }
+        }
+    }, [store, order]);
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background">

@@ -7,10 +7,13 @@
  * Normalizes text for PIX fields (removes accents, limits length)
  */
 export const normalizePixText = (text: string, maxLength: number): string => {
+    if (!text) return "";
     return text
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "") // Remove accents
-        .replace(/[^a-zA-Z0-9 ]/g, "")   // Remove special characters
+        .replace(/[^a-zA-Z0-9]/g, " ")   // Replace special characters with space
+        .replace(/\s+/g, " ")            // Collapse multiple spaces
+        .trim()
         .substring(0, maxLength)
         .toUpperCase();
 };

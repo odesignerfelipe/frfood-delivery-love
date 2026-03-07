@@ -74,6 +74,7 @@ const StoreSettings = () => {
     delivery_radius: (store as any)?.delivery_radius || 5,
     cnpj: (store as any)?.cnpj || "",
     razao_social: (store as any)?.razao_social || "",
+    display_name_type: (store as any)?.display_name_type || "name",
     consumo_local_enabled: (store as any)?.consumo_local_enabled ?? true,
     opening_hours: openingHours,
   });
@@ -109,6 +110,7 @@ const StoreSettings = () => {
         delivery_radius: (store as any).delivery_radius || 5,
         razao_social: (store as any).razao_social || "",
         cnpj: (store as any).cnpj || "",
+        display_name_type: (store as any).display_name_type || "name",
         consumo_local_enabled: (store as any).consumo_local_enabled ?? true,
         opening_hours: store.opening_hours && Array.isArray(store.opening_hours) && store.opening_hours.length > 0 ? (store.opening_hours as any[]) : defaultHours(),
       });

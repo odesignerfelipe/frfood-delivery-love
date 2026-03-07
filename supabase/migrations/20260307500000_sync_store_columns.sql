@@ -12,7 +12,8 @@ ADD COLUMN IF NOT EXISTS avg_prep_time INTEGER NOT NULL DEFAULT 30,
 ADD COLUMN IF NOT EXISTS avg_delivery_time INTEGER NOT NULL DEFAULT 40,
 ADD COLUMN IF NOT EXISTS delivery_radius NUMERIC(10,2) NOT NULL DEFAULT 5,
 ADD COLUMN IF NOT EXISTS status_mode TEXT NOT NULL DEFAULT 'auto' CHECK (status_mode IN ('auto', 'manual_open', 'manual_closed')),
-ADD COLUMN IF NOT EXISTS audio_notifications BOOLEAN NOT NULL DEFAULT true;
+ADD COLUMN IF NOT EXISTS audio_notifications BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN IF NOT EXISTS pix_key TEXT DEFAULT '';
 
 -- Update existing records if necessary
 -- (Default values already handle new columns)

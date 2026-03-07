@@ -403,13 +403,14 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         </div>
       )}
 
-      {/* Banner Section */}
       <div className="max-w-[1210px] mx-auto px-4 pt-4 md:pt-6">
-        <div className="relative h-48 md:h-[250px] rounded-2xl md:rounded-[24px] shadow-sm">
-          <img src={store.banner_url || store.banner_mobile_url || ""} className="w-full h-full object-cover bg-primary/20 rounded-2xl md:rounded-[24px]" />
+        <div className="relative h-48 md:h-[250px] rounded-2xl md:rounded-[24px] shadow-sm bg-primary/10">
+          <img src={store.banner_url || store.banner_mobile_url || ""} className="w-full h-full object-cover rounded-2xl md:rounded-[24px]" />
           <div className="absolute inset-0 bg-black/20 rounded-2xl md:rounded-[24px]" />
-          <div className="absolute -bottom-8 md:-bottom-12 left-1/2 -translate-x-1/2 w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white bg-white overflow-hidden shadow-hero z-10 transition-all">
-            <img src={store.logo_url || ""} className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform" onClick={() => setInfoDialogOpen(true)} />
+          <div className="absolute -bottom-8 md:-bottom-12 left-1/2 -translate-x-1/2 w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white bg-white shadow-hero z-10 transition-all flex items-center justify-center overflow-visible">
+            <div className="w-full h-full rounded-full overflow-hidden border border-border/10">
+              <img src={store.logo_url || ""} className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform" onClick={() => setInfoDialogOpen(true)} />
+            </div>
           </div>
         </div>
       </div>
@@ -434,11 +435,11 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
                 <h2 className="text-xl font-bold text-foreground whitespace-nowrap">{cat.name}</h2>
                 <div className="h-px bg-border flex-1" />
               </div>
-              <div className={`grid gap-4 ${cat.products.length === 1
-                ? "grid-cols-1 max-w-sm"
-                : cat.products.length === 2
-                  ? "grid-cols-1 sm:grid-cols-2"
-                  : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+              <div className={`grid gap-4 ${cat.products.length === 1 ? "grid-cols-1 max-w-sm" :
+                cat.products.length === 2 ? "grid-cols-2" :
+                  cat.products.length === 3 ? "grid-cols-1 sm:grid-cols-3" :
+                    cat.products.length === 4 ? "grid-cols-2" :
+                      "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
                 }`}>
                 {cat.products.map(p => <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />)}
               </div>
@@ -465,8 +466,8 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
       {variationModalOpen && variationProduct && (
         <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}>
-          <DialogContent className="max-w-md max-h-[90vh] p-0 border-none rounded-2xl overflow-hidden flex flex-col">
-            <div className="p-6 space-y-6 flex-1 overflow-y-auto min-h-0">
+          <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white border-none shadow-hero">
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto min-h-0 bg-white">
               <div className="flex gap-4">
                 {variationProduct.image_url && <img src={variationProduct.image_url} className="w-20 h-20 rounded-xl object-cover" />}
                 <div>
@@ -544,7 +545,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         <Button variant="hero" className="w-full h-12 font-bold mt-4" disabled={isProcessing} onClick={handleCheckout}>{isProcessing ? "Enviando..." : "Confirmar Pedido"}</Button>
       </div></DialogContent></Dialog>
       <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}>
-        <DialogContent className="sm:max-w-[480px] p-0 border-none rounded-2xl overflow-hidden bg-white max-h-[90vh] overflow-y-auto outline-none">
+        <DialogContent className="max-w-xl p-0 overflow-hidden bg-white border-none shadow-hero max-h-[90vh] overflow-y-auto scrollbar-hide">
           <div className="relative bg-white">
             {/* Header Image */}
             <div className="h-32 md:h-40 bg-primary/20">
@@ -601,11 +602,14 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
                 </div>
               </div>
 
-              <div className="h-px bg-border w-full my-6" />
+              <div className="h-px bg-border w-full my-6 opacity-50" />
 
               {/* Opening Hours */}
               <div className="text-left space-y-4">
-                <h3 className="font-bold text-lg">Horário de funcionamento</h3>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-primary" />
+                  <h3 className="font-bold text-lg">Horário de funcionamento</h3>
+                </div>
                 <div className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase ${storeOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                   {storeOpen ? "Aberto" : "Fechado"}
                 </div>

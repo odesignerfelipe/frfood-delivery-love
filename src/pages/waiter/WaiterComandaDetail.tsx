@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useStorePublic } from "@/hooks/useStorePublic";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Receipt, PlusCircle, CheckCircle2, Clock, MapPin, Calculator, X, Bell, Printer } from "lucide-react";
+import { Loader2, ArrowLeft, Receipt, PlusCircle, CheckCircle2, Clock, MapPin, Calculator, X, Bell, Printer, Copy } from "lucide-react";
 import { printerService } from "@/lib/printer";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -481,31 +481,45 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
                                                 {isExpired ? (
                                                     <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                                                         <AlertTriangle className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
-                                                        <p className="text-[10px] font-bold text-yellow-700">QR CODE EXPIRADO</p>
-                                                        <p className="text-[9px] text-yellow-600">Esta comanda foi aberta há mais de 1 hora. Por segurança, o QR Code expirou.</p>
+                                                        <p className="text-[10px] font-bold text-yellow-700 uppercase">QR CODE EXPIRADO (Lançado há +1h)</p>
+                                                        <p className="text-[9px] text-yellow-600">Por segurança, solicite ao cliente novo pagamento ou use outras formas.</p>
                                                     </div>
                                                 ) : (
-                                                    <div className="bg-white p-3 rounded-lg w-44 h-44 mx-auto flex items-center justify-center border shadow-sm">
-                                                        {store?.pix_key ? (
-                                                            <QRCodeSVG
-                                                                value={pixPayload}
-                                                                size={150}
-                                                                level="H"
-                                                                includeMargin={true}
-                                                                imageSettings={store.logo_url ? {
-                                                                    src: store.logo_url,
-                                                                    x: undefined,
-                                                                    y: undefined,
-                                                                    height: 24,
-                                                                    width: 24,
-                                                                    excavate: true,
-                                                                } : undefined}
-                                                            />
-                                                        ) : (
-                                                            <div className="text-[10px] text-center text-muted-foreground">
-                                                                PIX não configurado
-                                                            </div>
-                                                        )}
+                                                    <div className="space-y-4">
+                                                        <div className="bg-white p-3 rounded-lg w-44 h-44 mx-auto flex items-center justify-center border shadow-sm">
+                                                            {store?.pix_key ? (
+                                                                <QRCodeSVG
+                                                                    value={pixPayload}
+                                                                    size={150}
+                                                                    level="H"
+                                                                    includeMargin={true}
+                                                                    imageSettings={store.logo_url ? {
+                                                                        src: store.logo_url,
+                                                                        x: undefined,
+                                                                        y: undefined,
+                                                                        height: 24,
+                                                                        width: 24,
+                                                                        excavate: true,
+                                                                    } : undefined}
+                                                                />
+                                                            ) : (
+                                                                <div className="text-[10px] text-center text-muted-foreground">
+                                                                    PIX não configurado
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="w-full gap-2 text-xs h-9"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                navigator.clipboard.writeText(pixPayload);
+                                                                toast.success("Código PIX copiado!");
+                                                            }}
+                                                        >
+                                                            <Copy className="w-3 h-3" /> Copiar Código PIX
+                                                        </Button>
                                                     </div>
                                                 )}
 
