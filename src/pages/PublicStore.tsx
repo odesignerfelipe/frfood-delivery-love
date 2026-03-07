@@ -44,6 +44,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [stickySearchOpen, setStickySearchOpen] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [tableSession, setTableSession] = useState<any>(null);
 
   // Variation modal state
   const [variationModalOpen, setVariationModalOpen] = useState(false);
@@ -92,6 +93,20 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     const { data: s } = await supabase.from("stores").select("*").eq("slug", slug).single();
     if (!s) { setLoading(false); return; }
     setStore(s);
+
+    const storedTable = localStorage.getItem(`frfood_table_${s.id}`);
+    if (storedTable) {
+      try {
+        const parsed = JSON.parse(storedTable);
+        if (new Date().getTime() - parsed.timestamp < 4 * 60 * 60 * 1000) {
+          setTableSession(parsed);
+        } else {
+          localStorage.removeItem(`frfood_table_${s.id}`);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
 
     const [cats, prods, zones] = await Promise.all([
       supabase.from("categories").select("*").eq("store_id", s.id).eq("is_active", true).order("sort_order"),
@@ -354,34 +369,78 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     if (!store || cart.length === 0) return;
     setIsProcessing(true);
 
-    if (!form.customer_name || !form.customer_phone) {
-      toast.error("Preencha o nome e telefone");
+    let finalDeliveryType = form.delivery_type;
+    let origin = "delivery";
+    let comandaId = null;
+
+    if (tableSession) {
+      finalDeliveryType = "table";
+      origin = "qr_code";
+
+      const { data: openComanda } = await supabase
+        .from("comandas")
+        .select("id")
+        .eq("store_id", store.id)
+        .eq("table_id", tableSession.table_id)
+        .eq("status", "open")
+        .maybeSingle();
+
+      if (openComanda) {
+        comandaId = openComanda.id;
+      } else {
+        const { data: newComanda } = await supabase
+          .from("comandas")
+          .insert({
+            store_id: store.id,
+            table_id: tableSession.table_id,
+            status: "open",
+            subtotal: 0,
+            discount: 0,
+            total: 0
+          }).select().single();
+        if (newComanda) comandaId = newComanda.id;
+      }
+    }
+
+    if (!tableSession) {
+      if (!form.customer_name || !form.customer_phone) {
+        toast.error("Preencha o nome e telefone");
+        setIsProcessing(false);
+        return;
+      }
+
+      if (form.delivery_type === "delivery" && !form.customer_address.trim()) { toast.error("Preencha o endereço"); setIsProcessing(false); return; }
+      if (form.delivery_type === "delivery" && deliveryZones.length > 0 && !form.neighborhood) { toast.error("Selecione o bairro"); setIsProcessing(false); return; }
+      if (!form.payment_method) { toast.error("Selecione a forma de pagamento"); setIsProcessing(false); return; }
+    }
+
+    if (store.min_order_value && subtotal < store.min_order_value && !tableSession) {
+      toast.error(`Pedido mínimo R$ ${store.min_order_value.toFixed(2)}`);
       setIsProcessing(false);
       return;
     }
 
-    if (form.delivery_type === "delivery" && !form.customer_address.trim()) { toast.error("Preencha o endereço"); setIsProcessing(false); return; }
-    if (form.delivery_type === "delivery" && deliveryZones.length > 0 && !form.neighborhood) { toast.error("Selecione o bairro"); setIsProcessing(false); return; }
-    if (!form.payment_method) { toast.error("Selecione a forma de pagamento"); setIsProcessing(false); return; }
-
-    if (store.min_order_value && subtotal < store.min_order_value) { toast.error(`Pedido mínimo R$ ${store.min_order_value.toFixed(2)}`); setIsProcessing(false); return; }
+    const customerNameFinal = form.customer_name || (tableSession ? `Mesa ${tableSession.table_name}` : "");
 
     const orderId = crypto.randomUUID();
     const { error } = await supabase.from("orders").insert({
       id: orderId,
       store_id: store.id,
-      customer_name: form.customer_name,
-      customer_phone: form.customer_phone,
+      customer_name: customerNameFinal,
+      customer_phone: form.customer_phone || "00000000000",
       customer_address: form.customer_address,
       neighborhood: form.neighborhood,
-      delivery_type: form.delivery_type,
-      delivery_fee: deliveryFee,
+      delivery_type: finalDeliveryType,
+      delivery_fee: tableSession ? 0 : deliveryFee,
       subtotal: Number(subtotal),
       discount: Number(discount),
-      total: total,
+      total: tableSession ? (Number(subtotal) - Number(discount)) : total,
       coupon_code: appliedCoupon?.code || "",
       notes: form.notes,
-      payment_method: form.payment_method,
+      payment_method: tableSession ? "comanda" : form.payment_method,
+      origin: origin,
+      comanda_id: comandaId,
+      table_id: tableSession ? tableSession.table_id : null
     });
 
     if (error) {
@@ -913,87 +972,111 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
                 <button onClick={() => setCheckoutOpen(false)}><X className="w-5 h-5" /></button>
               </div>
 
-              <div className="space-y-4">
-
-                <div>
-                  <Label>Nome</Label>
-                  <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} placeholder="Seu nome completo" required />
+              {tableSession ? (
+                <div className="space-y-4">
+                  <div className="bg-primary/10 text-primary border border-primary/20 p-4 rounded-xl mb-4">
+                    <p className="font-bold">Você está na {tableSession.table_name}</p>
+                    <p className="text-sm">Seu pedido será enviado diretamente para a cozinha e vinculado à sua comanda.</p>
+                  </div>
+                  <div>
+                    <Label>Seu Nome (Opcional)</Label>
+                    <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} placeholder="Como prefere ser chamado?" />
+                  </div>
+                  <div>
+                    <Label>Observações da Mesa</Label>
+                    <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Alguma observação para a mesa?" rows={2} />
+                  </div>
+                  <div className="bg-muted/50 rounded-xl p-4 space-y-1 text-sm">
+                    {discount > 0 && <div className="flex justify-between text-green-600"><span>Desconto</span><span>-R$ {discount.toFixed(2)}</span></div>}
+                    <div className="flex justify-between font-bold text-foreground text-base pt-1"><span>Total do Pedido</span><span>R$ {(subtotal - discount).toFixed(2)}</span></div>
+                  </div>
+                  <Button variant="hero" size="lg" className="w-full" onClick={handleCheckout} disabled={isProcessing}>
+                    {isProcessing ? "Enviando..." : <><Send className="w-4 h-4 mr-2" /> Enviar para a Cozinha</>}
+                  </Button>
                 </div>
+              ) : (
+                <div className="space-y-4">
 
-                <div>
-                  <Label>WhatsApp</Label>
-                  <Input value={form.customer_phone} onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} placeholder="11999999999" required />
-                </div>
+                  <div>
+                    <Label>Nome</Label>
+                    <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} placeholder="Seu nome completo" required />
+                  </div>
 
-                <div>
-                  <Label>Tipo de entrega</Label>
-                  <Select value={form.delivery_type} onValueChange={(v) => setForm({ ...form, delivery_type: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {store.delivery_enabled && <SelectItem value="delivery">Entrega</SelectItem>}
-                      {store.pickup_enabled && <SelectItem value="pickup">Retirada no local</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div>
+                    <Label>WhatsApp</Label>
+                    <Input value={form.customer_phone} onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} placeholder="11999999999" required />
+                  </div>
 
-                {form.delivery_type === "delivery" && (
-                  <>
-                    <div>
-                      <Label>Endereço</Label>
-                      <Input value={form.customer_address} onChange={(e) => setForm({ ...form, customer_address: e.target.value })} placeholder="Rua, número, complemento" required />
-                    </div>
-                    {deliveryZones.length > 0 && (
+                  <div>
+                    <Label>Tipo de entrega</Label>
+                    <Select value={form.delivery_type} onValueChange={(v) => setForm({ ...form, delivery_type: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {store.delivery_enabled && <SelectItem value="delivery">Entrega</SelectItem>}
+                        {store.pickup_enabled && <SelectItem value="pickup">Retirada no local</SelectItem>}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {form.delivery_type === "delivery" && (
+                    <>
                       <div>
-                        <Label>Bairro</Label>
-                        <Select value={form.neighborhood} onValueChange={(v) => setForm({ ...form, neighborhood: v })}>
-                          <SelectTrigger><SelectValue placeholder="Selecione o bairro" /></SelectTrigger>
-                          <SelectContent>
-                            {deliveryZones.map((z) => (
-                              <SelectItem key={z.id} value={z.neighborhood}>{z.neighborhood} - R$ {z.fee.toFixed(2)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Label>Endereço</Label>
+                        <Input value={form.customer_address} onChange={(e) => setForm({ ...form, customer_address: e.target.value })} placeholder="Rua, número, complemento" required />
                       </div>
+                      {deliveryZones.length > 0 && (
+                        <div>
+                          <Label>Bairro</Label>
+                          <Select value={form.neighborhood} onValueChange={(v) => setForm({ ...form, neighborhood: v })}>
+                            <SelectTrigger><SelectValue placeholder="Selecione o bairro" /></SelectTrigger>
+                            <SelectContent>
+                              {deliveryZones.map((z) => (
+                                <SelectItem key={z.id} value={z.neighborhood}>{z.neighborhood} - R$ {z.fee.toFixed(2)}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  <div>
+                    <Label>Forma de pagamento</Label>
+                    <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pix">PIX</SelectItem>
+                        <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                        <SelectItem value="cartao_credito">Cartão de crédito</SelectItem>
+                        <SelectItem value="cartao_debito">Cartão de débito</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Observações</Label>
+                    <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Alguma observação?" rows={2} />
+                  </div>
+
+                  <div className="bg-muted/50 rounded-xl p-4 space-y-1 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
+                    {discount > 0 && <div className="flex justify-between text-green-600"><span>Desconto</span><span>-R$ {discount.toFixed(2)}</span></div>}
+                    {deliveryFee > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Entrega</span><span>R$ {deliveryFee.toFixed(2)}</span></div>}
+                    <div className="flex justify-between font-bold text-foreground text-base pt-1 border-t border-border"><span>Total</span><span>R$ {total.toFixed(2)}</span></div>
+                    {estimatedTime > 0 && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 pt-1">
+                        <Clock className="w-3 h-3" /> Estimativa: {estimatedTime} min
+                      </p>
                     )}
-                  </>
-                )}
+                  </div>
 
-                <div>
-                  <Label>Forma de pagamento</Label>
-                  <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pix">PIX</SelectItem>
-                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                      <SelectItem value="cartao_credito">Cartão de crédito</SelectItem>
-                      <SelectItem value="cartao_debito">Cartão de débito</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Button variant="hero" size="lg" className="w-full" onClick={handleCheckout} disabled={isProcessing}>
+                    {isProcessing ? "Processando..." : (
+                      <><Check className="w-4 h-4 mr-2" /> Finalizar Pedido</>
+                    )}
+                  </Button>
                 </div>
-
-                <div>
-                  <Label>Observações</Label>
-                  <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Alguma observação?" rows={2} />
-                </div>
-
-                <div className="bg-muted/50 rounded-xl p-4 space-y-1 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
-                  {discount > 0 && <div className="flex justify-between text-green-600"><span>Desconto</span><span>-R$ {discount.toFixed(2)}</span></div>}
-                  {deliveryFee > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Entrega</span><span>R$ {deliveryFee.toFixed(2)}</span></div>}
-                  <div className="flex justify-between font-bold text-foreground text-base pt-1 border-t border-border"><span>Total</span><span>R$ {total.toFixed(2)}</span></div>
-                  {estimatedTime > 0 && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 pt-1">
-                      <Clock className="w-3 h-3" /> Estimativa: {estimatedTime} min
-                    </p>
-                  )}
-                </div>
-
-                <Button variant="hero" size="lg" className="w-full" onClick={handleCheckout} disabled={isProcessing}>
-                  {isProcessing ? "Processando..." : (
-                    <><Check className="w-4 h-4 mr-2" /> Finalizar Pedido</>
-                  )}
-                </Button>
-              </div>
+              )}
             </div>
           </div>
         )

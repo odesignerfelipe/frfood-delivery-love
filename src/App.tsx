@@ -23,6 +23,16 @@ import Reports from "./pages/dashboard/Reports";
 import Customers from "./pages/dashboard/Customers";
 import DashboardUpdates from "./pages/dashboard/DashboardUpdates";
 import DashboardUpdateDetail from "./pages/dashboard/DashboardUpdateDetail";
+import Tables from "./pages/dashboard/Tables";
+import Waiters from "./pages/dashboard/Waiters";
+
+// Waiter App
+import WaiterLogin from "./pages/waiter/WaiterLogin";
+import WaiterDashboard from "./pages/waiter/WaiterDashboard";
+import WaiterComandaDetail from "./pages/waiter/WaiterComandaDetail";
+import WaiterCatalog from "./pages/waiter/WaiterCatalog";
+import TableRedirect from "./pages/waiter/TableRedirect";
+
 import PublicStore from "./pages/PublicStore";
 import OrderStatus from "./pages/OrderStatus";
 import NotFound from "./pages/NotFound";
@@ -56,6 +66,14 @@ const AppRouter = () => {
       <Routes>
         <Route path="/" element={<PublicStore explicitSlug={slug} />} />
         <Route path="/pedido/:id" element={<OrderStatus />} />
+        <Route path="/mesa/:id" element={<TableRedirect />} />
+
+        {/* Waiter routes for Subdomains */}
+        <Route path="/garcom" element={<WaiterLogin explicitSlug={slug} />} />
+        <Route path="/garcom/mesas" element={<WaiterDashboard explicitSlug={slug} />} />
+        <Route path="/garcom/comanda/:id" element={<WaiterComandaDetail explicitSlug={slug} />} />
+        <Route path="/garcom/comanda/:id/cardapio" element={<WaiterCatalog explicitSlug={slug} />} />
+
         <Route path="*" element={<PublicStore explicitSlug={slug} />} />
       </Routes>
     );
@@ -80,11 +98,20 @@ const AppRouter = () => {
         <Route path="delivery-zones" element={<DeliveryZones />} />
         <Route path="reports" element={<Reports />} />
         <Route path="customers" element={<Customers />} />
+        <Route path="tables" element={<Tables />} />
+        <Route path="waiters" element={<Waiters />} />
         <Route path="updates" element={<DashboardUpdates />} />
         <Route path="updates/:id" element={<DashboardUpdateDetail />} />
       </Route>
       <Route path="/loja/:slug" element={<PublicStore />} />
       <Route path="/pedido/:id" element={<OrderStatus />} />
+      <Route path="/mesa/:id" element={<TableRedirect />} />
+
+      {/* Waiter routes for Main Domain */}
+      <Route path="/loja/:slug/garcom" element={<WaiterLogin />} />
+      <Route path="/loja/:slug/garcom/mesas" element={<WaiterDashboard />} />
+      <Route path="/loja/:slug/garcom/comanda/:id" element={<WaiterComandaDetail />} />
+      <Route path="/loja/:slug/garcom/comanda/:id/cardapio" element={<WaiterCatalog />} />
 
       {/* Admin Routes */}
       <Route path="/admin" element={<AdminRoute />}>
@@ -122,3 +149,4 @@ const App = () => (
 );
 
 export default App;
+

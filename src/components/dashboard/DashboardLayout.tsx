@@ -20,6 +20,8 @@ import {
   ExternalLink,
   AlertCircle,
   Newspaper,
+  QrCode,
+  UserCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -35,6 +37,8 @@ const links = [
   { to: "/dashboard/categories", icon: FolderOpen, label: "Categorias" },
   { to: "/dashboard/products", icon: Package, label: "Produtos" },
   { to: "/dashboard/orders", icon: ShoppingBag, label: "Pedidos" },
+  { to: "/dashboard/tables", icon: QrCode, label: "Mesas" },
+  { to: "/dashboard/waiters", icon: UserCircle, label: "Garçons" },
   { to: "/dashboard/coupons", icon: Tag, label: "Cupons" },
   { to: "/dashboard/delivery-zones", icon: MapPin, label: "Taxas de Entrega" },
   { to: "/dashboard/reports", icon: BarChart3, label: "Relatórios" },

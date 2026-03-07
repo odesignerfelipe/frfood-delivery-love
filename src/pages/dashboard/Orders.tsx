@@ -332,7 +332,7 @@ const Orders = () => {
                         <p className="text-xs text-muted-foreground">{order.customer_phone}</p>
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-xs text-muted-foreground">
-                            {order.delivery_type === "delivery" ? `📍 ${order.neighborhood || "Entrega"}` : "🏪 Retirada"}
+                            {order.delivery_type === "table" ? "🍽️ Mesa" : order.delivery_type === "delivery" ? `📍 ${order.neighborhood || "Entrega"}` : "🏪 Retirada"}
                           </span>
                           <span className="text-sm font-bold text-primary">R$ {order.total.toFixed(2)}</span>
                         </div>
@@ -453,7 +453,7 @@ const Orders = () => {
                       <td className="px-4 py-3">{order.customer_name}</td>
                       <td className="px-4 py-3">
                         <span className="bg-muted px-2 py-1 rounded-full text-xs">
-                          {order.delivery_type === "delivery" ? "Entrega" : "Retirada"}
+                          {order.delivery_type === "table" ? "Mesa" : order.delivery_type === "delivery" ? "Entrega" : "Retirada"}
                         </span>
                       </td>
                       <td className="px-4 py-3 font-bold text-primary">R$ {order.total.toFixed(2)}</td>
