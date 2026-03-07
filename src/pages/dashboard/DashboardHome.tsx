@@ -28,7 +28,7 @@ const DashboardHome = () => {
       supabase.from("orders").select("id, total").eq("store_id", store.id),
       supabase.from("products").select("id").eq("store_id", store.id),
       supabase.from("orders").select("id, total").eq("store_id", store.id).gte("created_at", new Date().toISOString().split("T")[0]),
-      supabase.from("orders").select("*").eq("store_id", store.id).order("created_at", { ascending: false }).limit(10),
+      supabase.from("orders").select("*, table:tables(name), waiter:waiters(name)").eq("store_id", store.id).order("created_at", { ascending: false }).limit(10),
     ]);
     setStats({
       orders: ordersRes.data?.length || 0,
@@ -170,7 +170,9 @@ const DashboardHome = () => {
                   <ShoppingBag className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Pedido #{order.order_number} — {order.customer_name}</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    Pedido #{order.order_number} — {order.delivery_type === "table" ? (order.table?.name || "Mesa") : (order.customer_name || "Cliente")}
+                  </p>
                   <p className="text-xs text-muted-foreground">{format(new Date(order.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}</p>
                 </div>
               </div>
