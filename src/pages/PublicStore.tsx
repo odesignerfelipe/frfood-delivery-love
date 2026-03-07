@@ -368,20 +368,22 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
       {/* Banner Section */}
       <div className="max-w-[1210px] mx-auto px-4 pt-4 md:pt-6">
-        <div className="relative h-48 md:h-[250px] rounded-2xl md:rounded-[24px] overflow-hidden shadow-sm">
-          <img src={store.banner_url || store.banner_mobile_url || ""} className="w-full h-full object-cover bg-primary/20" />
-          <div className="absolute inset-0 bg-black/20" />
-          <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-20 h-20 md:w-32 md:h-32 rounded-full border-4 border-white bg-white overflow-hidden shadow-hero z-10">
-            <img src={store.logo_url || ""} className="w-full h-full object-cover" onClick={() => setInfoDialogOpen(true)} />
+        <div className="relative h-48 md:h-[250px] rounded-2xl md:rounded-[24px] shadow-sm">
+          <img src={store.banner_url || store.banner_mobile_url || ""} className="w-full h-full object-cover bg-primary/20 rounded-2xl md:rounded-[24px]" />
+          <div className="absolute inset-0 bg-black/20 rounded-2xl md:rounded-[24px]" />
+          <div className="absolute -bottom-8 md:-bottom-12 left-1/2 -translate-x-1/2 w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white bg-white overflow-hidden shadow-hero z-10 transition-all">
+            <img src={store.logo_url || ""} className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform" onClick={() => setInfoDialogOpen(true)} />
           </div>
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-4 space-y-4 pt-12 text-center">
-        <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">{store.name}</h1>
+        <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">
+          {((store as any).display_name_type === 'razao_social' && (store as any).razao_social) ? (store as any).razao_social : store.name}
+        </h1>
         <div className="flex items-center justify-center gap-4 text-sm font-medium">
-          <button onClick={() => setInfoDialogOpen(true)} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors"><Star className="w-4 h-4 text-yellow-400 fill-yellow-400" /> Ver mais</button>
+          <button onClick={() => setInfoDialogOpen(true)} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors"><Plus className="w-4 h-4" /> Ver mais</button>
           <div className={`flex items-center gap-1.5 ${storeOpen ? "text-green-600" : "text-destructive"}`}><Clock className="w-4 h-4" /> {storeOpen ? "Aberto" : "Fechado"}</div>
-          {todayHours && <div className="text-muted-foreground">{todayHours}</div>}
+          {todayHours && <div className="flex items-center gap-1.5 text-muted-foreground"><Clock className="w-4 h-4 opacity-70" /> {todayHours}</div>}
         </div>
         <div className="relative mt-6"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><input type="text" placeholder="Buscar no cardápio..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full h-11 pl-10 rounded-xl border border-border bg-card shadow-sm focus:ring-2 focus:ring-primary/20" /></div>
         <div className="flex gap-2 overflow-x-auto pb-4 pt-2 scrollbar-hide">
@@ -395,7 +397,12 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
                 <h2 className="text-xl font-bold text-foreground whitespace-nowrap">{cat.name}</h2>
                 <div className="h-px bg-border flex-1" />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className={`grid gap-4 ${cat.products.length === 1
+                ? "grid-cols-1 max-w-sm"
+                : cat.products.length === 2
+                  ? "grid-cols-1 md:grid-cols-2"
+                  : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                }`}>
                 {cat.products.map(p => <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />)}
               </div>
             </div>
@@ -406,7 +413,12 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
                 <h2 className="text-xl font-bold text-foreground whitespace-nowrap">Outros</h2>
                 <div className="h-px bg-border flex-1" />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className={`grid gap-4 ${uncategorized.length === 1
+                ? "grid-cols-1 max-w-sm"
+                : uncategorized.length === 2
+                  ? "grid-cols-1 md:grid-cols-2"
+                  : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                }`}>
                 {uncategorized.map(p => <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />)}
               </div>
             </div>
@@ -415,19 +427,53 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
       </div>
 
       {variationModalOpen && variationProduct && (
-        <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}><DialogContent className="max-w-md max-h-[85vh] overflow-y-auto p-0 border-none rounded-2xl overflow-hidden"><div className="p-6 space-y-6">
-          <div className="flex gap-4">{variationProduct.image_url && <img src={variationProduct.image_url} className="w-20 h-20 rounded-xl object-cover" />}<div><p className="text-xl font-bold">{variationProduct.name}</p><p className="text-primary font-bold">R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}</p></div></div>
-          {(productVariations[variationProduct.id] || []).map(v => (
-            <div key={v.id} className="space-y-3">
-              <div className="flex justify-between items-end"><Label className="text-base font-bold">{v.name}</Label>{v.required && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full uppercase">Obrigatório</span>}</div>
-              <div className="space-y-2">{(v.options || []).map((opt: any, oi: number) => {
-                const isSelected = (variationSelections[v.id] || []).some(s => s.name === opt.name);
-                return <button key={oi} onClick={() => toggleVariationOption(v.id, opt, v.max_selections)} className={`w-full flex justify-between p-3 rounded-xl border text-sm transition-all ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}><span className="font-medium">{opt.name}</span>{opt.price > 0 && <span className="text-primary font-bold">+R$ {opt.price.toFixed(2)}</span>}</button>
-              })}</div>
+        <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}>
+          <DialogContent className="max-w-md max-h-[90vh] p-0 border-none rounded-2xl overflow-hidden flex flex-col">
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto min-h-0">
+              <div className="flex gap-4">
+                {variationProduct.image_url && <img src={variationProduct.image_url} className="w-20 h-20 rounded-xl object-cover" />}
+                <div>
+                  <p className="text-xl font-bold">{variationProduct.name}</p>
+                  <p className="text-primary font-bold">R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}</p>
+                </div>
+              </div>
+
+              {(productVariations[variationProduct.id] || []).map(v => (
+                <div key={v.id} className="space-y-3">
+                  <div className="flex justify-between items-end">
+                    <Label className="text-base font-bold">{v.name}</Label>
+                    {v.required && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full uppercase">Obrigatório</span>}
+                  </div>
+                  <div className="space-y-2">
+                    {(v.options || []).map((opt: any, oi: number) => {
+                      const isSelected = (variationSelections[v.id] || []).some(s => s.name === opt.name);
+                      return (
+                        <button
+                          key={oi}
+                          onClick={() => toggleVariationOption(v.id, opt, v.max_selections)}
+                          className={`w-full flex justify-between p-3 rounded-xl border text-sm transition-all ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}
+                        >
+                          <span className="font-medium">{opt.name}</span>
+                          {opt.price > 0 && <span className="text-primary font-bold">+R$ {opt.price.toFixed(2)}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-          <Button variant="hero" className="w-full h-12 text-sm font-bold uppercase tracking-wider" onClick={confirmVariationSelection}>Adicionar • R$ {((variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price) + Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0)).toFixed(2)}</Button>
-        </div></DialogContent></Dialog>
+
+            <div className="p-6 pt-2 bg-card border-t border-border">
+              <Button
+                variant="hero"
+                className="w-full h-12 text-sm font-bold uppercase tracking-wider"
+                onClick={confirmVariationSelection}
+              >
+                Adicionar • R$ {((variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price) + Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0)).toFixed(2)}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {cart.length > 0 && <div className="fixed bottom-6 left-4 right-4 z-40 max-w-3xl mx-auto"><button onClick={() => setCartOpen(true)} className="w-full gradient-hero h-14 rounded-2xl text-white font-bold flex justify-between items-center px-6 shadow-hero"><span>{cart.reduce((s, i) => s + i.quantity, 0)} itens</span><span>Ver Sacola • R$ {subtotal.toFixed(2)}</span></button></div>}
@@ -461,7 +507,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         <Button variant="hero" className="w-full h-12 font-bold mt-4" disabled={isProcessing} onClick={handleCheckout}>{isProcessing ? "Enviando..." : "Confirmar Pedido"}</Button>
       </div></DialogContent></Dialog>
       <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}>
-        <DialogContent className="sm:max-w-[480px] p-0 border-none rounded-2xl overflow-hidden bg-background max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[480px] p-0 border-none rounded-2xl overflow-hidden bg-white max-h-[90vh] overflow-y-auto">
           <div className="relative">
             {/* Header Image */}
             <div className="h-32 md:h-40 bg-primary/20">
@@ -478,7 +524,9 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
                 <img src={store.logo_url || ""} className="w-full h-full object-cover" />
               </div>
               <div className="pt-14 pb-4">
-                <h2 className="text-2xl font-black uppercase tracking-tight">{store.name}</h2>
+                <h2 className="text-2xl font-black uppercase tracking-tight">
+                  {((store as any).display_name_type === 'razao_social' && (store as any).razao_social) ? (store as any).razao_social : store.name}
+                </h2>
                 <div className="mt-3 flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground">
                   <Clock className="w-4 h-4" />
                   <span>25-95min</span>
@@ -494,19 +542,25 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
               {/* Delivery Options */}
               <div className="text-left space-y-4">
                 <h3 className="font-bold text-lg">Opções de entrega</h3>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${store.delivery_enabled ? "border-primary/20 bg-primary/5" : "opacity-40 grayscale"}`}>
-                    <Bike className={`w-6 h-6 ${store.delivery_enabled ? "text-primary" : "text-muted-foreground"}`} />
-                    <span className="text-[10px] font-bold uppercase">Delivery</span>
-                  </div>
-                  <div className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${store.pickup_enabled ? "border-primary/20 bg-primary/5" : "opacity-40 grayscale"}`}>
-                    <ShoppingBag className={`w-6 h-6 ${store.pickup_enabled ? "text-primary" : "text-muted-foreground"}`} />
-                    <span className="text-[10px] font-bold uppercase">Retirada</span>
-                  </div>
-                  <div className={`p-4 rounded-xl border flex flex-col items-center gap-2 opacity-40 grayscale`}>
-                    <Utensils className="w-6 h-6 text-muted-foreground" />
-                    <span className="text-[10px] font-bold uppercase">Local</span>
-                  </div>
+                <div className="flex flex-wrap gap-3">
+                  {store.delivery_enabled && (
+                    <div className="px-4 py-3 rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-2 min-w-[120px]">
+                      <Bike className="w-5 h-5 text-primary" />
+                      <span className="text-[10px] font-bold uppercase">Delivery</span>
+                    </div>
+                  )}
+                  {store.pickup_enabled && (
+                    <div className="px-4 py-3 rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-2 min-w-[120px]">
+                      <ShoppingBag className="w-5 h-5 text-primary" />
+                      <span className="text-[10px] font-bold uppercase">Retirada</span>
+                    </div>
+                  )}
+                  {(store as any).consumo_local_enabled && (
+                    <div className="px-4 py-3 rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-2 min-w-[120px]">
+                      <Utensils className="w-5 h-5 text-primary" />
+                      <span className="text-[10px] font-bold uppercase">Local</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -554,7 +608,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
               {/* Footer Business Info */}
               <div className="mt-8 pt-6 border-t border-border/50 text-center space-y-1">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Razão Social: {store.social_name || store.name}</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{(store as any).razao_social || store.name}</p>
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">CNPJ: {store.cnpj || "00.000.000/0000-00"}</p>
               </div>
             </div>
@@ -568,11 +622,11 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 const ProductCard = ({ product, onAdd, hasVariations }: { product: any; onAdd: () => void; hasVariations?: boolean }) => {
   const isSoldOut = product.is_sold_out;
   return (
-    <div className={`bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden flex h-[120px] ${isSoldOut ? "opacity-60" : ""}`}>
+    <div className={`bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden flex min-h-[120px] h-auto ${isSoldOut ? "opacity-60" : ""}`}>
       {product.image_url && <div className="w-[120px] h-full relative flex-shrink-0"><img src={product.image_url} className="w-full h-full object-cover" />{isSoldOut && <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><span className="text-[10px] font-bold text-white bg-red-600 px-2 py-1 rounded-full">ESGOTADO</span></div>}</div>}
       <div className="flex-1 p-3 flex flex-col justify-between overflow-hidden">
-        <div><h3 className="font-bold text-sm truncate">{product.name}</h3><p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{product.description}</p></div>
-        <div className="flex justify-between items-end">
+        <div><h3 className="font-bold text-sm truncate">{product.name}</h3><p className="text-xs text-muted-foreground mt-0.5">{product.description}</p></div>
+        <div className="flex justify-between items-end mt-2">
           <div className="flex flex-col">{product.promotional_price > 0 ? (<><span className="text-[10px] text-muted-foreground line-through">R$ {product.price.toFixed(2)}</span><span className="text-primary font-black text-sm">R$ {product.promotional_price.toFixed(2)}</span></>) : (<span className="text-primary font-black text-sm">R$ {product.price.toFixed(2)}</span>)}</div>
           {!isSoldOut && <button onClick={onAdd} className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-lg hover:scale-105 transition-transform"><Plus className="w-4 h-4" /></button>}
         </div>

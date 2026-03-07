@@ -453,9 +453,28 @@ const StoreSettings = () => {
                       <p className="text-[10px] text-destructive font-medium">{cnpjError}</p>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <Label>Razão Social</Label>
-                    <Input value={form.razao_social} onChange={(e) => setForm({ ...form, razao_social: e.target.value })} placeholder="Nome Jurídico do Estabelecimento" />
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Como deseja exibir o nome da loja?</Label>
+                      <RadioGroup
+                        value={(form as any).display_name_type || "name"}
+                        onValueChange={(v) => setForm({ ...form, display_name_type: v } as any)}
+                        className="flex gap-4"
+                      >
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="name" id="name-type" />
+                          <Label htmlFor="name-type" className="text-xs">Nome Fantasia</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="razao_social" id="razao-type" />
+                          <Label htmlFor="razao-type" className="text-xs">Razão Social</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Razão Social</Label>
+                      <Input value={form.razao_social} onChange={(e) => setForm({ ...form, razao_social: e.target.value })} placeholder="Nome Jurídico do Estabelecimento" />
+                    </div>
                   </div>
                 </div>
               </div>
