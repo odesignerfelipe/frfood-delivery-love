@@ -79,7 +79,7 @@ const DashboardHome = () => {
       supabase.from("orders").select("*, table:tables(name), waiter:waiters(name)").eq("store_id", store.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("cashier_sessions").select("*").eq("store_id", store.id).eq("status", "open").maybeSingle(),
       supabase.from("tables").select("*, comandas(id, status, table_id)").eq("store_id", store.id).order("name"),
-      supabase.from("waiters").select("*").eq("store_id", store.id).eq("status", "active"),
+      supabase.from("waiters").select("*").eq("store_id", store.id).eq("is_active", true),
       supabase.from("printer_settings").select("*").eq("store_id", store.id).eq("is_active", true),
     ]);
 
@@ -154,8 +154,7 @@ const DashboardHome = () => {
           store_id: store.id,
           table_id: selectedTable.id,
           waiter_id: selectedWaiterId || null,
-          status: 'open',
-          opened_at: new Date().toISOString()
+          status: 'open'
         })
         .select()
         .single();
