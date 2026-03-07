@@ -4,76 +4,109 @@ import { useStore } from "@/hooks/useStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Users, Search, FileDown, FileSpreadsheet, Phone } from "lucide-react";
+import {
+    Users, Search, FileDown, FileSpreadsheet, Phone,
+    Pencil, Trash2, MoreVertical, X
+} from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface Customer {
-    customer_name: string;
-    customer_phone: string;
-    customer_address: string;
+    id: string;
+    name: string;
+    phone: string;
+    address: string;
     neighborhood: string;
     total_orders: number;
-    last_order_date: string;
+    total_spent: number;
+    last_order_at: string;
 }
 
 const Customers = () => {
     const { store } = useStore();
-    const [orders, setOrders] = useState<any[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
+    const [isEditing, setIsEditing] = useState(false);
+    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+
+    const fetchCustomers = async () => {
+        if (!store) return;
+        setLoading(true);
+        const { data, error } = await supabase
+            .from("customers")
+            .select("*")
+            .eq("store_id", store.id)
+            .order("last_order_at", { ascending: false });
+
+        if (error) {
+            toast.error("Erro ao carregar clientes");
+        } else {
+            setCustomers(data || []);
+        }
+        setLoading(false);
+    };
 
     useEffect(() => {
-        if (!store) return;
-        const fetchOrders = async () => {
-            const { data } = await supabase
-                .from("orders")
-                .select("customer_name, customer_phone, customer_address, neighborhood, created_at")
-                .eq("store_id", store.id)
-                .order("created_at", { ascending: false });
-            setOrders(data || []);
-            setLoading(false);
-        };
-        fetchOrders();
+        fetchCustomers();
     }, [store]);
 
-    const customers: Customer[] = useMemo(() => {
-        const map = new Map<string, Customer>();
-        for (const order of orders) {
-            const key = `${(order.customer_phone || "").trim().toLowerCase()}`;
-            if (!key) continue;
-            const existing = map.get(key);
-            if (existing) {
-                existing.total_orders += 1;
-                // Keep most recent address
-                if (!existing.customer_address && order.customer_address) {
-                    existing.customer_address = order.customer_address;
-                    existing.neighborhood = order.neighborhood || "";
-                }
-                // Keep most recent name
-                if (!existing.customer_name && order.customer_name) {
-                    existing.customer_name = order.customer_name;
-                }
-            } else {
-                map.set(key, {
-                    customer_name: order.customer_name || "",
-                    customer_phone: order.customer_phone || "",
-                    customer_address: order.customer_address || "",
-                    neighborhood: order.neighborhood || "",
-                    total_orders: 1,
-                    last_order_date: order.created_at,
-                });
-            }
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedCustomer) return;
+
+        const { error } = await supabase
+            .from("customers")
+            .update({
+                name: selectedCustomer.name,
+                phone: selectedCustomer.phone,
+                address: selectedCustomer.address,
+                neighborhood: selectedCustomer.neighborhood,
+                updated_at: new Date().toISOString(),
+            })
+            .eq("id", selectedCustomer.id);
+
+        if (error) {
+            toast.error("Erro ao atualizar cliente");
+        } else {
+            toast.success("Cliente atualizado!");
+            setIsEditing(false);
+            fetchCustomers();
         }
-        return Array.from(map.values());
-    }, [orders]);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm("Deseja realmente excluir este cliente?")) return;
+
+        const { error } = await supabase
+            .from("customers")
+            .delete()
+            .eq("id", id);
+
+        if (error) {
+            toast.error("Erro ao excluir cliente");
+        } else {
+            toast.success("Cliente excluído!");
+            fetchCustomers();
+        }
+    };
 
     const filtered = useMemo(() => {
         if (!search.trim()) return customers;
         const q = search.toLowerCase();
         return customers.filter(
             (c) =>
-                c.customer_name.toLowerCase().includes(q) ||
-                c.customer_phone.toLowerCase().includes(q) ||
-                c.customer_address.toLowerCase().includes(q)
+                c.name.toLowerCase().includes(q) ||
+                c.phone.toLowerCase().includes(q) ||
+                (c.address || "").toLowerCase().includes(q) ||
+                (c.neighborhood || "").toLowerCase().includes(q)
         );
     }, [customers, search]);
 
@@ -82,10 +115,10 @@ const Customers = () => {
             toast.error("Nenhum cliente para exportar");
             return;
         }
-        const header = "Nome,Telefone/WhatsApp,Endereço,Bairro,Total de Pedidos";
+        const header = "Nome,Telefone/WhatsApp,Endereço,Bairro,Total de Pedidos,Total Gasto";
         const rows = filtered.map(
             (c) =>
-                `"${c.customer_name}","${c.customer_phone}","${c.customer_address}","${c.neighborhood}",${c.total_orders}`
+                `"${c.name}","${c.phone}","${c.address || ""}","${c.neighborhood || ""}",${c.total_orders},${c.total_spent}`
         );
         const csv = [header, ...rows].join("\n");
         const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -96,65 +129,6 @@ const Customers = () => {
         a.click();
         URL.revokeObjectURL(url);
         toast.success("Planilha exportada!");
-    };
-
-    const exportPDF = () => {
-        if (filtered.length === 0) {
-            toast.error("Nenhum cliente para exportar");
-            return;
-        }
-        const printContent = `
-      <html>
-      <head><title>Clientes - ${store?.name || "Loja"}</title>
-      <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #000; }
-        h1 { font-size: 18px; text-align: center; margin-bottom: 5px; }
-        h2 { font-size: 14px; text-align: center; color: #666; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background: #f5f5f5; font-weight: bold; }
-        tr:nth-child(even) { background: #fafafa; }
-        .footer { text-align: center; margin-top: 20px; font-size: 10px; color: #999; }
-      </style></head>
-      <body>
-        <h1>${store?.name || "Loja"}</h1>
-        <h2>Lista de Clientes — ${filtered.length} cliente${filtered.length !== 1 ? "s" : ""}</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Nome</th>
-              <th>Telefone / WhatsApp</th>
-              <th>Endereço</th>
-              <th>Bairro</th>
-              <th>Pedidos</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${filtered
-                .map(
-                    (c, i) => `
-              <tr>
-                <td>${i + 1}</td>
-                <td>${c.customer_name}</td>
-                <td>${c.customer_phone}</td>
-                <td>${c.customer_address}</td>
-                <td>${c.neighborhood}</td>
-                <td>${c.total_orders}</td>
-              </tr>`
-                )
-                .join("")}
-          </tbody>
-        </table>
-        <p class="footer">Gerado por FRFood em ${new Date().toLocaleDateString("pt-BR")}</p>
-      </body></html>
-    `;
-        const win = window.open("", "_blank", "width=800,height=600");
-        if (win) {
-            win.document.write(printContent);
-            win.document.close();
-            win.print();
-        }
     };
 
     if (loading) {
@@ -176,9 +150,6 @@ const Customers = () => {
                 </div>
 
                 <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={exportPDF}>
-                        <FileDown className="w-4 h-4 mr-1" /> PDF
-                    </Button>
                     <Button variant="outline" size="sm" onClick={exportCSV}>
                         <FileSpreadsheet className="w-4 h-4 mr-1" /> Planilha
                     </Button>
@@ -195,42 +166,66 @@ const Customers = () => {
                 />
             </div>
 
-            <div className="bg-card rounded-xl border border-border/50 shadow-card overflow-hidden">
+            <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="text-xs text-muted-foreground uppercase bg-muted/50">
                             <tr>
                                 <th className="px-4 py-3">Nome</th>
-                                <th className="px-4 py-3">Telefone / WhatsApp</th>
+                                <th className="px-4 py-3">Telefone</th>
                                 <th className="px-4 py-3">Endereço</th>
-                                <th className="px-4 py-3">Bairro</th>
-                                <th className="px-4 py-3">Pedidos</th>
-                                <th className="px-4 py-3">Ações</th>
+                                <th className="px-4 py-3">Pedidos / Gasto</th>
+                                <th className="px-4 py-3">Último Pedido</th>
+                                <th className="px-4 py-3 text-right">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map((c, i) => (
-                                <tr key={i} className="border-b border-border hover:bg-muted/20">
-                                    <td className="px-4 py-3 font-medium text-foreground">{c.customer_name}</td>
-                                    <td className="px-4 py-3 whitespace-nowrap">{c.customer_phone}</td>
-                                    <td className="px-4 py-3">{c.customer_address || "—"}</td>
-                                    <td className="px-4 py-3">{c.neighborhood || "—"}</td>
-                                    <td className="px-4 py-3">
-                                        <span className="bg-primary/10 text-primary px-2 py-1 rounded-full text-xs font-bold">
-                                            {c.total_orders}
-                                        </span>
+                            {filtered.map((c) => (
+                                <tr key={c.id} className="border-b border-border hover:bg-muted/20 transition-colors">
+                                    <td className="px-4 py-3 font-medium text-foreground">{c.name}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap">{c.phone}</td>
+                                    <td className="px-4 py-3 text-muted-foreground">
+                                        {c.address ? `${c.address}${c.neighborhood ? `, ${c.neighborhood}` : ""}` : "—"}
                                     </td>
                                     <td className="px-4 py-3">
-                                        {c.customer_phone && (
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-primary">{c.total_orders} pedidos</span>
+                                            <span className="text-xs text-muted-foreground">R$ {Number(c.total_spent || 0).toFixed(2)}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-muted-foreground">
+                                        {c.last_order_at ? new Date(c.last_order_at).toLocaleDateString("pt-BR") : "—"}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                        <div className="flex justify-end gap-2">
                                             <a
-                                                href={`https://wa.me/55${c.customer_phone.replace(/\D/g, "")}`}
+                                                href={`https://wa.me/55${c.phone.replace(/\D/g, "")}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium"
+                                                className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
                                             >
-                                                <Phone className="w-3 h-3" /> WhatsApp
+                                                <Phone className="w-4 h-4" />
                                             </a>
-                                        )}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-blue-600"
+                                                onClick={() => {
+                                                    setSelectedCustomer(c);
+                                                    setIsEditing(true);
+                                                }}
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-destructive"
+                                                onClick={() => handleDelete(c.id)}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -240,11 +235,56 @@ const Customers = () => {
                         <div className="p-12 text-center text-muted-foreground">
                             <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
                             <p className="font-medium">Nenhum cliente encontrado</p>
-                            <p className="text-sm mt-1">Os clientes aparecerão aqui automaticamente ao fazerem pedidos.</p>
                         </div>
                     )}
                 </div>
             </div>
+
+            <Dialog open={isEditing} onOpenChange={setIsEditing}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Editar Cliente</DialogTitle>
+                    </DialogHeader>
+                    {selectedCustomer && (
+                        <form onSubmit={handleUpdate} className="space-y-4 pt-4">
+                            <div className="space-y-2">
+                                <Label>Nome</Label>
+                                <Input
+                                    value={selectedCustomer.name}
+                                    onChange={e => setSelectedCustomer({ ...selectedCustomer, name: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Telefone</Label>
+                                <Input
+                                    value={selectedCustomer.phone}
+                                    onChange={e => setSelectedCustomer({ ...selectedCustomer, phone: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Endereço</Label>
+                                <Input
+                                    value={selectedCustomer.address || ""}
+                                    onChange={e => setSelectedCustomer({ ...selectedCustomer, address: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Bairro</Label>
+                                <Input
+                                    value={selectedCustomer.neighborhood || ""}
+                                    onChange={e => setSelectedCustomer({ ...selectedCustomer, neighborhood: e.target.value })}
+                                />
+                            </div>
+                            <DialogFooter className="pt-4">
+                                <Button type="button" variant="ghost" onClick={() => setIsEditing(false)}>Cancelar</Button>
+                                <Button type="submit">Salvar Alterações</Button>
+                            </DialogFooter>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

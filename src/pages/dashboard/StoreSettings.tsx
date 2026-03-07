@@ -24,6 +24,21 @@ const defaultHours = () => DAYS.map((day) => ({
   periods: [{ open: "11:00", close: "23:00" }],
 }));
 
+const maskCNPJ = (value: string) => {
+  return value
+    .replace(/\D/g, "")
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2")
+    .substring(0, 18);
+};
+
+const validateCNPJ = (cnpj: string) => {
+  const numbers = cnpj.replace(/\D/g, "");
+  return numbers.length === 14;
+};
+
 const StoreSettings = () => {
   const { store, updateStore, refetch } = useStore();
   const [saving, setSaving] = useState(false);
@@ -57,10 +72,14 @@ const StoreSettings = () => {
     avg_prep_time: (store as any)?.avg_prep_time || 30,
     avg_delivery_time: (store as any)?.avg_delivery_time || 40,
     delivery_radius: (store as any)?.delivery_radius || 5,
-    razao_social: (store as any)?.razao_social || "",
     cnpj: (store as any)?.cnpj || "",
+    razao_social: (store as any)?.razao_social || "",
+    consumo_local_enabled: (store as any)?.consumo_local_enabled ?? true,
     opening_hours: openingHours,
   });
+
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [cnpjError, setCnpjError] = useState("");
 
   // Keep form in sync with store updates from context
   useEffect(() => {
@@ -90,6 +109,7 @@ const StoreSettings = () => {
         delivery_radius: (store as any).delivery_radius || 5,
         razao_social: (store as any).razao_social || "",
         cnpj: (store as any).cnpj || "",
+        consumo_local_enabled: (store as any).consumo_local_enabled ?? true,
         opening_hours: store.opening_hours && Array.isArray(store.opening_hours) && store.opening_hours.length > 0 ? (store.opening_hours as any[]) : defaultHours(),
       });
     }
@@ -183,6 +203,38 @@ const StoreSettings = () => {
     await refetch();
     setRefreshing(false);
     toast.success("Dados da loja atualizados!");
+  };
+
+  const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const masked = maskCNPJ(e.target.value);
+    setForm({ ...form, cnpj: masked });
+
+    const numbers = masked.replace(/\D/g, "");
+    if (numbers.length === 14) {
+      fetchRazaoSocial(numbers);
+      setCnpjError("");
+    } else {
+      setCnpjError("CNPJ inválido. Digite um CNPJ com 14 números.");
+    }
+  };
+
+  const fetchRazaoSocial = async (cnpjNumbers: string) => {
+    setCnpjLoading(true);
+    try {
+      // Usando a API pública da BrasilAPI (gratuita e sem token)
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjNumbers}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.razao_social) {
+          setForm(prev => ({ ...prev, razao_social: data.razao_social }));
+          toast.success("Razão Social preenchida automaticamente!");
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao buscar CNPJ:", error);
+    } finally {
+      setCnpjLoading(false);
+    }
   };
 
   if (!store) return null;
@@ -382,8 +434,24 @@ const StoreSettings = () => {
                 <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 <div className="mt-4 space-y-4">
                   <div className="space-y-2">
-                    <Label>CNPJ</Label>
-                    <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />
+                    <Label htmlFor="cnpj">CNPJ</Label>
+                    <div className="relative">
+                      <Input
+                        id="cnpj"
+                        value={form.cnpj}
+                        onChange={handleCnpjChange}
+                        placeholder="00.000.000/0000-00"
+                        className={cnpjError && form.cnpj.length > 0 && form.cnpj.replace(/\D/g, "").length !== 14 ? "border-destructive" : ""}
+                      />
+                      {cnpjLoading && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />
+                        </div>
+                      )}
+                    </div>
+                    {cnpjError && form.cnpj.length > 0 && form.cnpj.replace(/\D/g, "").length !== 14 && (
+                      <p className="text-[10px] text-destructive font-medium">{cnpjError}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Razão Social</Label>
@@ -477,6 +545,10 @@ const StoreSettings = () => {
             <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
               <p className="font-medium text-foreground">Retirada no local</p>
               <Switch checked={form.pickup_enabled} onCheckedChange={(v) => setForm({ ...form, pickup_enabled: v })} />
+            </div>
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+              <p className="font-medium text-foreground">Consumo no local</p>
+              <Switch checked={form.consumo_local_enabled} onCheckedChange={(v) => setForm({ ...form, consumo_local_enabled: v })} />
             </div>
             <div className="grid sm:grid-cols-3 gap-4">
               <div>

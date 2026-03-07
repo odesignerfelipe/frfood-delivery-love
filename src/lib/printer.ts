@@ -12,17 +12,26 @@ class PrinterService {
     async connect() {
         if (this.isConnected) return;
         try {
-            // Check if already connected or trying to connect
             if (qz.websocket.isActive()) {
                 this.isConnected = true;
                 return;
             }
 
+            // Trust certificate to prevent recurring "Action Required"
+            qz.security.setCertificatePromise((resolve) => {
+                resolve(undefined);
+            });
+
+            qz.security.setSignaturePromise((toSign) => {
+                return (resolve) => {
+                    resolve(undefined);
+                };
+            });
+
             await qz.websocket.connect();
             this.isConnected = true;
         } catch (err: any) {
             console.error("QZ Tray Connection Error:", err);
-            // toast.error("Não foi possível conectar ao QZ Tray. Verifique se o serviço está rodando.");
         }
     }
 
