@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { QRCodeSVG } from "qrcode.react";
+import { generatePixPayload, isPixExpired } from "@/lib/pix";
+import { AlertTriangle } from "lucide-react";
 
 interface WaiterComandaDetailProps {
     explicitSlug?: string;
@@ -252,6 +254,17 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
     }
 
     const subtotal = calculateSubtotal();
+    const finalTotal = Math.max(0, subtotal - (Number(discount) || 0));
+    const splitAmount = finalTotal / splitCount;
+    const isExpired = isPixExpired(comanda.created_at);
+
+    const pixPayload = store?.pix_key ? generatePixPayload({
+        key: store.pix_key,
+        name: store.name,
+        city: store.city || '',
+        amount: splitAmount,
+        transactionId: comanda.id.split('-')[0].toUpperCase()
+    }) : '';
 
     return (
         <div className="min-h-screen bg-muted/30 pb-24">
@@ -464,35 +477,49 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
                                             </div>
                                             <div className="pt-2 border-t border-border/50">
                                                 <p className="text-sm font-bold text-center mb-2">QR Code PIX {splitCount > 1 ? `(1/${splitCount})` : '(Integral)'}</p>
-                                                <div className="bg-white p-3 rounded-lg w-44 h-44 mx-auto flex items-center justify-center border shadow-sm">
-                                                    {store?.pix_key ? (
-                                                        <QRCodeSVG
-                                                            value={store.pix_key}
-                                                            size={150}
-                                                            level="H"
-                                                            includeMargin={true}
-                                                            imageSettings={store.logo_url ? {
-                                                                src: store.logo_url,
-                                                                x: undefined,
-                                                                y: undefined,
-                                                                height: 24,
-                                                                width: 24,
-                                                                excavate: true,
-                                                            } : undefined}
-                                                        />
-                                                    ) : (
-                                                        <div className="text-[10px] text-center text-muted-foreground">
-                                                            PIX não configurado
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <p className="text-[10px] text-center mt-2 break-all font-mono text-muted-foreground bg-muted p-1 rounded">
-                                                    Chave: {store?.pix_key || 'Chave não cadastrada'}
-                                                </p>
-                                                {splitCount > 1 && (
-                                                    <p className="text-center font-black text-primary mt-2">
-                                                        {formatCurrency((subtotal - (Number(discount) || 0)) / splitCount)} por pessoa
-                                                    </p>
+
+                                                {isExpired ? (
+                                                    <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                                                        <AlertTriangle className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
+                                                        <p className="text-[10px] font-bold text-yellow-700">QR CODE EXPIRADO</p>
+                                                        <p className="text-[9px] text-yellow-600">Esta comanda foi aberta há mais de 1 hora. Por segurança, o QR Code expirou.</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-white p-3 rounded-lg w-44 h-44 mx-auto flex items-center justify-center border shadow-sm">
+                                                        {store?.pix_key ? (
+                                                            <QRCodeSVG
+                                                                value={pixPayload}
+                                                                size={150}
+                                                                level="H"
+                                                                includeMargin={true}
+                                                                imageSettings={store.logo_url ? {
+                                                                    src: store.logo_url,
+                                                                    x: undefined,
+                                                                    y: undefined,
+                                                                    height: 24,
+                                                                    width: 24,
+                                                                    excavate: true,
+                                                                } : undefined}
+                                                            />
+                                                        ) : (
+                                                            <div className="text-[10px] text-center text-muted-foreground">
+                                                                PIX não configurado
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {!isExpired && (
+                                                    <>
+                                                        <p className="text-[10px] text-center mt-2 break-all font-mono text-muted-foreground bg-muted p-1 rounded">
+                                                            Chave: {store?.pix_key || 'Chave não cadastrada'}
+                                                        </p>
+                                                        {splitCount > 1 && (
+                                                            <p className="text-center font-black text-primary mt-2">
+                                                                {formatCurrency(splitAmount)} por pessoa
+                                                            </p>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         </div>

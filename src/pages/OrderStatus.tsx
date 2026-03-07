@@ -6,6 +6,7 @@ import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, L
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { useCustomerOrderNotifications } from "@/hooks/useCustomerOrderNotifications";
+import { generatePixPayload, isPixExpired } from "@/lib/pix";
 
 export default function OrderStatus() {
     const { id } = useParams();
@@ -109,44 +110,16 @@ export default function OrderStatus() {
         );
     };
 
-    const generatePixPayload = (key: string, name: string, city: string, amount: number, orderId: string) => {
-        const formatField = (id: string, value: string) => {
-            const len = value.length.toString().padStart(2, '0');
-            return `${id}${len}${value}`;
-        };
-
-        const merchantInfo = formatField('00', 'br.gov.bcb.pix') + formatField('01', key);
-        const amountStr = amount.toFixed(2);
-
-        const payload = [
-            '000201',
-            formatField('26', merchantInfo),
-            formatField('52', '0000'),
-            formatField('53', '986'),
-            formatField('54', amountStr),
-            formatField('58', 'BR'),
-            formatField('59', name.substring(0, 25).normalize("NFD").replace(/[\u0300-\u036f]/g, "")),
-            formatField('60', (city || 'SAO PAULO').substring(0, 15).normalize("NFD").replace(/[\u0300-\u036f]/g, "")),
-            formatField('62', formatField('05', orderId.substring(0, 10))),
-            '6304'
-        ].join('');
-
-        const getCRC16 = (data: string) => {
-            let crc = 0xFFFF;
-            for (let i = 0; i < data.length; i++) {
-                crc ^= data.charCodeAt(i) << 8;
-                for (let j = 0; j < 8; j++) {
-                    if ((crc & 0x8000) !== 0) crc = (crc << 1) ^ 0x1021;
-                    else crc <<= 1;
-                }
-            }
-            return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-        };
-
-        return payload + getCRC16(payload);
-    };
-
-    const pixPayload = order.payment_method === 'pix' && store.pix_key ? generatePixPayload(store.pix_key, store.name, store.city || '', order.total, order.id) : '';
+    const isExpired = isPixExpired(order.created_at);
+    const pixPayload = order.payment_method === 'pix' && store.pix_key
+        ? generatePixPayload({
+            key: store.pix_key,
+            name: store.name,
+            city: store.city || '',
+            amount: order.total,
+            transactionId: order.order_number.toString()
+        })
+        : '';
 
     return (
         <div className="min-h-screen bg-muted/50 pb-24">
@@ -253,55 +226,78 @@ export default function OrderStatus() {
                 )}
 
                 {/* Pix Payment Info */}
-                {order.payment_method === 'pix' && store.pix_key && !isCancelled && (
+                {order.payment_method === 'pix' && store.pix_key && !isCancelled && order.status === 'pending' && (
                     <div className="bg-card rounded-2xl p-6 shadow-card border-2 border-primary/20 bg-primary/5 text-center space-y-4">
-                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                            <QrCode className="w-6 h-6 text-primary" />
-                        </div>
-
-                        <div>
-                            <h3 className="font-bold text-foreground">Pagamento via PIX</h3>
-                            <p className="text-sm text-muted-foreground">
-                                Escaneie o QR Code ou cole o código para pagar
-                            </p>
-                        </div>
-
-                        {/* QR Code */}
-                        <div className="bg-white p-4 rounded-2xl inline-block shadow-sm">
-                            <QRCodeSVG value={pixPayload} size={200} />
-                        </div>
-
-                        <div className="space-y-3">
-                            <div>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 text-center">Código Pix Copia e Cola</p>
-                                <div className="relative group">
-                                    <button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(pixPayload);
-                                            toast.success("Código PIX copiado!");
-                                        }}
-                                        className="w-full p-3 bg-muted/50 rounded-xl text-xs font-mono break-all text-left border border-border group-hover:border-primary/30 transition-colors pr-10"
-                                    >
-                                        <span className="line-clamp-2">{pixPayload}</span>
-                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-background p-1.5 rounded-lg border shadow-sm">
-                                            <Copy className="w-3.5 h-3.5 text-primary" />
-                                        </div>
-                                    </button>
+                        {isExpired ? (
+                            <div className="py-4 space-y-3">
+                                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">
+                                    <AlertTriangle className="w-6 h-6 text-yellow-600" />
                                 </div>
+                                <h3 className="font-bold text-foreground">QR Code Expirado</h3>
+                                <p className="text-xs text-muted-foreground px-4">
+                                    Por segurança, este QR Code expirou (validade de 1 hora).
+                                    Se você já realizou o pagamento, aguarde a confirmação do restaurante.
+                                    Caso contrário, entre em contato com a loja.
+                                </p>
+                                <Button
+                                    variant="outline"
+                                    className="w-full mt-2"
+                                    onClick={() => window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}`, "_blank")}
+                                >
+                                    Falar com a Loja
+                                </Button>
                             </div>
+                        ) : (
+                            <>
+                                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                                    <QrCode className="w-6 h-6 text-primary" />
+                                </div>
 
-                            <Button
-                                variant="hero"
-                                className="w-full font-bold shadow-lg h-12"
-                                onClick={() => {
-                                    const text = `Olá! Acabei de fazer o pedido #${order.order_number} no valor de R$ ${order.total.toFixed(2)} e este é o comprovante do PIX.`;
-                                    window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`, "_blank");
-                                }}
-                            >
-                                <MessageCircle className="w-4 h-4 mr-2" />
-                                Enviar Comprovante
-                            </Button>
-                        </div>
+                                <div>
+                                    <h3 className="font-bold text-foreground">Pagamento via PIX</h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        Escaneie o QR Code ou cole o código para pagar
+                                    </p>
+                                </div>
+
+                                {/* QR Code */}
+                                <div className="bg-white p-4 rounded-2xl inline-block shadow-sm">
+                                    <QRCodeSVG value={pixPayload} size={200} />
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 text-center">Código Pix Copia e Cola</p>
+                                        <div className="relative group">
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(pixPayload);
+                                                    toast.success("Código PIX copiado!");
+                                                }}
+                                                className="w-full p-3 bg-muted/50 rounded-xl text-xs font-mono break-all text-left border border-border group-hover:border-primary/30 transition-colors pr-10"
+                                            >
+                                                <span className="line-clamp-2">{pixPayload}</span>
+                                                <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-background p-1.5 rounded-lg border shadow-sm">
+                                                    <Copy className="w-3.5 h-3.5 text-primary" />
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <Button
+                                        variant="hero"
+                                        className="w-full font-bold shadow-lg h-12"
+                                        onClick={() => {
+                                            const text = `Olá! Acabei de fazer o pedido #${order.order_number} no valor de R$ ${order.total.toFixed(2)} e este é o comprovante do PIX.`;
+                                            window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`, "_blank");
+                                        }}
+                                    >
+                                        <MessageCircle className="w-4 h-4 mr-2" />
+                                        Enviar Comprovante
+                                    </Button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
 

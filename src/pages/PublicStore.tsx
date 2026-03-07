@@ -507,8 +507,8 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         <Button variant="hero" className="w-full h-12 font-bold mt-4" disabled={isProcessing} onClick={handleCheckout}>{isProcessing ? "Enviando..." : "Confirmar Pedido"}</Button>
       </div></DialogContent></Dialog>
       <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}>
-        <DialogContent className="sm:max-w-[480px] p-0 border-none rounded-2xl overflow-hidden bg-white max-h-[90vh] overflow-y-auto">
-          <div className="relative">
+        <DialogContent className="sm:max-w-[480px] p-0 border-none rounded-2xl overflow-hidden bg-white max-h-[90vh] overflow-y-auto outline-none">
+          <div className="relative bg-white">
             {/* Header Image */}
             <div className="h-32 md:h-40 bg-primary/20">
               <img src={store.banner_url || store.banner_mobile_url || ""} className="w-full h-full object-cover" />
@@ -519,8 +519,8 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
             </div>
 
             {/* Logo and Name */}
-            <div className="relative px-6 pb-6 text-center">
-              <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full border-4 border-background bg-background overflow-hidden shadow-lg">
+            <div className="relative px-6 pb-6 text-center bg-white">
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full border-4 border-white bg-white overflow-hidden shadow-lg">
                 <img src={store.logo_url || ""} className="w-full h-full object-cover" />
               </div>
               <div className="pt-14 pb-4">
