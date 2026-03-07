@@ -37,6 +37,8 @@ const Products = () => {
     is_active: true,
     is_sold_out: false,
     image_url: "",
+    manage_stock: false,
+    stock_quantity: 0,
   });
   const [variations, setVariations] = useState<Variation[]>([]);
 
@@ -79,6 +81,8 @@ const Products = () => {
       category_id: form.category_id || null,
       is_active: form.is_active,
       is_sold_out: form.is_sold_out,
+      manage_stock: form.manage_stock,
+      stock_quantity: form.manage_stock ? form.stock_quantity : 0,
       image_url: form.image_url,
       store_id: store.id,
     };
@@ -133,7 +137,7 @@ const Products = () => {
 
   const resetForm = () => {
     setEditing(null);
-    setForm({ name: "", description: "", price: 0, promotional_price: 0, serves_people: 0, category_id: "", is_active: true, is_sold_out: false, image_url: "" });
+    setForm({ name: "", description: "", price: 0, promotional_price: 0, serves_people: 0, category_id: "", is_active: true, is_sold_out: false, image_url: "", manage_stock: false, stock_quantity: 0 });
     setVariations([]);
   };
 
@@ -155,6 +159,8 @@ const Products = () => {
       category_id: p.category_id || "",
       is_active: p.is_active,
       is_sold_out: p.is_sold_out || false,
+      manage_stock: p.manage_stock || false,
+      stock_quantity: p.stock_quantity || 0,
       image_url: p.image_url || "",
     });
     const vars = await fetchVariations(p.id);
@@ -288,6 +294,28 @@ const Products = () => {
                 <Switch checked={form.is_sold_out} onCheckedChange={(v) => setForm({ ...form, is_sold_out: v })} />
               </div>
 
+              <div className="border border-border rounded-xl p-4 bg-muted/20 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="font-bold">Gerenciar Estoque</Label>
+                    <p className="text-xs text-muted-foreground">Reduz o estoque a cada venda e esgota o item automaticamente</p>
+                  </div>
+                  <Switch checked={form.manage_stock} onCheckedChange={(v) => setForm({ ...form, manage_stock: v })} />
+                </div>
+                {form.manage_stock && (
+                  <div className="pt-2">
+                    <Label>Quantidade em Estoque</Label>
+                    <Input
+                      type="number"
+                      step="1"
+                      value={form.stock_quantity || 0}
+                      onChange={(e) => setForm({ ...form, stock_quantity: parseInt(e.target.value) || 0 })}
+                      className="max-w-[150px]"
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* Variations Section */}
               <div className="border-t border-border pt-4 mt-4">
                 <div className="flex items-center justify-between mb-3">
@@ -410,6 +438,11 @@ const Products = () => {
               {p.is_sold_out && !p.image_url && (
                 <span className="text-xs text-red-600 font-medium flex items-center gap-1 mt-1">
                   <AlertTriangle className="w-3 h-3" /> Esgotado
+                </span>
+              )}
+              {p.manage_stock && !p.is_sold_out && (
+                <span className="text-xs text-blue-600 font-medium mt-1 block">
+                  Estoque: {p.stock_quantity} un
                 </span>
               )}
               <div className="flex gap-2 mt-3">

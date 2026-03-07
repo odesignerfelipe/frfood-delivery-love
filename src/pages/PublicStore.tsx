@@ -245,7 +245,10 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
   const handleAddToCart = (product: any) => {
     if (!storeOpen) { toast.error("Loja fechada no momento"); return; }
-    if (product.is_sold_out) { toast.error("Este produto está esgotado"); return; }
+    if (product.is_sold_out || (product.manage_stock && product.stock_quantity <= 0)) {
+      toast.error("Este produto está esgotado");
+      return;
+    }
 
     const vars = productVariations[product.id];
     if (vars && vars.length > 0) {

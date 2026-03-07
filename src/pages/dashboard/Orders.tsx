@@ -37,7 +37,7 @@ const Orders = () => {
 
   const fetchOrders = useCallback(async () => {
     if (!store) return;
-    const { data } = await supabase.from("orders").select("*").eq("store_id", store.id).order("created_at", { ascending: false });
+    const { data } = await supabase.from("orders").select("*, table:tables(name), waiter:waiters(name)").eq("store_id", store.id).order("created_at", { ascending: false });
     setOrders(data || []);
   }, [store]);
 
@@ -172,29 +172,37 @@ const Orders = () => {
       <html>
       <head><title>Pedido #${order.order_number}</title>
       <style>
-        body { font-family: 'Courier New', Courier, monospace; font-size: 13px; width: 300px; margin: 0 auto; padding: 10px; color: #000; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Courier New', Courier, monospace; font-size: 14px; width: 100%; max-width: 300px; margin: 0 auto; color: #000; padding: 10px 0; }
         h1 { font-size: 18px; text-align: center; margin-bottom: 5px; text-transform: uppercase; }
-        hr { border: none; border-top: 1px dashed #000; margin: 10px 0; }
+        hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
+        .text-center { text-align: center; }
+        .bold { font-weight: bold; }
         .row { display: flex; justify-content: space-between; margin-bottom: 3px; }
         .total { font-size: 16px; font-weight: bold; margin-top: 5px; padding-top: 5px; border-top: 2px solid #000; }
-        .text-center { text-align: center; }
-        .item-row { margin-bottom: 4px; }
-        .item-line { display: flex; justify-content: space-between; }
+        .item-row { margin-bottom: 6px; }
+        .item-line { display: flex; justify-content: space-between; font-weight: bold; }
         .item-name { flex: 1; padding-right: 10px; }
-        .item-note { font-size: 11px; color: #555; margin-left: 16px; font-style: italic; }
+        .item-note { font-size: 12px; margin-left: 10px; }
+        .mb-1 { margin-bottom: 4px; }
+        .mb-2 { margin-bottom: 8px; }
       </style></head>
       <body>
-        <h1>${store?.name}</h1>
-        <p class="text-center">PEDIDO #${order.order_number}</p>
-        <p class="text-center">${format(new Date(order.created_at), "dd/MM/yyyy HH:mm")}</p>
+        <div class="text-center mb-2">
+          <h1>${store?.name}</h1>
+          <p class="bold">PEDIDO #${order.order_number}</p>
+          <p>${format(new Date(order.created_at), "dd/MM/yyyy HH:mm")}</p>
+        </div>
         <hr/>
-        <p><strong>CLIENTE:</strong> ${order.customer_name}</p>
-        <p><strong>TELEFONE:</strong> ${order.customer_phone}</p>
+        ${order.table ? `<p class="mb-1"><span class="bold">MESA:</span> ${order.table?.name || 'Mesa Identificada'}</p>` : ''}
+        ${order.waiter ? `<p class="mb-1"><span class="bold">GARÇOM:</span> ${order.waiter?.name || 'Garçom'}</p>` : ''}
+        ${order.customer_name ? `<p class="mb-1"><span class="bold">CLIENTE:</span> ${order.customer_name}</p>` : ''}
+        ${order.customer_phone ? `<p class="mb-1"><span class="bold">TELEFONE:</span> ${order.customer_phone}</p>` : ''}
         ${order.delivery_type === "delivery"
-        ? `<p><strong>ENDEREÇO:</strong> ${order.customer_address || ""}</p><p><strong>BAIRRO:</strong> ${order.neighborhood || ""}</p>`
-        : "<p><strong>🏪 RETIRADA NO LOCAL</strong></p>"}
+        ? `<p class="mb-1"><span class="bold">TIPO:</span> ENTREGA</p><p class="mb-1"><span class="bold">ENDEREÇO:</span> ${order.customer_address || ""}</p><p class="mb-1"><span class="bold">BAIRRO:</span> ${order.neighborhood || ""}</p>`
+        : order.table ? `<p class="mb-1"><span class="bold">TIPO:</span> CONSUMO NO LOCAL</p>` : `<p class="mb-1"><span class="bold">TIPO:</span> RETIRADA NO LOCAL</p>`}
         <hr/>
-        <p><strong>ITENS DO PEDIDO:</strong></p>
+        <p class="bold mb-1">ITENS DO PEDIDO:</p>
         ${itemsToPrint.map((item: any) => `
           <div class="item-row">
             <div class="item-line">
@@ -207,17 +215,18 @@ const Orders = () => {
         `).join('')}
         ${order.notes ? `
           <hr/>
-          <p><strong>OBSERVAÇÕES DO PEDIDO:</strong></p>
-          <p>${order.notes}</p>
+          <p class="bold mb-1">OBSERVAÇÕES DO PEDIDO:</p>
+          <p class="mb-1">${order.notes}</p>
         ` : ""}
         <hr/>
         <div class="row"><span>Subtotal</span><span>R$ ${order.subtotal.toFixed(2)}</span></div>
         ${order.discount > 0 ? `<div class="row"><span>Desconto</span><span>-R$ ${order.discount.toFixed(2)}</span></div>` : ""}
         ${order.delivery_type === "delivery"
         ? `<div class="row"><span>Taxa de Entrega</span><span>R$ ${(order.delivery_fee || 0).toFixed(2)}</span></div>`
-        : `<div class="row"><span>Retirada no Local</span><span>R$ 0,00</span></div>`}
+        : `<div class="row"><span>Frete</span><span>R$ 0,00</span></div>`}
         <div class="row total"><span>TOTAL</span><span>R$ ${order.total.toFixed(2)}</span></div>
-        ${paymentLabel ? `<p><strong>PAGAMENTO:</strong> ${paymentLabel}</p>` : ""}
+        <hr/>
+        ${paymentLabel ? `<p class="bold text-center">PAGAMENTO: ${paymentLabel}</p>` : ""}
       </body></html>
     `;
     const win = window.open("", "_blank", "width=350,height=600");

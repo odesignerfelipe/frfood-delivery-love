@@ -118,7 +118,10 @@ const WaiterCatalog = ({ explicitSlug }: WaiterCatalogProps) => {
     }, [fetchData]);
 
     const handleAddToCart = (product: any) => {
-        if (product.is_sold_out) { toast.error("Produto esgotado"); return; }
+        if (product.is_sold_out || (product.manage_stock && product.stock_quantity <= 0)) {
+            toast.error("Produto esgotado");
+            return;
+        }
 
         const vars = productVariations[product.id];
         if (vars && vars.length > 0) {
@@ -352,10 +355,11 @@ const WaiterCatalog = ({ explicitSlug }: WaiterCatalogProps) => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {cat.products.map((p: any) => {
                                         const price = p.promotional_price > 0 ? p.promotional_price : p.price;
+                                        const isUnavailable = p.is_sold_out || (p.manage_stock && p.stock_quantity <= 0);
                                         return (
-                                            <div key={p.id} className="bg-card rounded-xl border border-border p-3 flex gap-3 shadow-sm" onClick={() => handleAddToCart(p)}>
+                                            <div key={p.id} className={`bg-card rounded-xl border border-border p-3 flex gap-3 shadow-sm transition-all ${!isUnavailable ? "cursor-pointer hover:border-primary/50" : "opacity-60 cursor-not-allowed"}`} onClick={!isUnavailable ? () => handleAddToCart(p) : undefined}>
                                                 {p.image_url && (
-                                                    <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                                                    <div className={`w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted ${isUnavailable ? 'grayscale' : ''}`}>
                                                         <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
                                                     </div>
                                                 )}
@@ -364,11 +368,24 @@ const WaiterCatalog = ({ explicitSlug }: WaiterCatalogProps) => {
                                                         <h3 className="font-bold text-foreground text-sm line-clamp-2">{p.name}</h3>
                                                         <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{p.description}</p>
                                                     </div>
-                                                    <div className="flex items-center justify-between mt-2">
-                                                        <span className="font-bold text-primary">{formatCurrency(price)}</span>
-                                                        <Button size="sm" variant="ghost" className="h-7 px-2 text-primary bg-primary/10 hover:bg-primary/20">
-                                                            <Plus className="w-4 h-4" />
-                                                        </Button>
+                                                    <div>
+                                                        <div className="flex items-center justify-between mt-2">
+                                                            <span className="font-bold text-primary">{formatCurrency(price)}</span>
+                                                            {!isUnavailable && (
+                                                                <Button size="sm" variant="ghost" className="h-7 px-2 text-primary bg-primary/10 hover:bg-primary/20 pointer-events-none">
+                                                                    <Plus className="w-4 h-4" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                        {isUnavailable ? (
+                                                            <span className="inline-flex mt-1 text-[10px] font-bold text-red-600 bg-red-50 px-2 rounded-md">
+                                                                Esgotado
+                                                            </span>
+                                                        ) : (p.manage_stock ? (
+                                                            <span className="inline-flex mt-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 rounded-md">
+                                                                Estoque: {p.stock_quantity}
+                                                            </span>
+                                                        ) : null)}
                                                     </div>
                                                 </div>
                                             </div>
