@@ -44,6 +44,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [activeOrderStatus, setActiveOrderStatus] = useState<string | null>(null);
   const [tableSession, setTableSession] = useState<any>(null);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [variationModalOpen, setVariationModalOpen] = useState(false);
@@ -117,8 +118,42 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   useEffect(() => {
     if (store) {
       document.title = store.name;
+
+      // Update favicon
+      if (store.logo_url) {
+        let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.getElementsByTagName('head')[0].appendChild(link);
+        }
+        link.href = store.logo_url;
+      }
+
       const orderId = localStorage.getItem(`latest_order_${store.id}`);
-      if (orderId) setActiveOrderId(orderId);
+      if (orderId) {
+        setActiveOrderId(orderId);
+        // Initial status fetch
+        supabase.from("orders").select("status").eq("id", orderId).maybeSingle().then(({ data }) => {
+          if (data) setActiveOrderStatus(data.status);
+        });
+
+        // Listen for status changes
+        const channel = supabase
+          .channel(`active-order-${orderId}`)
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
+            (payload) => {
+              setActiveOrderStatus(payload.new.status);
+            }
+          )
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      }
     }
   }, [store?.name, store?.id]);
 
@@ -331,9 +366,11 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   };
   const primaryHSL = hexToHSL(storeColor);
 
+  const showActiveOrderBanner = activeOrderId && activeOrderStatus && !["delivered", "picked_up", "cancelled"].includes(activeOrderStatus);
+
   return (
     <div className="min-h-screen bg-muted/50 pb-24" style={{ "--primary": primaryHSL, "--store-color": storeColor } as React.CSSProperties}>
-      {activeOrderId && (
+      {showActiveOrderBanner && (
         <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between shadow-md z-50 relative">
           <div className="flex items-center gap-2"><Zap className="w-4 h-4 text-white animate-pulse" /><p className="text-sm font-bold">Pedido em andamento!</p></div>
           <Link to={`/pedido/${activeOrderId}`} className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold">Ver Status</Link>
@@ -400,8 +437,8 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
               <div className={`grid gap-4 ${cat.products.length === 1
                 ? "grid-cols-1 max-w-sm"
                 : cat.products.length === 2
-                  ? "grid-cols-1 md:grid-cols-2"
-                  : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                  ? "grid-cols-1 sm:grid-cols-2"
+                  : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
                 }`}>
                 {cat.products.map(p => <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />)}
               </div>
@@ -416,8 +453,8 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
               <div className={`grid gap-4 ${uncategorized.length === 1
                 ? "grid-cols-1 max-w-sm"
                 : uncategorized.length === 2
-                  ? "grid-cols-1 md:grid-cols-2"
-                  : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                  ? "grid-cols-1 sm:grid-cols-2"
+                  : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
                 }`}>
                 {uncategorized.map(p => <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />)}
               </div>

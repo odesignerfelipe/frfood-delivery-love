@@ -35,6 +35,23 @@ export default function OrderStatus() {
         };
     }, [id]);
 
+    useEffect(() => {
+        if (store) {
+            document.title = `${store.name} - Pedido #${order?.order_number || ''}`;
+
+            // Update favicon
+            if (store.logo_url) {
+                let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+                if (!link) {
+                    link = document.createElement('link');
+                    link.rel = 'icon';
+                    document.getElementsByTagName('head')[0].appendChild(link);
+                }
+                link.href = store.logo_url;
+            }
+        }
+    }, [store, order?.order_number]);
+
     const fetchOrder = async () => {
         const { data: o } = await supabase
             .from("orders")
