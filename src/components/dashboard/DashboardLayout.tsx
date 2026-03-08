@@ -24,7 +24,9 @@ import {
   Newspaper,
   QrCode,
   UserCircle,
-  History
+  History,
+  Bell,
+  Smartphone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -75,7 +77,7 @@ const DashboardLayout = () => {
     }
   }, [authLoading, storeLoading, user, store, isActive, navigate]);
 
-  useOrderNotifications(store?.id, (store as any)?.audio_notifications !== false);
+  const { testSound, testNotification, requestPermission } = useOrderNotifications(store?.id, (store as any)?.audio_notifications !== false);
 
   if (authLoading || storeLoading) {
     return (
@@ -185,6 +187,18 @@ const DashboardLayout = () => {
               <img src={settings.logoUrl || "/logo-icon.png"} alt="FRFood" className="h-full w-auto object-contain" />
             </div>
             <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 border rounded-full px-2 py-1">
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={testSound} title="Testar Som">
+                  <Bell className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={testNotification} title="Testar Desktop">
+                  <Smartphone className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase" onClick={requestPermission}>
+                  Ativar
+                </Button>
+              </div>
+
               <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${checkStoreStatus(store) ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                 {checkStoreStatus(store) ? (
                   <><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> Aberta</>

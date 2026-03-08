@@ -222,20 +222,35 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
             }
 
             // 1. Update comanda status
-            const { error: comandaError } = await supabase
-                .from("comandas")
-                .update({
-                    status: "closed",
-                    subtotal: subtotal,
-                    discount: discountVal,
-                    total: finalTotal,
-                    payment_method: paymentMethod,
-                    closed_at: new Date().toISOString()
-                })
-                .eq("id", comanda.id);
+            // Resilient approach for closed_at column
+            const updateData: any = {
+                status: "closed",
+                subtotal: subtotal,
+                discount: discountVal,
+                total: finalTotal,
+                payment_method: paymentMethod
+            };
 
-            if (comandaError) throw new Error(`Erro ao atualizar comanda: ${comandaError.message}`);
+            try {
+                const { error: comandaError } = await supabase
+                    .from("comandas")
+                    .update({ ...updateData, closed_at: new Date().toISOString() })
+                    .eq("id", comanda.id);
 
+                if (comandaError) {
+                    if (comandaError.message.includes('closed_at')) {
+                        const { error: retryError } = await supabase
+                            .from("comandas")
+                            .update(updateData)
+                            .eq("id", comanda.id);
+                        if (retryError) throw retryError;
+                    } else {
+                        throw comandaError;
+                    }
+                }
+            } catch (err: any) {
+                throw new Error(`Erro ao atualizar comanda: ${err.message}`);
+            }
             // 2. Clear table
             const { error: tableError } = await supabase
                 .from("tables")

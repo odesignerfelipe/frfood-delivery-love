@@ -67,7 +67,7 @@ const DashboardHome = () => {
   const [printerSettings, setPrinterSettings] = useState<any[]>([]);
   const isOpenNow = checkStoreStatus(store);
 
-  useOrderNotifications(store?.id, (store as any)?.audio_notifications !== false);
+  // useOrderNotifications(store?.id, (store as any)?.audio_notifications !== false);
 
   const fetchStats = useCallback(async () => {
     if (!store) return;
@@ -355,19 +355,36 @@ const DashboardHome = () => {
 
     try {
       // 1. Update comanda status
-      const { error: comandaError } = await supabase
-        .from("comandas")
-        .update({
-          status: "closed",
-          subtotal: subtotal,
-          discount: discountVal,
-          total: finalTotal,
-          payment_method: paymentMethod,
-          closed_at: new Date().toISOString()
-        })
-        .eq("id", activeComanda.id);
+      // We use a more resilient approach for closed_at column since it might be missing from schema cache
+      const updateData: any = {
+        status: "closed",
+        subtotal: subtotal,
+        discount: discountVal,
+        total: finalTotal,
+        payment_method: paymentMethod
+      };
 
-      if (comandaError) throw new Error(`Erro ao fechar comanda: ${comandaError.message}`);
+      try {
+        const { error: comandaError } = await supabase
+          .from("comandas")
+          .update({ ...updateData, closed_at: new Date().toISOString() })
+          .eq("id", activeComanda.id);
+
+        if (comandaError) {
+          if (comandaError.message.includes('closed_at')) {
+            // Fallback: update without closed_at if cache is stale
+            const { error: retryError } = await supabase
+              .from("comandas")
+              .update(updateData)
+              .eq("id", activeComanda.id);
+            if (retryError) throw retryError;
+          } else {
+            throw comandaError;
+          }
+        }
+      } catch (err: any) {
+        throw new Error(`Erro ao fechar comanda: ${err.message}`);
+      }
 
       // 2. Free up the table
       const { error: tableError } = await supabase
