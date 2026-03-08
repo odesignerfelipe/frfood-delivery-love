@@ -404,6 +404,20 @@ const DashboardHome = () => {
         console.error("Unexpected error updating table:", err);
       }
 
+      // 3. Record in Financials
+      const { error: financialError } = await supabase.from("financial_transactions").insert({
+        store_id: store.id,
+        description: `Venda Mesa ${selectedTable.name.replace('Mesa ', '')}`,
+        amount: finalTotal,
+        type: "entry",
+        status: "paid",
+        paid_at: new Date().toISOString(),
+        due_date: format(new Date(), "yyyy-MM-dd"),
+        payment_method: paymentMethod
+      });
+
+      if (financialError) console.error("Error recording financial transaction:", financialError);
+
       toast.success("Conta encerrada com sucesso!");
       setClosingBillOpen(false);
       setTableModalOpen(false);
@@ -522,6 +536,21 @@ const DashboardHome = () => {
       }).select().single();
 
       if (error) throw error;
+
+      // Record in Financials
+      const { error: financialError } = await supabase.from("financial_transactions").insert({
+        store_id: store.id,
+        description: "Abertura de Caixa",
+        amount: Number(openingBalance) || 0,
+        type: "entry",
+        status: "paid",
+        paid_at: new Date().toISOString(),
+        due_date: format(new Date(), "yyyy-MM-dd"),
+        payment_method: "dinheiro"
+      });
+
+      if (financialError) console.error("Error recording financial transaction:", financialError);
+
       setActiveSession(data);
       setOpenRegisterOpen(false);
       toast.success("Caixa aberto com sucesso!");
@@ -544,6 +573,21 @@ const DashboardHome = () => {
       }).eq("id", activeSession.id);
 
       if (error) throw error;
+
+      // Record in Financials (Exit of the total balance to "empty" the drawer for the next shift/deposit)
+      const { error: financialError } = await supabase.from("financial_transactions").insert({
+        store_id: store.id,
+        description: "Fechamento de Caixa / Retirada",
+        amount: stats.revenue + activeSession.opening_balance,
+        type: "exit",
+        status: "paid",
+        paid_at: new Date().toISOString(),
+        due_date: format(new Date(), "yyyy-MM-dd"),
+        payment_method: "dinheiro"
+      });
+
+      if (financialError) console.error("Error recording financial transaction:", financialError);
+
       setActiveSession(null);
       setCloseRegisterOpen(false);
       toast.success("Caixa fechado com sucesso!");
