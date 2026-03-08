@@ -285,10 +285,33 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     if (tableSession) {
       finalDeliveryType = "table"; origin = "qr_code";
       const { data: openComanda } = await supabase.from("comandas").select("id").eq("store_id", store.id).eq("table_id", tableSession.table_id).eq("status", "open").maybeSingle();
-      if (openComanda) { comandaId = openComanda.id; }
-      else {
-        const { data: newComanda } = await supabase.from("comandas").insert({ store_id: store.id, table_id: tableSession.table_id, status: "open", subtotal: 0, discount: 0, total: 0 }).select().single();
-        if (newComanda) comandaId = (newComanda as any).id;
+      if (openComanda) {
+        comandaId = openComanda.id;
+      } else {
+        const { data: newComanda, error: newComandaError } = await supabase.from("comandas").insert({
+          store_id: store.id,
+          table_id: tableSession.table_id,
+          status: "open",
+          subtotal: 0,
+          discount: 0,
+          total: 0
+        }).select().single();
+
+        if (newComandaError) {
+          console.error("Comanda Error:", newComandaError);
+          toast.error("Erro ao iniciar comanda");
+          setIsProcessing(false);
+          return;
+        }
+
+        if (newComanda) {
+          comandaId = (newComanda as any).id;
+          // Sincroniza o status da mesa para ocupada
+          await supabase.from("tables").update({
+            status: 'occupied',
+            current_comanda_id: comandaId
+          }).eq("id", tableSession.table_id);
+        }
       }
     }
 
@@ -377,6 +400,19 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
           <Link to={`/pedido/${activeOrderId}`} className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold">Ver Status</Link>
         </div>
       )}
+
+      {tableSession && (
+        <div className="bg-primary/95 text-primary-foreground px-4 py-3 flex items-center justify-center gap-3 shadow-hero z-40 relative">
+          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+            <Utensils className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex flex-col">
+            <p className="text-[10px] font-bold uppercase tracking-wider opacity-80 leading-none">Você está na</p>
+            <p className="text-sm font-black uppercase tracking-tight">{tableSession.table_name}</p>
+          </div>
+        </div>
+      )}
+
       {/* Sticky Header */}
       {showStickyHeader && (
         <div className="fixed top-0 left-0 right-0 z-40 bg-card border-b border-border shadow-md animate-in slide-in-from-top duration-300">
