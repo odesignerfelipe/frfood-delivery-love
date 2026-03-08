@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/hooks/useStore";
 import { Button } from "@/components/ui/button";
@@ -37,22 +37,30 @@ const Customers = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-    const fetchCustomers = async () => {
+    const fetchCustomers = useCallback(async () => {
         if (!store) return;
         setLoading(true);
-        const { data, error } = await supabase
-            .from("customers")
-            .select("*")
-            .eq("store_id", store.id)
-            .order("last_order_at", { ascending: false });
+        try {
+            const { data, error } = await supabase
+                .from("customers")
+                .select("*")
+                .eq("store_id", store.id)
+                .order("last_order_at", { ascending: false });
 
-        if (error) {
-            toast.error("Erro ao carregar clientes");
-        } else {
+            if (error) {
+                console.error("Error fetching customers:", error);
+                toast.error(`Erro ao carregar clientes: ${error.message}`);
+                return;
+            }
+
             setCustomers(data || []);
+        } catch (error: any) {
+            console.error("Unexpected error loading customers:", error);
+            toast.error("Erro inesperado ao carregar clientes");
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
-    };
+    }, [store]);
 
     useEffect(() => {
         fetchCustomers();

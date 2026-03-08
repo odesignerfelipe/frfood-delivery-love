@@ -438,6 +438,9 @@ const Orders = () => {
                             </div>
                           )}
 
+                          {order.delivery_fee > 0 && (
+                            <p className="text-xs text-muted-foreground">🚚 Taxa de entrega: R$ {Number(order.delivery_fee).toFixed(2)}</p>
+                          )}
                           <div className="flex gap-1 flex-wrap pt-1">
                             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); handlePrint(order); }}>
                               <Printer className="w-3 h-3 mr-1" /> Imprimir

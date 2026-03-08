@@ -221,24 +221,34 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
                 return;
             }
 
-            const { error } = await supabase
+            // 1. Update comanda status
+            const { error: comandaError } = await supabase
                 .from("comandas")
                 .update({
                     status: "closed",
                     subtotal: subtotal,
                     discount: discountVal,
                     total: finalTotal,
-                    payment_method: paymentMethod
+                    payment_method: paymentMethod,
+                    closed_at: new Date().toISOString()
                 })
                 .eq("id", comanda.id);
 
-            if (error) throw error;
+            if (comandaError) throw new Error(`Erro ao atualizar comanda: ${comandaError.message}`);
+
+            // 2. Clear table
+            const { error: tableError } = await supabase
+                .from("tables")
+                .update({ status: "available", current_comanda_id: null })
+                .eq("id", comanda.table_id);
+
+            if (tableError) throw new Error(`Erro ao liberar mesa: ${tableError.message}`);
 
             toast.success("Conta encerrada com sucesso!");
             navigate(explicitSlug ? "/garcom/mesas" : `/loja/${store?.slug}/garcom/mesas`);
-        } catch (error) {
-            console.error(error);
-            toast.error("Erro ao encerrar conta");
+        } catch (error: any) {
+            console.error("Error closing bill:", error);
+            toast.error(error.message || "Erro ao encerrar conta");
         } finally {
             setIsClosing(false);
             setCloseOpen(false);

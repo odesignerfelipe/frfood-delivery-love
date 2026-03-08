@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { ShoppingBag, Plus, Minus, Trash2, X, Send, MapPin, Search, Star, Clock, Phone, Mail, Lock, Check, AlertTriangle, Zap, Bike, Store, Utensils, ChevronLeft } from "lucide-react";
-import { checkStoreStatus } from "@/lib/utils";
+import { formatCurrency, checkStoreStatus } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 interface SelectedVariation {
   group: string;
@@ -533,16 +534,84 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}><DialogContent className="max-w-md p-0 rounded-t-2xl sm:rounded-2xl overflow-hidden"><div className="p-6 space-y-4">
         <h2 className="text-xl font-bold">Finalizar</h2>
-        {tableSession ? (<div className="bg-primary/10 p-4 rounded-xl flex items-center justify-between"><div className="flex items-center gap-3"><ShoppingBag className="w-5 h-5 text-primary" /><p className="font-bold text-primary">Mesa {tableSession.table_name}</p></div></div>) : (
+        {tableSession ? (
+          <div className="bg-primary/10 p-4 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <ShoppingBag className="w-5 h-5 text-primary" />
+              <p className="font-bold text-primary">Mesa {tableSession.table_name}</p>
+            </div>
+          </div>
+        ) : (
           <div className="space-y-3">
             <div><Label>Nome</Label><Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} /></div>
             <div><Label>Telefone</Label><Input value={form.customer_phone} onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} /></div>
-            <div><Label>Tipo</Label><Select value={form.delivery_type} onValueChange={(v) => setForm({ ...form, delivery_type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{store.delivery_enabled && <SelectItem value="delivery">Entrega</SelectItem>}{store.pickup_enabled && <SelectItem value="pickup">Retirada</SelectItem>}</SelectContent></Select></div>
-            {form.delivery_type === "delivery" && <div><Label>Endereço</Label><Input value={form.customer_address} onChange={(e) => setForm({ ...form, customer_address: e.target.value })} /></div>}
-            <div><Label>Pagamento</Label><Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pix">PIX</SelectItem><SelectItem value="dinheiro">Dinheiro</SelectItem><SelectItem value="cartao">Cartão</SelectItem></SelectContent></Select></div>
+            <div>
+              <Label>Tipo</Label>
+              <Select value={form.delivery_type} onValueChange={(v) => setForm({ ...form, delivery_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {store.delivery_enabled && <SelectItem value="delivery">Entrega</SelectItem>}
+                  {store.pickup_enabled && <SelectItem value="pickup">Retirada</SelectItem>}
+                </SelectContent>
+              </Select>
+            </div>
+            {form.delivery_type === "delivery" && (
+              <div className="space-y-3">
+                <div>
+                  <Label>Seu Bairro</Label>
+                  <Select value={form.neighborhood} onValueChange={(v) => setForm({ ...form, neighborhood: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione seu bairro" /></SelectTrigger>
+                    <SelectContent>
+                      {deliveryZones.map(zone => (
+                        <SelectItem key={zone.id} value={zone.neighborhood}>{zone.neighborhood} ({formatCurrency(zone.fee)})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Endereço</Label><Input value={form.customer_address} onChange={(e) => setForm({ ...form, customer_address: e.target.value })} /></div>
+              </div>
+            )}
+            <div>
+              <Label>Pagamento</Label>
+              <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="cartao">Cartão</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
-        <Button variant="hero" className="w-full h-12 font-bold mt-4" disabled={isProcessing} onClick={handleCheckout}>{isProcessing ? "Enviando..." : "Confirmar Pedido"}</Button>
+
+        <div className="bg-muted/30 p-4 rounded-xl space-y-2 mt-4">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span>{formatCurrency(subtotal)}</span>
+          </div>
+          {discount > 0 && (
+            <div className="flex justify-between text-sm text-green-600">
+              <span>Desconto</span>
+              <span>-{formatCurrency(discount)}</span>
+            </div>
+          )}
+          {form.delivery_type === "delivery" && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Taxa de Entrega</span>
+              <span>{formatCurrency(deliveryFee)}</span>
+            </div>
+          )}
+          <Separator />
+          <div className="flex justify-between font-bold text-lg">
+            <span>Total</span>
+            <span className="text-primary">{formatCurrency(total)}</span>
+          </div>
+        </div>
+
+        <Button variant="hero" className="w-full h-12 font-bold mt-4" disabled={isProcessing} onClick={handleCheckout}>
+          {isProcessing ? "Enviando..." : "Confirmar Pedido"}
+        </Button>
       </div></DialogContent></Dialog>
       <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}>
         <DialogContent className="max-w-xl p-0 overflow-hidden bg-white border-none shadow-hero max-h-[90vh] overflow-y-auto scrollbar-hide">
