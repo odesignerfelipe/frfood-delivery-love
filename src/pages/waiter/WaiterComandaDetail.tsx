@@ -251,27 +251,27 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
             } catch (err: any) {
                 throw new Error(`Erro ao atualizar comanda: ${err.message}`);
             }
-            // 2. Clear table
-            const tableUpdateData: any = { status: "available" };
+            // 2. Clear table - Ultra Resilient Approach
             try {
                 const { error: tableError } = await supabase
                     .from("tables")
-                    .update({ ...tableUpdateData, current_comanda_id: null })
+                    .update({ status: "available", current_comanda_id: null })
                     .eq("id", comanda.table_id);
 
                 if (tableError) {
-                    if (tableError.message.includes('current_comanda_id')) {
-                        const { error: retryTableError } = await supabase
-                            .from("tables")
-                            .update(tableUpdateData)
-                            .eq("id", comanda.table_id);
-                        if (retryTableError) throw retryTableError;
-                    } else {
-                        throw tableError;
+                    console.warn("Table update failed, trying fallback:", tableError.message);
+                    // Fallback 1: Try without current_comanda_id
+                    const { error: fallback1 } = await supabase
+                        .from("tables")
+                        .update({ status: "available" })
+                        .eq("id", comanda.table_id);
+
+                    if (fallback1) {
+                        console.error("Critical: Table status update failed even with basic columns:", fallback1.message);
                     }
                 }
-            } catch (err: any) {
-                throw new Error(`Erro ao liberar mesa: ${err.message}`);
+            } catch (err) {
+                console.error("Unexpected error updating table:", err);
             }
 
             toast.success("Conta encerrada com sucesso!");

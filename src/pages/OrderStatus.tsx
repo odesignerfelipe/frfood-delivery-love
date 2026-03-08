@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, Link2, XCircle, AlertTriangle, QrCode } from "lucide-react";
+import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, Link2, XCircle, AlertTriangle, QrCode, Zap, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { useCustomerOrderNotifications } from "@/hooks/useCustomerOrderNotifications";
@@ -13,6 +13,7 @@ export default function OrderStatus() {
     const [order, setOrder] = useState<any>(null);
     const [store, setStore] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [otherActiveOrders, setOtherActiveOrders] = useState<any[]>([]);
 
     useCustomerOrderNotifications(order?.id, order?.status);
 
@@ -63,6 +64,38 @@ export default function OrderStatus() {
             setOrder(o);
             const { data: s } = await supabase.from("stores").select("*").eq("id", o.store_id).single();
             setStore(s);
+
+            // Manage active orders in localStorage
+            if (s) {
+                const stored = localStorage.getItem(`active_orders_${s.id}`);
+                let ids: string[] = [];
+                if (stored) { try { ids = JSON.parse(stored); } catch (e) { } }
+
+                // Add current if not present
+                if (!ids.includes(o.id) && !["delivered", "picked_up", "cancelled"].includes(o.status)) {
+                    ids.push(o.id);
+                    localStorage.setItem(`active_orders_${s.id}`, JSON.stringify(ids));
+                }
+
+                // If finished, remove it
+                if (["delivered", "picked_up", "cancelled"].includes(o.status)) {
+                    const remaining = ids.filter(orderId => orderId !== o.id);
+                    localStorage.setItem(`active_orders_${s.id}`, JSON.stringify(remaining));
+                    ids = remaining;
+                }
+
+                // Fetch other active orders to show in switcher
+                const otherIds = ids.filter(orderId => orderId !== o.id);
+                if (otherIds.length > 0) {
+                    const { data: others } = await supabase
+                        .from("orders")
+                        .select("id, order_number, status")
+                        .in("id", otherIds);
+                    if (others) setOtherActiveOrders(others);
+                } else {
+                    setOtherActiveOrders([]);
+                }
+            }
         }
         setLoading(false);
     };
@@ -205,6 +238,39 @@ export default function OrderStatus() {
                                 <MessageCircle className="w-6 h-6 text-green-500 mb-2" />
                                 <span className="text-sm font-medium">Falar com a Loja</span>
                             </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Multi-Order Switcher */}
+                {otherActiveOrders.length > 0 && (
+                    <div className="bg-primary/5 rounded-2xl p-6 shadow-card border-2 border-primary/10 space-y-4">
+                        <div className="flex items-center gap-2 text-primary">
+                            <Zap className="w-5 h-5 animate-pulse" />
+                            <h3 className="font-bold">Você tem outros pedidos ativos</h3>
+                        </div>
+                        <div className="grid gap-2">
+                            {otherActiveOrders.map(other => (
+                                <Link
+                                    key={other.id}
+                                    to={`/pedido/${other.id}`}
+                                    className="flex items-center justify-between p-3 bg-white rounded-xl border border-primary/20 hover:border-primary hover:bg-primary/5 transition-all group"
+                                >
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-bold text-foreground">Pedido #{other.order_number}</span>
+                                        <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                                            {other.status === 'pending' && 'Pendente'}
+                                            {other.status === 'confirmed' && 'Confirmado'}
+                                            {other.status === 'preparing' && 'Preparando'}
+                                            {other.status === 'delivering' && 'Em entrega'}
+                                            {other.status === 'ready_for_pickup' && 'Pronto para retirada'}
+                                        </span>
+                                    </div>
+                                    <Button variant="ghost" size="sm" className="text-primary font-bold group-hover:translate-x-1 transition-transform">
+                                        Acompanhar <ChevronLeft className="w-4 h-4 ml-1 rotate-180" />
+                                    </Button>
+                                </Link>
+                            ))}
                         </div>
                     </div>
                 )}

@@ -44,8 +44,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showStickyHeader, setShowStickyHeader] = useState(false);
-  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
-  const [activeOrderStatus, setActiveOrderStatus] = useState<string | null>(null);
+  const [activeOrders, setActiveOrders] = useState<{ id: string; status: string; order_number?: string }[]>([]);
   const [tableSession, setTableSession] = useState<any>(null);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [variationModalOpen, setVariationModalOpen] = useState(false);
@@ -118,45 +117,60 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
   useEffect(() => {
     if (store) {
-      document.title = store.name;
-
-      // Update favicon
-      if (store.logo_url) {
-        let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
-        if (!link) {
-          link = document.createElement('link');
-          link.rel = 'icon';
-          document.getElementsByTagName('head')[0].appendChild(link);
+      const getActiveOrders = async () => {
+        const stored = localStorage.getItem(`active_orders_${store.id}`);
+        // Migration from old single-order key
+        const oldId = localStorage.getItem(`latest_order_${store.id}`);
+        let ids: string[] = [];
+        if (stored) {
+          try { ids = JSON.parse(stored); } catch (e) { }
         }
-        link.href = store.logo_url;
-      }
+        if (oldId && !ids.includes(oldId)) {
+          ids.push(oldId);
+          localStorage.setItem(`active_orders_${store.id}`, JSON.stringify(ids));
+          localStorage.removeItem(`latest_order_${store.id}`);
+        }
 
-      const orderId = localStorage.getItem(`latest_order_${store.id}`);
-      if (orderId) {
-        setActiveOrderId(orderId);
-        // Initial status fetch
-        supabase.from("orders").select("status").eq("id", orderId).maybeSingle().then(({ data }) => {
-          if (data) setActiveOrderStatus(data.status);
-        });
+        if (ids.length > 0) {
+          const { data } = await supabase
+            .from("orders")
+            .select("id, status, order_number")
+            .in("id", ids);
 
-        // Listen for status changes
-        const channel = supabase
-          .channel(`active-order-${orderId}`)
-          .on(
-            "postgres_changes",
-            { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
-            (payload) => {
-              setActiveOrderStatus(payload.new.status);
-            }
-          )
-          .subscribe();
+          if (data) {
+            // Filter out final states and update localStorage
+            const stillActive = data.filter(o => !["delivered", "picked_up", "cancelled"].includes(o.status));
+            setActiveOrders(stillActive);
+            localStorage.setItem(`active_orders_${store.id}`, JSON.stringify(stillActive.map(o => o.id)));
 
-        return () => {
-          supabase.removeChannel(channel);
-        };
-      }
+            // Listen for status changes for ALL active orders
+            stillActive.forEach(order => {
+              supabase.channel(`active-order-${order.id}`)
+                .on(
+                  "postgres_changes",
+                  { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${order.id}` },
+                  (payload) => {
+                    setActiveOrders(prev => {
+                      const updated = prev.map(o => o.id === order.id ? { ...o, status: payload.new.status } : o);
+                      // If finished, remove it
+                      if (["delivered", "picked_up", "cancelled"].includes(payload.new.status)) {
+                        const remaining = updated.filter(o => o.id !== order.id);
+                        localStorage.setItem(`active_orders_${store.id}`, JSON.stringify(remaining.map(r => r.id)));
+                        return remaining;
+                      }
+                      return updated;
+                    });
+                  }
+                )
+                .subscribe();
+            });
+          }
+        }
+      };
+
+      getActiveOrders();
     }
-  }, [store?.name, store?.id]);
+  }, [store?.name, store?.id, slug]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -353,7 +367,14 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
       } catch (custErr) { }
     }
 
-    localStorage.setItem(`latest_order_${store.id}`, orderId);
+    const stored = localStorage.getItem(`active_orders_${store.id}`);
+    let activeIds: string[] = [];
+    if (stored) { try { activeIds = JSON.parse(stored); } catch (e) { } }
+    if (!activeIds.includes(orderId)) {
+      activeIds.push(orderId);
+      localStorage.setItem(`active_orders_${store.id}`, JSON.stringify(activeIds));
+    }
+
     setCart([]); setCheckoutOpen(false); setCartOpen(false); setAppliedCoupon(null); setCouponCode(""); setIsProcessing(false);
     toast.success("Pedido enviado!"); navigate(`/pedido/${orderId}`);
   };
@@ -390,14 +411,23 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   };
   const primaryHSL = hexToHSL(storeColor);
 
-  const showActiveOrderBanner = activeOrderId && activeOrderStatus && !["delivered", "picked_up", "cancelled"].includes(activeOrderStatus);
-
   return (
     <div className="min-h-screen bg-muted/50 pb-24" style={{ "--primary": primaryHSL, "--store-color": storeColor } as React.CSSProperties}>
-      {showActiveOrderBanner && (
-        <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between shadow-md z-50 relative">
-          <div className="flex items-center gap-2"><Zap className="w-4 h-4 text-white animate-pulse" /><p className="text-sm font-bold">Pedido em andamento!</p></div>
-          <Link to={`/pedido/${activeOrderId}`} className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold">Ver Status</Link>
+      {activeOrders.length > 0 && (
+        <div className="bg-primary text-primary-foreground shadow-md z-50 relative divide-y divide-white/10">
+          {activeOrders.map((order, idx) => (
+            <div key={order.id} className="px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-white animate-pulse" />
+                <p className="text-sm font-bold">
+                  {activeOrders.length > 1 ? `Pedido #${order.order_number || '...'}` : "Pedido em andamento!"}
+                </p>
+              </div>
+              <Link to={`/pedido/${order.id}`} className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold transition-colors hover:bg-white/30">
+                Ver Status
+              </Link>
+            </div>
+          ))}
         </div>
       )}
 
@@ -413,7 +443,6 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         </div>
       )}
 
-      {/* Sticky Header */}
       {showStickyHeader && (
         <div className="fixed top-0 left-0 right-0 z-40 bg-card border-b border-border shadow-md animate-in slide-in-from-top duration-300">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-4">
@@ -501,55 +530,57 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         </div>
       </div>
 
-      {variationModalOpen && variationProduct && (
-        <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}>
-          <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white border-none shadow-hero">
-            <div className="p-6 space-y-6 flex-1 overflow-y-auto min-h-0 bg-white">
-              <div className="flex gap-4">
-                {variationProduct.image_url && <img src={variationProduct.image_url} className="w-20 h-20 rounded-xl object-cover" />}
-                <div>
-                  <p className="text-xl font-bold">{variationProduct.name}</p>
-                  <p className="text-primary font-bold">R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}</p>
+      {
+        variationModalOpen && variationProduct && (
+          <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}>
+            <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white border-none shadow-hero">
+              <div className="p-6 space-y-6 flex-1 overflow-y-auto min-h-0 bg-white">
+                <div className="flex gap-4">
+                  {variationProduct.image_url && <img src={variationProduct.image_url} className="w-20 h-20 rounded-xl object-cover" />}
+                  <div>
+                    <p className="text-xl font-bold">{variationProduct.name}</p>
+                    <p className="text-primary font-bold">R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}</p>
+                  </div>
                 </div>
+
+                {(productVariations[variationProduct.id] || []).map(v => (
+                  <div key={v.id} className="space-y-3">
+                    <div className="flex justify-between items-end">
+                      <Label className="text-base font-bold">{v.name}</Label>
+                      {v.required && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full uppercase">Obrigatório</span>}
+                    </div>
+                    <div className="space-y-2">
+                      {(v.options || []).map((opt: any, oi: number) => {
+                        const isSelected = (variationSelections[v.id] || []).some(s => s.name === opt.name);
+                        return (
+                          <button
+                            key={oi}
+                            onClick={() => toggleVariationOption(v.id, opt, v.max_selections)}
+                            className={`w-full flex justify-between p-3 rounded-xl border text-sm transition-all ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}
+                          >
+                            <span className="font-medium">{opt.name}</span>
+                            {opt.price > 0 && <span className="text-primary font-bold">+R$ {opt.price.toFixed(2)}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              {(productVariations[variationProduct.id] || []).map(v => (
-                <div key={v.id} className="space-y-3">
-                  <div className="flex justify-between items-end">
-                    <Label className="text-base font-bold">{v.name}</Label>
-                    {v.required && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full uppercase">Obrigatório</span>}
-                  </div>
-                  <div className="space-y-2">
-                    {(v.options || []).map((opt: any, oi: number) => {
-                      const isSelected = (variationSelections[v.id] || []).some(s => s.name === opt.name);
-                      return (
-                        <button
-                          key={oi}
-                          onClick={() => toggleVariationOption(v.id, opt, v.max_selections)}
-                          className={`w-full flex justify-between p-3 rounded-xl border text-sm transition-all ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}
-                        >
-                          <span className="font-medium">{opt.name}</span>
-                          {opt.price > 0 && <span className="text-primary font-bold">+R$ {opt.price.toFixed(2)}</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="p-6 pt-2 bg-card border-t border-border">
-              <Button
-                variant="hero"
-                className="w-full h-12 text-sm font-bold uppercase tracking-wider"
-                onClick={confirmVariationSelection}
-              >
-                Adicionar • R$ {((variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price) + Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0)).toFixed(2)}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+              <div className="p-6 pt-2 bg-card border-t border-border">
+                <Button
+                  variant="hero"
+                  className="w-full h-12 text-sm font-bold uppercase tracking-wider"
+                  onClick={confirmVariationSelection}
+                >
+                  Adicionar • R$ {((variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price) + Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0)).toFixed(2)}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )
+      }
 
       {cart.length > 0 && <div className="fixed bottom-6 left-4 right-4 z-40 max-w-3xl mx-auto"><button onClick={() => setCartOpen(true)} className="w-full gradient-hero h-14 rounded-2xl text-white font-bold flex justify-between items-center px-6 shadow-hero"><span>{cart.reduce((s, i) => s + i.quantity, 0)} itens</span><span>Ver Sacola • R$ {subtotal.toFixed(2)}</span></button></div>}
 
@@ -761,7 +792,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 };
 
