@@ -357,14 +357,17 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
     if (!tableSession && form.customer_phone) {
       try {
-        const { data: existingCustomer } = await supabase.from("customers").select("total_orders, total_spent").eq("store_id", store.id).eq("phone", form.customer_phone).maybeSingle();
-        const newTotalOrders = (existingCustomer?.total_orders || 0) + 1;
-        const newTotalSpent = Number(existingCustomer?.total_spent || 0) + Number(total);
-        await supabase.from("customers").upsert({
-          store_id: store.id, name: form.customer_name, phone: form.customer_phone, address: form.customer_address, neighborhood: form.neighborhood,
-          total_orders: newTotalOrders, total_spent: newTotalSpent, last_order_at: new Date().toISOString(), updated_at: new Date().toISOString()
-        }, { onConflict: 'store_id,phone' });
-      } catch (custErr) { }
+        await supabase.rpc('register_customer_from_order', {
+          p_store_id: store.id,
+          p_name: form.customer_name,
+          p_phone: form.customer_phone,
+          p_address: form.customer_address,
+          p_neighborhood: form.neighborhood,
+          p_total_spent: total
+        });
+      } catch (custErr) {
+        console.error("Error registering customer:", custErr);
+      }
     }
 
     const stored = localStorage.getItem(`active_orders_${store.id}`);
