@@ -22,22 +22,33 @@ export const useCustomerOrderNotifications = (orderId: string | undefined, curre
                 (payload: any) => {
                     const newStatus = payload.new.status;
 
-                    // Only trigger notification when status changes specifically to ready_for_pickup
+                    // Notification for ready_for_pickup
                     if (newStatus === "ready_for_pickup" && currentStatus !== "ready_for_pickup") {
                         playAlertSound();
-
-                        // Show Desktop Notification
                         if ("Notification" in window && Notification.permission === "granted") {
                             new Notification("Opa! Seu pedido está pronto! 🛍️", {
                                 body: "Passe aqui no local e faça a retirada do seu pedido.",
                                 icon: "/logo-icon.png"
                             });
                         }
-
-                        // In-app visual notification
                         toast.success("Seu pedido está pronto para retirada!", {
                             duration: 5000,
                             description: "Já pode vir buscar seu lanche.",
+                        });
+                    }
+
+                    // Notification for delivering
+                    if (newStatus === "delivering" && currentStatus !== "delivering") {
+                        playAlertSound();
+                        if ("Notification" in window && Notification.permission === "granted") {
+                            new Notification("Seu pedido saiu para entrega! 🛵", {
+                                body: "O entregador já está a caminho com seu pedido.",
+                                icon: "/logo-icon.png"
+                            });
+                        }
+                        toast.success("Pedido em entrega!", {
+                            duration: 5000,
+                            description: "O entregador está indo até você.",
                         });
                     }
                 }

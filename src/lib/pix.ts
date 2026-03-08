@@ -5,17 +5,67 @@
 
 /**
  * Normalizes text for PIX fields (removes accents, limits length)
+ * @param allowSpaces - If false, removes all spaces (critical for TXID)
  */
-export const normalizePixText = (text: string, maxLength: number): string => {
+export const normalizePixText = (text: string, maxLength: number, allowSpaces: boolean = true): string => {
     if (!text) return "";
-    return text
+    let normalized = text
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") // Remove accents
-        .replace(/[^a-zA-Z0-9]/g, " ")   // Replace special characters with space
-        .replace(/\s+/g, " ")            // Collapse multiple spaces
-        .trim()
-        .substring(0, maxLength)
-        .toUpperCase();
+        .replace(/[\u0300-\u036f]/g, ""); // Remove accents
+
+    if (allowSpaces) {
+        normalized = normalized
+            .replace(/[^a-zA-Z0-9]/g, " ")   // Replace special characters with space
+            .replace(/\s+/g, " ")            // Collapse multiple spaces
+            .trim();
+    } else {
+        normalized = normalized
+            .replace(/[^a-zA-Z0-9]/g, "")    // Remove all special characters
+            .replace(/\s+/g, "");           // Remove all spaces
+    }
+
+    return normalized.substring(0, maxLength).toUpperCase();
+};
+
+/**
+ * Sanitizes PIX keys (removes formatting from CPF/CNPJ/Phone)
+ */
+export const sanitizePixKey = (key: string): string => {
+    if (!key) return "";
+    const sanitized = key.trim();
+
+    // For emails and random keys
+    if (sanitized.includes('@') || (sanitized.length > 20 && !sanitized.match(/^\d/))) {
+        return sanitized;
+    }
+
+    const digits = sanitized.replace(/\D/g, "");
+
+    // CNPJ (14 digits)
+    if (digits.length === 14) return digits;
+
+    // CPF (11 digits) vs Phone (11 digits)
+    if (digits.length === 11) {
+        // If it looks like a phone (has parens or starts with +55 or is explicitly formatted as phone)
+        if (sanitized.includes('(') || sanitized.includes(')') || sanitized.startsWith('+')) {
+            return `+55${digits.startsWith('55') ? digits.substring(2) : digits}`;
+        }
+        // If it starts with common DDDs and doesn't have CPF markers
+        const isLikelyPhone = !sanitized.includes('.') && !sanitized.includes('-') && digits.match(/^[1-9]{2}9/);
+        if (isLikelyPhone) return `+55${digits}`;
+
+        return digits; // Default to CPF if 11 digits and not obviously a phone
+    }
+
+    // Phone with 10 digits (no 9)
+    if (digits.length === 10) return `+55${digits}`;
+
+    // Phone with country code (12 or 13 digits)
+    if (digits.length === 12 || digits.length === 13) {
+        return `+${digits}`;
+    }
+
+    return digits || sanitized;
 };
 
 /**
@@ -60,7 +110,8 @@ export const generatePixPayload = (params: {
     const payloadFormat = "000201";
 
     // Tag 26: Merchant Account Information
-    const merchantInfo = formatField('00', 'br.gov.bcb.pix') + formatField('01', key);
+    const sanitizedKey = sanitizePixKey(key);
+    const merchantInfo = formatField('00', 'br.gov.bcb.pix') + formatField('01', sanitizedKey);
     const tag26 = formatField('26', merchantInfo);
 
     // Tag 52: Merchant Category Code
@@ -82,7 +133,8 @@ export const generatePixPayload = (params: {
     const tag60 = formatField('60', normalizePixText(city || 'SAO PAULO', 15));
 
     // Tag 62: Additional Data Field Template
-    const txId = transactionId ? normalizePixText(transactionId, 25) : '***';
+    // TXID cannot have spaces and should be max 25 chars. Standard uses '***' if none.
+    const txId = transactionId ? normalizePixText(transactionId, 25, false) : '***';
     const tag62 = formatField('62', formatField('05', txId));
 
     // Tag 63: CRC16
@@ -111,4 +163,15 @@ export const isPixExpired = (createdAt: string | Date, expirationHours: number =
     const diffInMs = now.getTime() - createdDate.getTime();
     const diffInHours = diffInMs / (1000 * 60 * 60);
     return diffInHours >= expirationHours;
+};
+
+/**
+ * Gets remaining time in seconds for PIX expiration
+ */
+export const getPixRemainingTime = (createdAt: string | Date, expirationHours: number = 1): number => {
+    const createdDate = typeof createdAt === 'string' ? new Date(createdAt) : createdAt;
+    const expirationDate = new Date(createdDate.getTime() + expirationHours * 60 * 60 * 1000);
+    const now = new Date();
+    const remainingMs = expirationDate.getTime() - now.getTime();
+    return Math.max(0, Math.floor(remainingMs / 1000));
 };

@@ -6,7 +6,7 @@ import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, L
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { useCustomerOrderNotifications } from "@/hooks/useCustomerOrderNotifications";
-import { generatePixPayload, isPixExpired } from "@/lib/pix";
+import { generatePixPayload, isPixExpired, getPixRemainingTime } from "@/lib/pix";
 
 export default function OrderStatus() {
     const { id } = useParams();
@@ -14,6 +14,8 @@ export default function OrderStatus() {
     const [store, setStore] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [otherActiveOrders, setOtherActiveOrders] = useState<any[]>([]);
+    const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+    const [pixRefreshedAt, setPixRefreshedAt] = useState<string | null>(localStorage.getItem(`pix_refresh_${id}`));
 
     useCustomerOrderNotifications(order?.id, order?.status);
 
@@ -100,6 +102,38 @@ export default function OrderStatus() {
         setLoading(false);
     };
 
+    // PIX Countdown timer
+    useEffect(() => {
+        if (!order || order.payment_method !== 'pix') return;
+
+        const baseTime = pixRefreshedAt || order.created_at;
+
+        const updateTimer = () => {
+            const time = getPixRemainingTime(baseTime, 1);
+            setRemainingSeconds(time);
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+
+        return () => clearInterval(interval);
+    }, [order, pixRefreshedAt]);
+
+    const handleRenewPix = () => {
+        const now = new Date().toISOString();
+        setPixRefreshedAt(now);
+        localStorage.setItem(`pix_refresh_${id}`, now);
+        toast.success("QR Code renovado por mais 1 hora!");
+    };
+
+    const formatTime = (seconds: number) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        if (h > 0) return `${h}h ${m}m ${s}s`;
+        return `${m}m ${s}s`;
+    };
+
     useEffect(() => {
         if (store) {
             document.title = `Pedido #${order?.order_number || ''} - ${store.name}`;
@@ -157,6 +191,20 @@ export default function OrderStatus() {
         { id: "picked_up", label: "Retirado" },
     ];
 
+    const getStatusMessage = (status: string) => {
+        switch (status) {
+            case "pending": return "Estamos aguardando a confirmação do restaurante.";
+            case "confirmed": return "Seu pedido foi confirmado e logo entrará em preparo.";
+            case "preparing": return "O chef já está preparando seu pedido com carinho.";
+            case "ready_for_pickup": return "Seu pedido está pronto! Você já pode vir retirar.";
+            case "delivering": return "Seu pedido saiu para entrega e está indo até você!";
+            case "delivered": return "Pedido entregue. Aproveite sua refeição!";
+            case "picked_up": return "Pedido retirado. Esperamos que goste!";
+            case "cancelled": return "Este pedido foi cancelado.";
+            default: return "";
+        }
+    };
+
     const currentStepIndex = steps.findIndex(s => s.id === order.status);
 
     const renderItemVariations = (item: any) => {
@@ -176,7 +224,7 @@ export default function OrderStatus() {
         );
     };
 
-    const isExpired = isPixExpired(order.created_at);
+    const isExpired = isPixExpired(pixRefreshedAt || order.created_at);
     const pixPayload = order.payment_method === 'pix' && store.pix_key
         ? generatePixPayload({
             key: store.pix_key,
@@ -278,6 +326,11 @@ export default function OrderStatus() {
                 {/* Status Tracker - only show if NOT cancelled */}
                 {!isCancelled && (
                     <div className="bg-card rounded-2xl p-6 shadow-card border border-border/50">
+                        <div className="bg-primary/5 rounded-xl p-4 mb-6 border border-primary/20 text-center">
+                            <p className="text-base font-bold text-foreground">
+                                {getStatusMessage(order.status)}
+                            </p>
+                        </div>
                         <div className="flex flex-col items-center mb-6 border-b border-border/50 pb-4">
                             <h2 className="text-lg font-bold text-foreground">Status do seu Pedido</h2>
                             {order.status !== "delivered" && order.status !== "picked_up" && (
@@ -306,12 +359,12 @@ export default function OrderStatus() {
                                                 </p>
                                                 {isCurrent && (
                                                     <p className="text-sm text-muted-foreground">
-                                                        {step.id === "pending" && "O restaurante recebeu seu pedido."}
-                                                        {step.id === "confirmed" && "Seu pedido foi confirmado pelo restaurante."}
-                                                        {step.id === "preparing" && "Seu pedido está sendo feito com carinho."}
-                                                        {step.id === "delivering" && "Seu pedido já está a caminho!"}
-                                                        {step.id === "delivered" && "Bom apetite!"}
-                                                        {step.id === "ready_for_pickup" && "Seu pedido está pronto e aguardando retirada no local."}
+                                                        {step.id === "pending" && "Estamos aguardando a confirmação do restaurante."}
+                                                        {step.id === "confirmed" && "Seu pedido foi confirmado e logo entrará em preparo."}
+                                                        {step.id === "preparing" && "O chef já está preparando seu pedido com carinho."}
+                                                        {step.id === "delivering" && "Seu pedido saiu para entrega e está indo até você!"}
+                                                        {step.id === "delivered" && "Pedido entregue. Aproveite sua refeição!"}
+                                                        {step.id === "ready_for_pickup" && "Seu pedido está pronto! Você já pode vir retirar."}
                                                         {step.id === "picked_up" && "Pedido retirado. Bom apetite!"}
                                                     </p>
                                                 )}
@@ -325,80 +378,90 @@ export default function OrderStatus() {
                 )}
 
                 {/* Pix Payment Info */}
-                {order.payment_method === 'pix' && store.pix_key && !isCancelled && order.status === 'pending' && (
-                    <div className="bg-card rounded-2xl p-6 shadow-card border-2 border-primary/20 bg-primary/5 text-center space-y-4">
-                        {isExpired ? (
-                            <div className="py-4 space-y-3">
-                                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">
-                                    <AlertTriangle className="w-6 h-6 text-yellow-600" />
-                                </div>
-                                <h3 className="font-bold text-foreground">QR Code Expirado</h3>
-                                <p className="text-xs text-muted-foreground px-4">
-                                    Por segurança, este QR Code expirou (validade de 1 hora).
-                                    Se você já realizou o pagamento, aguarde a confirmação do restaurante.
-                                    Caso contrário, entre em contato com a loja.
-                                </p>
-                                <Button
-                                    variant="outline"
-                                    className="w-full mt-2"
-                                    onClick={() => window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}`, "_blank")}
-                                >
-                                    Falar com a Loja
-                                </Button>
-                            </div>
-                        ) : (
-                            <>
-                                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                                    <QrCode className="w-6 h-6 text-primary" />
-                                </div>
-
-                                <div>
-                                    <h3 className="font-bold text-foreground">Pagamento via PIX</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        Escaneie o QR Code ou cole o código para pagar
+                {order.payment_method === 'pix' &&
+                    store.pix_key &&
+                    !isCancelled &&
+                    !['delivered', 'picked_up'].includes(order.status) && (
+                        <div className="bg-card rounded-2xl p-6 shadow-card border-2 border-primary/20 bg-primary/5 text-center space-y-4">
+                            {isExpired ? (
+                                <div className="py-4 space-y-3">
+                                    <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">
+                                        <AlertTriangle className="w-6 h-6 text-yellow-600" />
+                                    </div>
+                                    <h3 className="font-bold text-foreground">QR Code Expirado</h3>
+                                    <p className="text-xs text-muted-foreground px-4">
+                                        Por segurança, este QR Code expirou (validade de 1 hora).
+                                        Se você já realizou o pagamento, aguarde a confirmação do restaurante.
                                     </p>
+                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                        <Button
+                                            variant="hero"
+                                            onClick={handleRenewPix}
+                                        >
+                                            <Zap className="w-4 h-4 mr-1" />
+                                            Novo QR Code
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}`, "_blank")}
+                                        >
+                                            Falar com a Loja
+                                        </Button>
+                                    </div>
                                 </div>
-
-                                {/* QR Code */}
-                                <div className="bg-white p-4 rounded-2xl inline-block shadow-sm">
-                                    <QRCodeSVG value={pixPayload} size={200} />
-                                </div>
-
-                                <div className="space-y-3">
-                                    <div>
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 text-center">Código Pix Copia e Cola</p>
-                                        <div className="relative group">
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(pixPayload);
-                                                    toast.success("Código PIX copiado!");
-                                                }}
-                                                className="w-full p-3 bg-muted/50 rounded-xl text-xs font-mono break-all text-left border border-border group-hover:border-primary/30 transition-colors pr-10"
-                                            >
-                                                <span className="line-clamp-2">{pixPayload}</span>
-                                                <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-background p-1.5 rounded-lg border shadow-sm">
-                                                    <Copy className="w-3.5 h-3.5 text-primary" />
-                                                </div>
-                                            </button>
-                                        </div>
+                            ) : (
+                                <>
+                                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                                        <QrCode className="w-6 h-6 text-primary" />
                                     </div>
 
-                                    <Button
-                                        variant="hero"
-                                        className="w-full font-bold shadow-lg h-12"
-                                        onClick={() => {
-                                            const text = `Olá! Acabei de fazer o pedido #${order.order_number} no valor de R$ ${order.total.toFixed(2)} e este é o comprovante do PIX.`;
-                                            window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`, "_blank");
-                                        }}
-                                    >
-                                        <MessageCircle className="w-4 h-4 mr-2" />
-                                        Enviar Comprovante
-                                    </Button>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
+                                    <div>
+                                        <h3 className="font-bold text-foreground">Pagamento via PIX</h3>
+                                        <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
+                                            Expira em: <span className="font-mono font-bold text-primary">{remainingSeconds !== null ? formatTime(remainingSeconds) : '--:--'}</span>
+                                        </p>
+                                    </div>
+
+                                    {/* QR Code */}
+                                    <div className="bg-white p-4 rounded-2xl inline-block shadow-sm">
+                                        <QRCodeSVG value={pixPayload} size={200} />
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 text-center">Código Pix Copia e Cola</p>
+                                            <div className="relative group">
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(pixPayload);
+                                                        toast.success("Código PIX copiado!");
+                                                    }}
+                                                    className="w-full p-3 bg-muted/50 rounded-xl text-xs font-mono break-all text-left border border-border group-hover:border-primary/30 transition-colors pr-10"
+                                                >
+                                                    <span className="line-clamp-2">{pixPayload}</span>
+                                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-background p-1.5 rounded-lg border shadow-sm">
+                                                        <Copy className="w-3.5 h-3.5 text-primary" />
+                                                    </div>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <Button
+                                            variant="hero"
+                                            className="w-full font-bold shadow-lg h-12"
+                                            onClick={() => {
+                                                const text = `Olá! Acabei de fazer o pedido #${order.order_number} no valor de R$ ${order.total.toFixed(2)} e este é o comprovante do PIX.`;
+                                                window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`, "_blank");
+                                            }}
+                                        >
+                                            <MessageCircle className="w-4 h-4 mr-2" />
+                                            Enviar Comprovante
+                                        </Button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
 
                 {/* Copy Link */}
                 <div className="bg-card rounded-2xl p-4 shadow-card border border-border/50">
