@@ -354,7 +354,8 @@ const DashboardHome = () => {
     const finalTotal = Math.max(0, subtotal - discountVal);
 
     try {
-      const { error } = await supabase
+      // 1. Update comanda status
+      const { error: comandaError } = await supabase
         .from("comandas")
         .update({
           status: "closed",
@@ -366,15 +367,26 @@ const DashboardHome = () => {
         })
         .eq("id", activeComanda.id);
 
-      if (error) throw error;
+      if (comandaError) throw new Error(`Erro ao fechar comanda: ${comandaError.message}`);
+
+      // 2. Free up the table
+      const { error: tableError } = await supabase
+        .from("tables")
+        .update({
+          status: "available",
+          current_comanda_id: null
+        })
+        .eq("id", activeComanda.table_id);
+
+      if (tableError) throw new Error(`Erro ao liberar mesa: ${tableError.message}`);
 
       toast.success("Conta encerrada com sucesso!");
       setClosingBillOpen(false);
       setTableModalOpen(false);
       fetchStats();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Erro ao encerrar conta");
+      toast.error(error.message || "Erro ao encerrar conta");
     } finally {
       setIsClosingComanda(false);
     }
