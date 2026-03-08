@@ -41,6 +41,7 @@ const Customers = () => {
         if (!store) return;
         setLoading(true);
         try {
+            // Tenta buscar com a ordenação da nova coluna
             const { data, error } = await supabase
                 .from("customers")
                 .select("*")
@@ -48,15 +49,33 @@ const Customers = () => {
                 .order("last_order_at", { ascending: false });
 
             if (error) {
-                console.error("Error fetching customers:", error);
-                toast.error(`Erro ao carregar clientes: ${error.message}`);
-                return;
-            }
+                // Se o erro for especificamente a coluna que falta no cache (last_order_at)
+                if (error.message.includes('last_order_at')) {
+                    const { data: fallbackData, error: fallbackError } = await supabase
+                        .from("customers")
+                        .select("id, name, phone, address, neighborhood, created_at")
+                        .eq("store_id", store.id);
 
-            setCustomers(data || []);
+                    if (fallbackError) throw fallbackError;
+
+                    // Mapeia para garantir que campos não existentes no cache tenham valores padrão
+                    const normalizedData = (fallbackData as any[] || []).map(c => ({
+                        ...c,
+                        total_orders: c.total_orders || 0,
+                        total_spent: c.total_spent || 0,
+                        last_order_at: c.last_order_at || null
+                    }));
+
+                    setCustomers(normalizedData);
+                } else {
+                    throw error;
+                }
+            } else {
+                setCustomers(data || []);
+            }
         } catch (error: any) {
-            console.error("Unexpected error loading customers:", error);
-            toast.error("Erro inesperado ao carregar clientes");
+            console.error("Error fetching customers:", error);
+            toast.error(`Erro ao carregar clientes: ${error.message}`);
         } finally {
             setLoading(false);
         }

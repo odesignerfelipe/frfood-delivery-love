@@ -252,12 +252,27 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
                 throw new Error(`Erro ao atualizar comanda: ${err.message}`);
             }
             // 2. Clear table
-            const { error: tableError } = await supabase
-                .from("tables")
-                .update({ status: "available", current_comanda_id: null })
-                .eq("id", comanda.table_id);
+            const tableUpdateData: any = { status: "available" };
+            try {
+                const { error: tableError } = await supabase
+                    .from("tables")
+                    .update({ ...tableUpdateData, current_comanda_id: null })
+                    .eq("id", comanda.table_id);
 
-            if (tableError) throw new Error(`Erro ao liberar mesa: ${tableError.message}`);
+                if (tableError) {
+                    if (tableError.message.includes('current_comanda_id')) {
+                        const { error: retryTableError } = await supabase
+                            .from("tables")
+                            .update(tableUpdateData)
+                            .eq("id", comanda.table_id);
+                        if (retryTableError) throw retryTableError;
+                    } else {
+                        throw tableError;
+                    }
+                }
+            } catch (err: any) {
+                throw new Error(`Erro ao liberar mesa: ${err.message}`);
+            }
 
             toast.success("Conta encerrada com sucesso!");
             navigate(explicitSlug ? "/garcom/mesas" : `/loja/${store?.slug}/garcom/mesas`);

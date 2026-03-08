@@ -355,8 +355,7 @@ const DashboardHome = () => {
 
     try {
       // 1. Update comanda status
-      // We use a more resilient approach for closed_at column since it might be missing from schema cache
-      const updateData: any = {
+      const comandaUpdateData: any = {
         status: "closed",
         subtotal: subtotal,
         discount: discountVal,
@@ -364,38 +363,41 @@ const DashboardHome = () => {
         payment_method: paymentMethod
       };
 
-      try {
-        const { error: comandaError } = await supabase
-          .from("comandas")
-          .update({ ...updateData, closed_at: new Date().toISOString() })
-          .eq("id", activeComanda.id);
+      const { error: comandaError } = await supabase
+        .from("comandas")
+        .update({ ...comandaUpdateData, closed_at: new Date().toISOString() })
+        .eq("id", activeComanda.id);
 
-        if (comandaError) {
-          if (comandaError.message.includes('closed_at')) {
-            // Fallback: update without closed_at if cache is stale
-            const { error: retryError } = await supabase
-              .from("comandas")
-              .update(updateData)
-              .eq("id", activeComanda.id);
-            if (retryError) throw retryError;
-          } else {
-            throw comandaError;
-          }
+      if (comandaError) {
+        if (comandaError.message.includes('closed_at')) {
+          const { error: retryError } = await supabase
+            .from("comandas")
+            .update(comandaUpdateData)
+            .eq("id", activeComanda.id);
+          if (retryError) throw retryError;
+        } else {
+          throw comandaError;
         }
-      } catch (err: any) {
-        throw new Error(`Erro ao fechar comanda: ${err.message}`);
       }
 
       // 2. Free up the table
+      const tableUpdateData: any = { status: "available" };
       const { error: tableError } = await supabase
         .from("tables")
-        .update({
-          status: "available",
-          current_comanda_id: null
-        })
+        .update({ ...tableUpdateData, current_comanda_id: null })
         .eq("id", activeComanda.table_id);
 
-      if (tableError) throw new Error(`Erro ao liberar mesa: ${tableError.message}`);
+      if (tableError) {
+        if (tableError.message.includes('current_comanda_id')) {
+          const { error: retryTableError } = await supabase
+            .from("tables")
+            .update(tableUpdateData)
+            .eq("id", activeComanda.table_id);
+          if (retryTableError) throw retryTableError;
+        } else {
+          throw tableError;
+        }
+      }
 
       toast.success("Conta encerrada com sucesso!");
       setClosingBillOpen(false);
