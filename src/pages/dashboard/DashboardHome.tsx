@@ -57,6 +57,8 @@ const DashboardHome = () => {
   const [variationProduct, setVariationProduct] = useState<any>(null);
   const [variationSelections, setVariationSelections] = useState<Record<string, { name: string; price: number }[]>>({});
   const [itemNotes, setItemNotes] = useState("");
+  const [posCustomerName, setPosCustomerName] = useState("");
+  const [posCustomerPhone, setPosCustomerPhone] = useState("");
 
   // Closing Bill State
   const [closingBillOpen, setClosingBillOpen] = useState(false);
@@ -309,11 +311,27 @@ const DashboardHome = () => {
         status: "pending",
         payment_method: "comanda",
         delivery_type: "table",
-        customer_name: "Mesa " + (selectedTable.name.replace('Mesa ', '')),
-        customer_phone: "00000000000"
+        customer_name: posCustomerName || "Mesa " + (selectedTable.name.replace('Mesa ', '')),
+        customer_phone: posCustomerPhone || "00000000000"
       });
 
       if (orderError) throw orderError;
+
+      // Register customer if phone is provided
+      if (posCustomerPhone && posCustomerPhone !== "00000000000") {
+        try {
+          await supabase.rpc('register_customer_from_order', {
+            p_store_id: store.id,
+            p_name: posCustomerName || "Mesa " + (selectedTable.name.replace('Mesa ', '')),
+            p_phone: posCustomerPhone,
+            p_address: "",
+            p_neighborhood: "",
+            p_total_spent: cartSubtotal
+          });
+        } catch (custErr) {
+          console.error("Error registering customer from POS:", custErr);
+        }
+      }
 
       const { error: itemsError } = await supabase.from("order_items").insert(
         cart.map((i) => ({
@@ -332,6 +350,8 @@ const DashboardHome = () => {
 
       toast.success("Pedido enviado para a cozinha!");
       setCart([]);
+      setPosCustomerName("");
+      setPosCustomerPhone("");
       setIsLaunching(false);
       setTableModalOpen(true);
       fetchComandaDetails(activeComanda.id);
@@ -868,6 +888,26 @@ const DashboardHome = () => {
             </ScrollArea>
 
             <div className="space-y-4 pt-4 border-t border-border">
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Cliente (Opcional)</Label>
+                  <Input
+                    placeholder="Nome do cliente"
+                    value={posCustomerName}
+                    onChange={e => setPosCustomerName(e.target.value)}
+                    className="h-9 text-xs rounded-xl bg-background border-border"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Telefone (Opcional)</Label>
+                  <Input
+                    placeholder="WhatsApp"
+                    value={posCustomerPhone}
+                    onChange={e => setPosCustomerPhone(e.target.value)}
+                    className="h-9 text-xs rounded-xl bg-background border-border"
+                  />
+                </div>
+              </div>
               <div className="flex justify-between items-center px-1">
                 <span className="font-bold text-[10px] uppercase text-muted-foreground">Subtotal</span>
                 <span className="font-black text-lg">{formatCurrency(cartSubtotal)}</span>
