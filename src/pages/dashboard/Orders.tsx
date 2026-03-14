@@ -12,6 +12,8 @@ import { Clock, Check, ChefHat, Truck, X, Printer, GripVertical, Store, Plus, Ch
 import { format, isToday, isThisWeek, isThisMonth, isThisYear, parseISO, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import ManualOrderDialog from "@/components/dashboard/ManualOrderDialog";
+
 
 const columns = [
   { id: "pending", label: "Pendente", icon: Clock, color: "border-yellow-400 bg-yellow-50" },
@@ -420,8 +422,8 @@ const Orders = () => {
           <h1 className="text-3xl font-bold text-foreground">Gestão de Pedidos</h1>
           <p className="text-muted-foreground">Monitore e gerencie todos os pedidos em tempo real.</p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="hero" className="flex-1 sm:flex-none shadow-sm h-11" onClick={() => navigate("/dashboard")}>
+        <div className="flex gap-2 w-full sm:w-auto ml-auto">
+          <Button variant="hero" className="flex-1 sm:flex-none shadow-sm h-11" onClick={() => setIsManualOrderOpen(true)}>
             <Plus className="w-4 h-4 mr-2" /> Novo Pedido (Manual)
           </Button>
           <div className="flex bg-muted p-1 rounded-lg">
@@ -429,6 +431,7 @@ const Orders = () => {
             <Button variant={viewMode === "history" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("history")} className="rounded-md">Histórico</Button>
           </div>
         </div>
+
       </div>
 
       {/* Cancel Order Modal */}
@@ -679,6 +682,14 @@ const Orders = () => {
             )}
           </div>
         </div>
+      )}
+      {store && (
+        <ManualOrderDialog 
+          open={isManualOrderOpen} 
+          onOpenChange={setIsManualOrderOpen} 
+          storeId={store.id} 
+          onOrderCreated={fetchOrders}
+        />
       )}
     </div>
   );

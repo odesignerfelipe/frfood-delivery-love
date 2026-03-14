@@ -21,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { printerService } from "@/lib/printer";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import ManualOrderDialog from "@/components/dashboard/ManualOrderDialog";
+
 
 const DashboardHome = () => {
   const { store, updateStore } = useStore();
@@ -44,6 +46,8 @@ const DashboardHome = () => {
   const [isLoadingComanda, setIsLoadingComanda] = useState(false);
   const [pixPayments, setPixPayments] = useState<any[]>([]);
   const [isGeneratingPix, setIsGeneratingPix] = useState(false);
+  const [isManualOrderOpen, setIsManualOrderOpen] = useState(false);
+
 
   // Product Launching State
   const [isLaunching, setIsLaunching] = useState(false);
@@ -1183,22 +1187,14 @@ const DashboardHome = () => {
               Em tempo real
             </div>
             <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-[10px] font-black uppercase tracking-tighter rounded-lg border-emerald-500/30 text-emerald-600 hover:bg-emerald-50"
-              onClick={() => {
-                setSelectedTable(null);
-                setActiveComanda(null);
-                setComandaOrders([]);
-                setIsLaunching(true);
-                setCart([]);
-                setSearch("");
-                setPosCustomerName("");
-                setPosCustomerPhone("");
-              }}
+              variant="default"
+              size="lg"
+              className="h-10 text-[10px] font-black uppercase tracking-widest rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 flex-1"
+              onClick={() => setIsManualOrderOpen(true)}
             >
-              <Plus className="w-3.5 h-3.5 mr-1" /> Venda Rápida
+              <Plus className="w-4 h-4 mr-2" /> Venda Rápida
             </Button>
+
           </div>
         </div>
 
@@ -1389,10 +1385,20 @@ const DashboardHome = () => {
             </div>
           </div>
         </div>
-      </div >
-    </div >
+      </div>
+
+      {store && (
+        <ManualOrderDialog 
+          open={isManualOrderOpen} 
+          onOpenChange={setIsManualOrderOpen} 
+          storeId={store.id} 
+          onOrderCreated={() => fetchStats()}
+        />
+      )}
+    </div>
   );
 };
+
 
 const OrderList = ({ orders, navigate }: { orders: any[], navigate: any }) => {
   const statusLabels: Record<string, string> = {
@@ -1462,6 +1468,8 @@ const OrderList = ({ orders, navigate }: { orders: any[], navigate: any }) => {
     </div>
   );
 };
+
+
 
 const QuickAction = ({ icon, label, onClick, color }: { icon: any, label: string, onClick: () => void, color: string }) => (
   <button
