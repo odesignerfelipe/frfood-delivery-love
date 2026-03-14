@@ -26,6 +26,7 @@ const Inventory = () => {
         min_stock: "",
         cost_per_unit: "",
         supplier: "",
+        supplier_contact: "",
     });
 
     const [adjustingStockItem, setAdjustingStockItem] = useState<any>(null);
@@ -73,6 +74,7 @@ const Inventory = () => {
             min_stock: Number(formData.min_stock) || 0,
             cost_per_unit: Number(formData.cost_per_unit) || 0,
             supplier: formData.supplier,
+            supplier_contact: formData.supplier_contact,
         };
 
         try {
@@ -87,7 +89,7 @@ const Inventory = () => {
             }
             setIsModalOpen(false);
             setEditingItem(null);
-            setFormData({ name: "", unit: "unidade", current_stock: "", min_stock: "", cost_per_unit: "", supplier: "" });
+            setFormData({ name: "", unit: "unidade", current_stock: "", min_stock: "", cost_per_unit: "", supplier: "", supplier_contact: "" });
             fetchInventory();
         } catch (err: any) {
             toast.error(err.message);
@@ -103,6 +105,7 @@ const Inventory = () => {
             min_stock: String(item.min_stock),
             cost_per_unit: String(item.cost_per_unit),
             supplier: item.supplier || "",
+            supplier_contact: item.supplier_contact || "",
         });
         setIsModalOpen(true);
     };
@@ -216,6 +219,17 @@ const Inventory = () => {
     const typeLabel: Record<string, string> = { entry: "Entrada", exit: "Saída", adjustment: "Ajuste" };
     const typeColor: Record<string, string> = { entry: "text-green-600 bg-green-50", exit: "text-red-600 bg-red-50", adjustment: "text-amber-600 bg-amber-50" };
     const typeIcon: Record<string, any> = { entry: <ArrowUpCircle className="w-4 h-4" />, exit: <ArrowDownCircle className="w-4 h-4" />, adjustment: <RotateCcw className="w-4 h-4" /> };
+    
+    const getUnitSuffix = (unit: string) => {
+        switch (unit) {
+            case "unidade": return "und";
+            case "kg": return "kg";
+            case "g": return "g";
+            case "l": return "l";
+            case "ml": return "ml";
+            default: return unit;
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -226,7 +240,7 @@ const Inventory = () => {
                 </div>
                 <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={() => { setEditingItem(null); setFormData({ name: "", unit: "unidade", current_stock: "", min_stock: "", cost_per_unit: "", supplier: "" }); }}>
+                        <Button onClick={() => { setEditingItem(null); setFormData({ name: "", unit: "unidade", current_stock: "", min_stock: "", cost_per_unit: "", supplier: "", supplier_contact: "" }); }}>
                             <Plus className="w-4 h-4 mr-2" />
                             Novo Insumo
                         </Button>
@@ -257,22 +271,43 @@ const Inventory = () => {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Custo por {formData.unit}</Label>
-                                    <Input type="number" step="0.01" value={formData.cost_per_unit} onChange={e => setFormData({ ...formData, cost_per_unit: e.target.value })} placeholder="0.00" />
+                                    <div className="relative">
+                                        <Input type="number" step="0.01" value={formData.cost_per_unit} onChange={e => setFormData({ ...formData, cost_per_unit: e.target.value })} placeholder="0.00" className="pr-12" />
+                                        <div className="absolute inset-y-0 right-0 p-3 flex items-center pointer-events-none text-muted-foreground text-xs font-bold border-l bg-muted/30 rounded-r-md">
+                                            R$/{getUnitSuffix(formData.unit)}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Estoque Atual</Label>
-                                    <Input type="number" step={getStepForUnit(formData.unit)} value={formData.current_stock} onChange={e => setFormData({ ...formData, current_stock: e.target.value })} placeholder="0.000" />
+                                    <div className="relative">
+                                        <Input type="number" step={getStepForUnit(formData.unit)} value={formData.current_stock} onChange={e => setFormData({ ...formData, current_stock: e.target.value })} placeholder="0.000" className="pr-12" />
+                                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground text-xs font-bold">
+                                            {getUnitSuffix(formData.unit)}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Estoque Mínimo</Label>
-                                    <Input type="number" step={getStepForUnit(formData.unit)} value={formData.min_stock} onChange={e => setFormData({ ...formData, min_stock: e.target.value })} placeholder="0.000" />
+                                    <div className="relative">
+                                        <Input type="number" step={getStepForUnit(formData.unit)} value={formData.min_stock} onChange={e => setFormData({ ...formData, min_stock: e.target.value })} placeholder="0.000" className="pr-12" />
+                                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground text-xs font-bold">
+                                            {getUnitSuffix(formData.unit)}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Fornecedor</Label>
-                                <Input value={formData.supplier} onChange={e => setFormData({ ...formData, supplier: e.target.value })} placeholder="Ex: Distribuidora XYZ" />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Fornecedor</Label>
+                                    <Input value={formData.supplier} onChange={e => setFormData({ ...formData, supplier: e.target.value })} placeholder="Ex: Distribuidora XYZ" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Contato Fornecedor</Label>
+                                    <Input value={formData.supplier_contact} onChange={e => setFormData({ ...formData, supplier_contact: e.target.value })} placeholder="Ex: (11) 99999-9999" />
+                                </div>
                             </div>
                             <Button type="submit" className="w-full">{editingItem ? "Salvar Alterações" : "Cadastrar"}</Button>
                         </form>
@@ -457,16 +492,19 @@ const Inventory = () => {
                                         <p className="font-bold text-foreground">{item.name}</p>
                                         <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded uppercase">{item.unit}</span>
                                     </td>
-                                    <td className="px-6 py-4 text-muted-foreground text-xs">{item.supplier || "—"}</td>
+                                    <td className="px-6 py-4">
+                                        <p className="font-bold text-foreground text-xs uppercase">{item.supplier || "—"}</p>
+                                        {item.supplier_contact && <p className="text-[10px] text-muted-foreground">{item.supplier_contact}</p>}
+                                    </td>
                                     <td className="px-6 py-4">
                                         <span className={`font-bold ${item.current_stock <= item.min_stock ? 'text-destructive' : 'text-foreground'}`}>
-                                            {Number(item.current_stock).toFixed(3)} {item.unit}
+                                            {Number(item.current_stock).toFixed(3)} {getUnitSuffix(item.unit)}
                                         </span>
                                         {item.current_stock <= item.min_stock && (
                                             <AlertTriangle className="w-3 h-3 inline ml-1 text-destructive animate-pulse" />
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 text-muted-foreground">{Number(item.min_stock).toFixed(3)} {item.unit}</td>
+                                    <td className="px-6 py-4 text-muted-foreground">{Number(item.min_stock).toFixed(3)} {getUnitSuffix(item.unit)}</td>
                                     <td className="px-6 py-4">{formatCurrency(item.cost_per_unit)}</td>
                                     <td className="px-6 py-4 font-medium text-primary">{formatCurrency(item.current_stock * item.cost_per_unit)}</td>
                                     <td className="px-6 py-4 text-right">
