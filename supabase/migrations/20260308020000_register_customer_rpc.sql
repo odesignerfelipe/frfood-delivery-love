@@ -15,6 +15,14 @@ SECURITY DEFINER -- Runs with superuser privileges
 SET search_path = public
 AS $$
 BEGIN
+    -- Sanitize phone: remove non-numeric characters
+    p_phone := regexp_replace(p_phone, '\D', '', 'g');
+
+    -- Skip if phone is empty after sanitization
+    IF p_phone = '' THEN
+        RETURN;
+    END IF;
+
     INSERT INTO public.customers (
         store_id, 
         name, 

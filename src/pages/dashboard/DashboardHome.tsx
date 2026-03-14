@@ -1127,22 +1127,27 @@ const DashboardHome = () => {
                     variant="outline"
                     className="w-full h-12 rounded-xl border-dashed border-2 hover:border-emerald-500 hover:text-emerald-500 transition-colors"
                     onClick={async () => {
+                      if (!store || !activeComanda) return;
                       setIsGeneratingPix(true);
                       const amount = Math.max(0, comandaOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0) - Number(discount));
                       
                       try {
-                        const { data, error } = await supabase.functions.invoke('pix-order-create', {
+                        console.log("Comanda PIX Stage 1: Attempting invoke...");
+                        const { data, error: invokeError } = await supabase.functions.invoke('pix-order-create', {
                           body: {
-                            store_id: store!.id,
+                            store_id: store.id,
                             comanda_id: activeComanda.id,
                             amount: Number(amount.toFixed(2)),
-                            description: `${store?.name} - Mesa ${selectedTable?.name}`,
+                            description: `${store.name} - Mesa ${selectedTable?.name}`,
                           }
                         });
 
-                        if (error) {
-                          console.error("Invoke error:", error);
-
+                        if (!invokeError) {
+                          console.log("Comanda PIX Stage 1: Success");
+                        } else {
+                          console.warn("Comanda PIX Stage 1 failed:", invokeError);
+                          
+                          console.log("Comanda PIX Stage 2: Attempting direct fetch...");
                           const baseUrl = import.meta.env.VITE_SUPABASE_URL;
                           const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -1153,24 +1158,26 @@ const DashboardHome = () => {
                               'apikey': key,
                             },
                             body: JSON.stringify({
-                              store_id: store!.id,
+                              store_id: store.id,
                               comanda_id: activeComanda.id,
                               amount: Number(amount.toFixed(2)),
-                              description: `${store?.name} - Mesa ${selectedTable?.name}`,
+                              description: `${store.name} - Mesa ${selectedTable?.name}`,
                             }),
                           });
 
                           if (!res.ok) {
                             const errorText = await res.text();
+                            console.error("Comanda PIX Stage 2 failed:", res.status, errorText);
                             throw new Error(errorText || `Erro ${res.status}`);
                           }
+                          console.log("Comanda PIX Stage 2: Success");
                         }
 
                         const { data: updatedPix } = await supabase.from("order_payments").select("*").eq("comanda_id", activeComanda.id).eq("payment_method", "pix");
                         setPixPayments(updatedPix || []);
                         toast.success("PIX Dinâmico Gerado!");
                       } catch (err: any) {
-                        console.error("PIX Generation Error:", err);
+                        console.error("Comanda PIX Definitive Failure:", err);
                         toast.error("Erro ao gerar PIX. Verifique os logs.");
                       } finally {
                         setIsGeneratingPix(false);

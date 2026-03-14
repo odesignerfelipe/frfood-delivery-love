@@ -126,13 +126,19 @@ const Checkout = () => {
         setPixStatus("loading");
         
         try {
-            const { data, error } = await supabase.functions.invoke('pix-create', {
+            console.log("Subscription PIX Stage 1: Attempting invoke...");
+            const { data, error: invokeError } = await supabase.functions.invoke('pix-create', {
                 body: { plan }
             });
 
-            if (error) {
-                console.error("Invoke error:", error);
+            if (!invokeError) {
+                console.log("Subscription PIX Stage 1: Success");
+                setPixData(data);
+                startPolling(data.payment_id);
+            } else {
+                console.warn("Subscription PIX Stage 1 failed:", invokeError);
                 
+                console.log("Subscription PIX Stage 2: Attempting direct fetch...");
                 const baseUrl = import.meta.env.VITE_SUPABASE_URL;
                 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
                 const userToken = session?.access_token;
@@ -149,20 +155,19 @@ const Checkout = () => {
 
                 if (!res.ok) {
                     const errorMsg = await res.text();
+                    console.error("Subscription PIX Stage 2 failed:", res.status, errorMsg);
                     throw new Error(errorMsg || `Erro ${res.status}`);
                 }
                 const fallbackData = await res.json();
+                console.log("Subscription PIX Stage 2: Success");
                 setPixData(fallbackData);
                 startPolling(fallbackData.payment_id);
-            } else {
-                setPixData(data);
-                startPolling(data.payment_id);
             }
             
             setPixStatus("waiting");
         } catch (error: any) {
-            console.error("PIX Generation error:", error);
-            toast.error("Erro ao gerar PIX. Tente novamente.");
+            console.error("Subscription PIX Definitive Failure:", error);
+            toast.error("Erro ao gerar PIX para assinatura. Tente novamente.");
             setPixStatus("idle");
         }
     };

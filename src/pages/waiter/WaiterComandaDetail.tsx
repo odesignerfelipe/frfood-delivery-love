@@ -171,8 +171,8 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
             const discountVal = Number(discount) || 0;
             const finalTotal = Math.max(0, subtotal - discountVal);
             const splitAmount = finalTotal / splitCount;
-
-            const { data, error } = await supabase.functions.invoke('pix-order-create', {
+            console.log("Waiter PIX Stage 1: Attempting invoke...");
+            const { data, error: invokeError } = await supabase.functions.invoke('pix-order-create', {
                 body: {
                     store_id: store.id,
                     comanda_id: comanda.id,
@@ -184,9 +184,12 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
                 }
             });
 
-            if (error) {
-                console.error("Invoke error:", error);
+            if (!invokeError) {
+                console.log("Waiter PIX Stage 1: Success");
+            } else {
+                console.warn("Waiter PIX Stage 1 failed:", invokeError);
                 
+                console.log("Waiter PIX Stage 2: Attempting direct fetch...");
                 const baseUrl = import.meta.env.VITE_SUPABASE_URL;
                 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
                 const { data: { session } } = await supabase.auth.getSession();
@@ -211,15 +214,17 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
 
                 if (!res.ok) {
                     const errorMsg = await res.text();
+                    console.error("Waiter PIX Stage 2 failed:", res.status, errorMsg);
                     throw new Error(errorMsg || `Erro ${res.status}`);
                 }
+                console.log("Waiter PIX Stage 2: Success");
             }
 
             toast.success(`PIX ${splitIdx}/${splitCount} gerado!`);
             fetchPixPayments();
-        } catch (err: any) {
-            console.error(err);
-            toast.error(err.message || "Erro ao gerar PIX dinâmico");
+        } catch (error: any) {
+            console.error("Waiter PIX Definitive Failure:", error);
+            toast.error("Erro ao gerar PIX. Tente novamente.");
         } finally {
             setIsGeneratingPix(false);
         }

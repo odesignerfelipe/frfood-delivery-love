@@ -123,8 +123,9 @@ export default function OrderStatus() {
         setIsGeneratingPix(true);
         
         try {
-            // Priority 1: Supabase client invoke
-            const { data, error } = await supabase.functions.invoke('pix-order-create', {
+            // Stage 1: Official Supabase Invoke
+            console.log("PIX Stage 1: Attempting invoke...");
+            const { data, error: invokeError } = await supabase.functions.invoke('pix-order-create', {
                 body: {
                     store_id: store.id,
                     order_id: order.id,
@@ -133,41 +134,50 @@ export default function OrderStatus() {
                 }
             });
 
-            if (error) {
-                console.error("Invoke error:", error);
-                
-                // Fallback: Direct fetch with only apikey (no Authorization to avoid JWT rejection)
-                const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-                const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-                
-                if (!baseUrl || !key) throw new Error("Configuração ausente.");
-
-                const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-order-create`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'apikey': key,
-                    },
-                    body: JSON.stringify({
-                        store_id: store.id,
-                        order_id: order.id,
-                        amount: Number(order.total),
-                        description: `${store.name} - Pedido #${order.order_number}`,
-                    }),
-                });
-
-                if (!res.ok) {
-                    const errorText = await res.text();
-                    throw new Error(`Erro na falha: ${res.status} ${errorText.slice(0, 100)}`);
-                }
+            if (!invokeError) {
+                console.log("PIX Stage 1: Success");
+                const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
+                setPixPayments(ppx || []);
+                toast.success("PIX Gerado!");
+                return;
             }
 
-            const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
-            setPixPayments(ppx || []);
-            toast.success("PIX Gerado com sucesso!");
+            console.warn("PIX Stage 1 failed:", invokeError);
+
+            // Stage 2: Direct Fetch with apikey only (bypass potential JWT/Auth issues)
+            console.log("PIX Stage 2: Attempting direct fetch (no-auth)...");
+            const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            
+            if (!baseUrl || !key) throw new Error("Configuração ausente.");
+
+            const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-order-create`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': key,
+                },
+                body: JSON.stringify({
+                    store_id: store.id,
+                    order_id: order.id,
+                    amount: Number(order.total),
+                    description: `${store.name} - Pedido #${order.order_number}`,
+                }),
+            });
+
+            if (res.ok) {
+                console.log("PIX Stage 2: Success");
+                const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
+                setPixPayments(ppx || []);
+                toast.success("PIX Gerado!");
+            } else {
+                const errTxt = await res.text();
+                console.error("PIX Stage 2 failed:", res.status, errTxt);
+                throw new Error("Falha na comunicação com o servidor de pagamentos.");
+            }
         } catch (err: any) {
-            console.error("Definitive PIX Error:", err);
-            toast.error("Falha ao gerar PIX. Tente recarregar a página.");
+            console.error("Definitive PIX Failure:", err);
+            toast.error("Erro ao gerar PIX. Verifique sua conexão ou tente novamente.");
         } finally {
             setIsGeneratingPix(false);
         }
