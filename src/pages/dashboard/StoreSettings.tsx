@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ultraResilientInvoke } from "@/lib/supabase-edge";
 import { Upload, CreditCard, Star, Check, XCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -249,26 +250,18 @@ const StoreSettings = () => {
     }
 
     setSaving(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/asaas-management`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          action: "update_subscription",
-          subscriptionId: subId,
-          plan: newPlan,
-        }),
-      });
+      try {
+        await ultraResilientInvoke({
+          functionName: 'asaas-management',
+          body: {
+            action: "update_subscription",
+            subscriptionId: subId,
+            plan: newPlan,
+          }
+        });
 
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || "Erro ao alterar plano");
-
-      toast.success("Solicitação de alteração enviada! O plano será atualizado em instantes.");
-    } catch (error: any) {
+        toast.success("Solicitação de alteração enviada! O plano será atualizado em instantes.");
+      } catch (error: any) {
       toast.error(error.message);
     } finally {
       setSaving(false);

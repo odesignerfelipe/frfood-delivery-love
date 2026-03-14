@@ -129,20 +129,13 @@ const Checkout = () => {
         try {
             const { data: storeData } = await supabase.from("stores").select("id").eq("owner_id", session.user.id).maybeSingle();
 
-            const { data: pixResponse, error: invokeError } = await ultraResilientInvoke({
+            const pixResponse = await ultraResilientInvoke({
                 functionName: 'pix-subscription-create',
                 body: {
-                    plan: plan, // Assuming 'plan' is the correct identifier for the plan
-                    store_id: storeData?.id || null // Pass store_id if available
+                    plan: plan, 
+                    store_id: storeData?.id || null 
                 }
             });
-
-            if (invokeError) {
-                console.error("Subscription PIX Failure:", invokeError);
-                toast.error(invokeError.message || "Erro ao gerar PIX");
-                setPixStatus("idle");
-                return;
-            }
 
             console.log("Subscription PIX Generated successfully");
             setPixData(pixResponse);

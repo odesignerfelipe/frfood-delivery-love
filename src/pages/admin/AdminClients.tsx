@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { ultraResilientInvoke } from "@/lib/supabase-edge";
 import { Users, Search, Phone, Store, Calendar, Trash2, Edit2 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -80,22 +81,14 @@ const AdminClients = () => {
 
         if (editEmail || editPassword) {
             try {
-                const { data: { session } } = await supabase.auth.getSession();
-                const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-user-management`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${session?.access_token}`,
-                    },
-                    body: JSON.stringify({
+                await ultraResilientInvoke({
+                    functionName: 'admin-user-management',
+                    body: {
                         targetUserId: editProfile.user_id,
                         email: editEmail || undefined,
                         password: editPassword || undefined,
-                    }),
+                    }
                 });
-
-                const data = await res.json();
-                if (!res.ok || data.error) throw new Error(data.error || "Erro ao atualizar credenciais");
                 toast.success("Credenciais atualizadas com sucesso!");
             } catch (error: any) {
                 toast.error("Perfil salvo, mas falha na senha/email: " + error.message);

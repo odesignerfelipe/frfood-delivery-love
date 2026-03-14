@@ -17,7 +17,7 @@ export const ultraResilientInvoke = async ({ functionName, body }: EdgeCallParam
         throw new Error("Supabase configuration missing (URL or Key).");
     }
 
-    const tryFetch = async (headers: any, label: string, urlOverride?: string) => {
+    const tryFetch = async (headers: any, label: string, urlOverride?: string, contentType = 'application/json') => {
         console.log(`[EdgeInvoke] ${label}: Attempting...`);
         const url = urlOverride || `${baseUrl}/functions/v1/${functionName}`;
         
@@ -25,9 +25,14 @@ export const ultraResilientInvoke = async ({ functionName, body }: EdgeCallParam
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         try {
+            const fetchHeaders: any = { ...headers };
+            if (contentType) {
+                fetchHeaders['Content-Type'] = contentType;
+            }
+
             const res = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...headers },
+                headers: fetchHeaders,
                 body: JSON.stringify(body),
                 signal: controller.signal,
             });
@@ -68,14 +73,22 @@ export const ultraResilientInvoke = async ({ functionName, body }: EdgeCallParam
 
     await new Promise(r => setTimeout(r, 800));
 
-    // --- STAGE 4: Ultra Bypass (Query Param) ---
+    // --- STAGE 4: Bypass (Query Param) ---
     try {
         return await tryFetch({}, "Stage 4 (Query Param Bypass)", `${baseUrl}/functions/v1/${functionName}?apikey=${key}`);
+    } catch (e: any) { console.warn("[EdgeInvoke] Stage 4 failed:", e); }
+
+    await new Promise(r => setTimeout(r, 800));
+
+    // --- STAGE 5: Ultra No-Preflight (text/plain + Query Param) ---
+    // This avoids the OPTIONS request entirely by using a "simple" content-type
+    try {
+        return await tryFetch({}, "Stage 5 (No-Preflight Bypass)", `${baseUrl}/functions/v1/${functionName}?apikey=${key}`, "text/plain");
     } catch (e: any) {
-        console.error("[EdgeInvoke] Stage 4 failed:", e);
+        console.error("[EdgeInvoke] Stage 5 failed:", e);
         const isNetworkError = e.message?.toLowerCase().includes("failed to fetch") || e.name === "AbortError" || !e.message;
         if (isNetworkError) {
-            throw new Error("Load failed (Network Error). The connection to Supabase functions is being blocked by your network or browser settings (Ad-blockers).");
+            throw new Error("Erro de conexão (Load failed). Tente usar outro navegador ou conexão de internet (Ex: dados móveis). Alguns bloqueadores de anúncios impedem esta ação.");
         }
         throw e;
     }
