@@ -773,7 +773,6 @@ const Reports = () => {
                               <td className="px-4 py-3 text-right text-muted-foreground italic">
                                 {metrics.financials.entries > 0 ? ((cat.amount / metrics.financials.entries) * 100).toFixed(1) : 0}%
                               </td>
-                              </td>
                             </tr>
                           ))}
                       </tbody>
@@ -782,6 +781,7 @@ const Reports = () => {
                 </div>
               </CardContent>
             </Card>
+          </div>
           </TabsContent>
 
           <TabsContent value="coupons" className="space-y-8 mt-0">
