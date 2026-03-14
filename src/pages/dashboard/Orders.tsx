@@ -399,11 +399,15 @@ const Orders = () => {
                           <span className="text-sm font-bold text-foreground">#{order.order_number}</span>
                           <span className="text-xs text-muted-foreground">{format(new Date(order.created_at), "HH:mm")}</span>
                         </div>
-                        <p className="text-sm text-foreground">{order.customer_name}</p>
+                        <p className="text-sm text-foreground">
+                          {order.delivery_type === "table" && order.table?.name
+                            ? order.table.name
+                            : order.customer_name}
+                        </p>
                         <p className="text-xs text-muted-foreground">{order.customer_phone}</p>
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-xs text-muted-foreground">
-                            {order.delivery_type === "table" ? "🍽️ Mesa" : order.delivery_type === "delivery" ? `📍 ${order.neighborhood || "Entrega"}` : "🏪 Retirada"}
+                            {order.delivery_type === "table" ? `🍽️ ${order.table?.name || "Mesa"}` : order.delivery_type === "delivery" ? `📍 ${order.neighborhood || "Entrega"}` : "🏪 Retirada"}
                           </span>
                           <span className="text-sm font-bold text-primary">R$ {order.total.toFixed(2)}</span>
                         </div>

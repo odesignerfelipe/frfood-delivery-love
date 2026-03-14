@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, QrCode as QrCodeIcon, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, QrCode as QrCodeIcon, Printer, Download } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { printerService } from "@/lib/printer";
+import html2canvas from "html2canvas";
 
 const Tables = () => {
     const { store } = useStore();
@@ -123,7 +124,7 @@ const Tables = () => {
           <div class="card">
             ${store.logo_url ? `<img src="${store.logo_url}" class="logo" alt="Logo" />` : ''}
             <div class="title">Faça seu Pedido</div>
-            <div class="instruction">Escaneie este código para acessar nosso cardápio digital</div>
+            <div class="instruction">Aponte a câmera do seu celular para o QR CODE para realizar o seu pedido</div>
             <div class="qr-container">${svgElement || ''}</div>
             <div class="table-name">${selectedTable.name}</div>
           </div>
@@ -141,6 +142,24 @@ const Tables = () => {
                 printWindow.document.close();
                 printWindow.print();
             }
+        }
+    };
+
+    const handleDownloadPNG = async () => {
+        const element = document.getElementById("qr-card");
+        if (!element) return;
+        
+        try {
+            const canvas = await html2canvas(element, { backgroundColor: '#ffffff', scale: 2 });
+            const dataUrl = canvas.toDataURL("image/png");
+            const link = document.createElement("a");
+            link.download = `QR_Code_${selectedTable?.name || 'mesa'}.png`;
+            link.href = dataUrl;
+            link.click();
+            toast.success("Imagem baixada com sucesso!");
+        } catch (error) {
+            console.error("Erro ao gerar imagem:", error);
+            toast.error("Erro ao gerar a imagem do QR Code.");
         }
     };
 
@@ -218,34 +237,49 @@ const Tables = () => {
                     </DialogHeader>
                     {selectedTable && store && (
                         <div className="flex flex-col items-center justify-center py-6 space-y-6">
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm inline-block">
-                                <QRCodeSVG
-                                    id="qr-code-svg"
-                                    value={`${window.location.protocol}//${window.location.host}/mesa/${selectedTable.id}`}
-                                    size={200}
-                                    level={"H"}
-                                    includeMargin={false}
-                                    fgColor={"#000000"}
-                                    imageSettings={store.logo_url ? {
-                                        src: store.logo_url,
-                                        x: undefined,
-                                        y: undefined,
-                                        height: 48,
-                                        width: 48,
-                                        excavate: true,
-                                    } : undefined}
-                                />
+                            
+                            {/* Card que será exportado como imagem */}
+                            <div id="qr-card" className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center w-full max-w-[280px] mx-auto text-center relative overflow-hidden">
+                                {store.logo_url && <img src={store.logo_url} className="h-12 w-auto mb-4 object-contain" alt="Logo" />}
+                                <h3 className="font-black text-lg text-foreground uppercase tracking-widest mb-2">Faça seu Pedido</h3>
+                                <p className="text-xs font-medium text-muted-foreground mb-6 leading-tight">
+                                    Aponte a câmera do seu celular para o QR CODE para realizar o seu pedido
+                                </p>
+                                <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-6">
+                                    <QRCodeSVG
+                                        id="qr-code-svg"
+                                        value={`${window.location.protocol}//${window.location.host}/mesa/${selectedTable.id}`}
+                                        size={160}
+                                        level={"H"}
+                                        includeMargin={false}
+                                        fgColor={"#000000"}
+                                        imageSettings={store.logo_url ? {
+                                            src: store.logo_url,
+                                            x: undefined,
+                                            y: undefined,
+                                            height: 38,
+                                            width: 38,
+                                            excavate: true,
+                                        } : undefined}
+                                    />
+                                </div>
+                                <div className="bg-muted px-4 py-2 rounded-lg font-black text-foreground text-sm uppercase tracking-widest inline-block border border-border">
+                                    {selectedTable.name}
+                                </div>
                             </div>
-                            <p className="text-sm text-muted-foreground w-4/5 mx-auto">
-                                Este é o link que o cliente acessará:
-                                <br />
-                                <span className="font-mono text-xs text-foreground bg-muted px-2 py-1 rounded mt-2 block break-all">
-                                    {`${window.location.protocol}//${window.location.host}/mesa/${selectedTable.id}`}
-                                </span>
+
+                            <p className="text-[10px] text-muted-foreground w-4/5 mx-auto mt-4 font-medium uppercase tracking-widest hidden sm:block">
+                                Link direto: <span className="lowercase">{`${window.location.protocol}//${window.location.host}/mesa/${selectedTable.id}`}</span>
                             </p>
-                            <Button onClick={handlePrint} className="w-full sm:w-auto" variant="hero">
-                                <Printer className="w-4 h-4 mr-2" /> Imprimir Card de Mesa
-                            </Button>
+
+                            <div className="flex flex-col sm:flex-row gap-3 w-full mt-6 justify-center">
+                                <Button onClick={handlePrint} className="flex-1" variant="outline">
+                                    <Printer className="w-4 h-4 mr-2" /> Imprimir
+                                </Button>
+                                <Button onClick={handleDownloadPNG} className="flex-1" variant="hero">
+                                    <Download className="w-4 h-4 mr-2" /> Baixar Imagem
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </DialogContent>

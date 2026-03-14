@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/hooks/useStore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { BarChart3, TrendingUp, ShoppingBag, DollarSign, Package, AlertTriangle, Users, Download, Printer, Medal, UserCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
@@ -31,6 +32,12 @@ const Reports = () => {
       netProfit: 0,
       categories: [] as { name: string, amount: number, type: string }[]
     }
+  });
+  const [couponMetrics, setCouponMetrics] = useState({
+    coupons: [] as { code: string, uses: number, revenue: number, discountGiven: number, isActive: boolean, expiresAt: string | null }[],
+    totalUses: 0,
+    totalRevenue: 0,
+    totalDiscountGiven: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -239,9 +246,81 @@ const Reports = () => {
     };
   };
 
+  const fetchCouponMetrics = async (startDate: Date, endDate: Date) => {
+    if (!store) return;
+    
+    // Fetch all coupons for the store
+    const { data: couponsData } = await supabase
+      .from("coupons")
+      .select("*")
+      .eq("store_id", store.id);
+
+    // Fetch all completed orders with a coupon in the period
+    const { data: ordersWithCoupons } = await supabase
+      .from("orders")
+      .select("id, total, discount, coupon_code")
+      .eq("store_id", store.id)
+      .in("status", ["delivered", "picked_up"])
+      .neq("coupon_code", "")
+      .not("coupon_code", "is", null)
+      .gte("created_at", startDate.toISOString())
+      .lte("created_at", endDate.toISOString());
+
+    const couponMap: Record<string, any> = {};
+
+    (couponsData || []).forEach(c => {
+      couponMap[c.code] = {
+        code: c.code,
+        uses: 0,
+        revenue: 0,
+        discountGiven: 0,
+        isActive: c.is_active,
+        expiresAt: c.expires_at
+      };
+    });
+
+    let totalUses = 0;
+    let totalRevenue = 0;
+    let totalDiscountGiven = 0;
+
+    (ordersWithCoupons || []).forEach(o => {
+      const code = o.coupon_code;
+      if (code) {
+        if (!couponMap[code]) {
+           couponMap[code] = { code, uses: 0, revenue: 0, discountGiven: 0, isActive: false, expiresAt: null };
+        }
+        couponMap[code].uses += 1;
+        couponMap[code].revenue += Number(o.total);
+        couponMap[code].discountGiven += Number(o.discount);
+        
+        totalUses += 1;
+        totalRevenue += Number(o.total);
+        totalDiscountGiven += Number(o.discount);
+      }
+    });
+
+    setCouponMetrics({
+      coupons: Object.values(couponMap).sort((a, b) => b.uses - a.uses),
+      totalUses,
+      totalRevenue,
+      totalDiscountGiven
+    });
+  };
+
   useEffect(() => {
     if (store) {
       fetchMetrics();
+      
+      const now = new Date();
+      let startDate: Date = startOfDay(now);
+      let endDate: Date = endOfDay(now);
+      switch (period) {
+        case "yesterday": startDate = startOfDay(subDays(now, 1)); endDate = endOfDay(subDays(now, 1)); break;
+        case "week": startDate = startOfWeek(now, { weekStartsOn: 1 }); endDate = endOfWeek(now, { weekStartsOn: 1 }); break;
+        case "month": startDate = startOfMonth(now); endDate = endOfMonth(now); break;
+        case "year": startDate = startOfYear(now); endDate = endOfYear(now); break;
+      }
+      fetchCouponMetrics(startDate, endDate);
     }
   }, [store, period]);
 
@@ -253,6 +332,17 @@ const Reports = () => {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders", filter: `store_id=eq.${store.id}` }, (payload: any) => {
         if (payload.new && (payload.new.status === "delivered" || payload.new.status === "picked_up")) {
           fetchMetrics();
+          
+          const now = new Date();
+          let startDate: Date = startOfDay(now);
+          let endDate: Date = endOfDay(now);
+          switch (period) {
+            case "yesterday": startDate = startOfDay(subDays(now, 1)); endDate = endOfDay(subDays(now, 1)); break;
+            case "week": startDate = startOfWeek(now, { weekStartsOn: 1 }); endDate = endOfWeek(now, { weekStartsOn: 1 }); break;
+            case "month": startDate = startOfMonth(now); endDate = endOfMonth(now); break;
+            case "year": startDate = startOfYear(now); endDate = endOfYear(now); break;
+          }
+          fetchCouponMetrics(startDate, endDate);
         }
       })
       .subscribe();
@@ -356,9 +446,15 @@ const Reports = () => {
           ))}
         </div>
       ) : (
-        <>
-          {/* Main KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Tabs defaultValue="finance" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 lg:w-[400px] mb-8">
+            <TabsTrigger value="finance">Desempenho Financeiro</TabsTrigger>
+            <TabsTrigger value="coupons">Auditoria de Cupons</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="finance" className="space-y-8 mt-0">
+            {/* Main KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="shadow-sm border-border print:shadow-none print:border-foreground/20">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Faturamento Total</CardTitle>
@@ -677,6 +773,7 @@ const Reports = () => {
                               <td className="px-4 py-3 text-right text-muted-foreground italic">
                                 {metrics.financials.entries > 0 ? ((cat.amount / metrics.financials.entries) * 100).toFixed(1) : 0}%
                               </td>
+                              </td>
                             </tr>
                           ))}
                       </tbody>
@@ -685,8 +782,109 @@ const Reports = () => {
                 </div>
               </CardContent>
             </Card>
-          </div>
-        </>
+          </TabsContent>
+
+          <TabsContent value="coupons" className="space-y-8 mt-0">
+            {/* Coupon Analytics KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="shadow-sm border-border">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Uso de Cupons</CardTitle>
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center print:hidden">
+                    <ShoppingBag className="w-4 h-4 text-blue-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-foreground">{couponMetrics.totalUses}</div>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    pedidos utilizaram descontos
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border-border">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Conversão Gerada</CardTitle>
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center print:hidden">
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-foreground">{formatCurrency(couponMetrics.totalRevenue)}</div>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    faturamento com cupons
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border-border">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Descontado</CardTitle>
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center print:hidden">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-foreground">{formatCurrency(couponMetrics.totalDiscountGiven)}</div>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    custo dos abatimentos concedidos
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Coupons Analysis Table */}
+            <Card className="shadow-sm border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Desempenho por Cupom
+                </CardTitle>
+                <CardDescription>Auditoria detalhada de conversão e utilização no período selecionado.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {couponMetrics.coupons.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-xl border border-dashed border-border">
+                    Sem cupons ativos ou utilizados no período.
+                  </div>
+                ) : (
+                  <div className="border border-border rounded-xl overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Código</th>
+                          <th className="px-4 py-2 text-center">Status</th>
+                          <th className="px-4 py-2 text-right">Usos</th>
+                          <th className="px-4 py-2 text-right">Conversão (R$)</th>
+                          <th className="px-4 py-2 text-right">Desconto Pago (R$)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {couponMetrics.coupons.map((coupon, i) => (
+                          <tr key={i} className="hover:bg-muted/30">
+                            <td className="px-4 py-3 font-bold text-primary">{coupon.code}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${coupon.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                {coupon.isActive ? "Ativo" : "Inativo"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium">{coupon.uses}x</td>
+                            <td className="px-4 py-3 text-right font-bold text-emerald-600">
+                              {formatCurrency(coupon.revenue)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-red-600 font-medium">
+                              {formatCurrency(coupon.discountGiven)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       )}
 
       {/* Global CSS for printing functionality */}

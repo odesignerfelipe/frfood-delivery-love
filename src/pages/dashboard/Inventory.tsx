@@ -1,7 +1,7 @@
 import { useStore } from "@/hooks/useStore";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Plus, Search, AlertTriangle, Pencil, Trash2, History } from "lucide-react";
+import { Package, Plus, Search, AlertTriangle, Pencil, Trash2, History, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -25,6 +25,9 @@ const Inventory = () => {
         min_stock: "",
         cost_per_unit: "",
     });
+
+    const [adjustingStockItem, setAdjustingStockItem] = useState<any>(null);
+    const [stockAdjustment, setStockAdjustment] = useState({ newBalance: "" });
 
     const fetchInventory = useCallback(async () => {
         if (!store) return;
@@ -102,6 +105,30 @@ const Inventory = () => {
         }
     };
 
+    const handleAdjustStock = async () => {
+        if (!adjustingStockItem || !stockAdjustment.newBalance) return;
+        try {
+            const newStock = Number(stockAdjustment.newBalance);
+            const { error } = await supabase
+                .from("inventory_items")
+                .update({ current_stock: newStock })
+                .eq("id", adjustingStockItem.id);
+                
+            if (error) throw error;
+            toast.success("Estoque ajustado com sucesso!");
+            setAdjustingStockItem(null);
+            setStockAdjustment({ newBalance: "" });
+            fetchInventory();
+        } catch (err: any) {
+            toast.error(err.message || "Erro ao ajustar o estoque.");
+        }
+    };
+
+    // Determine input step based on UN (allow decimals for kg/l, strict integers for units/ml/g typically, but let's allow decimals mostly aside from UN)
+    const getStepForUnit = (unit: string) => {
+        return unit === "unidade" ? "1" : "0.001";
+    };
+
     const filteredItems = items.filter(item =>
         item.name.toLowerCase().includes(search.toLowerCase())
     );
@@ -152,11 +179,11 @@ const Inventory = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Estoque Atual</Label>
-                                    <Input type="number" step="0.001" value={formData.current_stock} onChange={e => setFormData({ ...formData, current_stock: e.target.value })} placeholder="0.000" />
+                                    <Input type="number" step={getStepForUnit(formData.unit)} value={formData.current_stock} onChange={e => setFormData({ ...formData, current_stock: e.target.value })} placeholder="0.000" />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Estoque Mínimo</Label>
-                                    <Input type="number" step="0.001" value={formData.min_stock} onChange={e => setFormData({ ...formData, min_stock: e.target.value })} placeholder="0.000" />
+                                    <Input type="number" step={getStepForUnit(formData.unit)} value={formData.min_stock} onChange={e => setFormData({ ...formData, min_stock: e.target.value })} placeholder="0.000" />
                                 </div>
                             </div>
                             <Button type="submit" className="w-full">{editingItem ? "Salvar Alterações" : "Cadastrar"}</Button>
@@ -164,6 +191,36 @@ const Inventory = () => {
                     </DialogContent>
                 </Dialog>
             </div>
+
+            <Dialog open={!!adjustingStockItem} onOpenChange={(open) => !open && setAdjustingStockItem(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Ajuste Manual de Balanço</DialogTitle>
+                    </DialogHeader>
+                    {adjustingStockItem && (
+                    <div className="space-y-4 pt-4">
+                        <div className="bg-muted p-4 rounded-lg flex justify-between items-center border border-border">
+                            <div>
+                                <p className="font-bold text-sm text-foreground">{adjustingStockItem.name}</p>
+                                <p className="text-xs text-muted-foreground">Estoque Atual: {adjustingStockItem.current_stock} {adjustingStockItem.unit}</p>
+                            </div>
+                            <Scale className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Novo Saldo (Quantidade Exata)</Label>
+                            <Input 
+                                type="number" 
+                                step={getStepForUnit(adjustingStockItem.unit)} 
+                                value={stockAdjustment.newBalance} 
+                                onChange={e => setStockAdjustment({ newBalance: e.target.value })} 
+                                placeholder={`Ex: ${adjustingStockItem.current_stock}`} 
+                            />
+                        </div>
+                        <Button onClick={handleAdjustStock} className="w-full">Confirmar Retificação</Button>
+                    </div>
+                    )}
+                </DialogContent>
+            </Dialog>
 
             <div className="grid sm:grid-cols-3 gap-4">
                 <div className="bg-card p-5 rounded-xl border border-border/50 shadow-sm">
@@ -223,6 +280,9 @@ const Inventory = () => {
                                     <td className="px-6 py-4 font-medium text-primary">{formatCurrency(item.current_stock * item.cost_per_unit)}</td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex justify-end gap-1">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600" title="Ajuste de Balanço" onClick={() => { setAdjustingStockItem(item); setStockAdjustment({ newBalance: String(item.current_stock) }); }}>
+                                                <Scale className="w-4 h-4" />
+                                            </Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => handleEdit(item)}>
                                                 <Pencil className="w-4 h-4" />
                                             </Button>

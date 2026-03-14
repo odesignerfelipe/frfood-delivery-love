@@ -32,6 +32,7 @@ const DashboardHome = () => {
   const [openingBalance, setOpeningBalance] = useState<string>("0");
   const [isProcessingSession, setIsProcessingSession] = useState(false);
   const [tables, setTables] = useState<any[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
 
   // Table Management State
   const [selectedTable, setSelectedTable] = useState<any>(null);
@@ -83,6 +84,7 @@ const DashboardHome = () => {
       supabase.from("tables").select("*, comandas(id, status, table_id)").eq("store_id", store.id).order("name"),
       supabase.from("waiters").select("*").eq("store_id", store.id).eq("is_active", true),
       supabase.from("printer_settings").select("*").eq("store_id", store.id).eq("is_active", true),
+      supabase.from("inventory_items").select("*").eq("store_id", store.id),
     ]);
 
     setStats({
@@ -96,6 +98,10 @@ const DashboardHome = () => {
     setTables(tablesRes.data || []);
     setWaiters(waitersRes.data || []);
     setPrinterSettings(printerSettingsRes.data || []);
+    
+    // Calculate low stock items
+    const inventory = inventoryRes.data || [];
+    setLowStockItems(inventory.filter((item: any) => item.current_stock <= item.min_stock));
   }, [store]);
 
   const fetchCatalog = useCallback(async () => {
@@ -1244,8 +1250,26 @@ const DashboardHome = () => {
 
           <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
             <h4 className="font-black text-foreground uppercase tracking-widest text-xs mb-4 flex items-center gap-2 text-orange-500">
-              <Bell className="w-4 h-4 animate-bounce" /> Alertas de Caixa
+              <Bell className="w-4 h-4 animate-bounce" /> Alertas
             </h4>
+            
+            {lowStockItems.length > 0 && (
+              <div className="mb-4 bg-red-50 border border-red-200 p-3 rounded-xl flex items-start gap-3 animate-pulse">
+                 <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                    <Package className="w-4 h-4 text-red-600" />
+                 </div>
+                 <div>
+                    <p className="text-xs font-black uppercase tracking-tight text-red-700">Estoque Baixo</p>
+                    <p className="text-[10px] text-red-600 leading-tight font-medium mt-0.5">
+                      {lowStockItems.map(i => i.name).join(', ')} requer reposição imediata.
+                    </p>
+                    <Button variant="link" className="text-[9px] text-red-700 p-0 h-auto font-bold uppercase mt-1" onClick={() => navigate("/dashboard/inventory")}>
+                      Gerenciar Insumos
+                    </Button>
+                 </div>
+              </div>
+            )}
+
             <div className="space-y-3">
               {recentOrders.filter(o => o.status === 'pending').map(order => (
                 <div key={order.id} className="p-3 bg-muted/30 rounded-xl border border-border/50 flex items-center gap-3 animate-in fade-in slide-in-from-right-2 duration-300">
