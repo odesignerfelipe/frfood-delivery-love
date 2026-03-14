@@ -124,35 +124,45 @@ const Checkout = () => {
     const handlePixCheckout = async () => {
         if (!session) return;
         setPixStatus("loading");
+        
+        const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        
+        const callApi = async (retries = 1): Promise<any> => {
+            try {
+                const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-create`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${key}`,
+                        "apikey": key,
+                    },
+                    body: JSON.stringify({ plan }),
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Erro (${res.status}) ao gerar PIX.`);
+                }
+                return await res.json();
+            } catch (err: any) {
+                if (retries > 0 && (err.name === 'TypeError' || err.message.includes('failed to fetch'))) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    return callApi(retries - 1);
+                }
+                throw err;
+            }
+        };
 
         try {
-            const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-            const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-            const res = await fetch(`${baseUrl}/functions/v1/pix-create`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${key}`,
-                    "apikey": key,
-                },
-                body: JSON.stringify({ plan }),
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.error || `Erro (${res.status}) ao gerar PIX.`);
-            }
-
-            const data = await res.json();
+            const data = await callApi();
             setPixData(data);
             setPixStatus("waiting");
             startPolling(data.payment_id);
         } catch (error: any) {
             console.error("PIX Generation error:", error);
             toast.error(error.message || "Erro ao gerar PIX. Tente novamente.");
-        } finally {
-            if (pixStatus === 'loading') setPixStatus("idle");
+            setPixStatus("idle");
         }
     };
 

@@ -121,38 +121,56 @@ export default function OrderStatus() {
     const handleGenerateDynamicPix = async () => {
         if (!order || !store) return;
         setIsGeneratingPix(true);
-        try {
-            const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-            const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-            
-            if (!baseUrl || !key) throw new Error("Configuração do servidor indisponível.");
+        
+        const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        
+        if (!baseUrl || !key) {
+            toast.error("Configuração do servidor não encontrada.");
+            setIsGeneratingPix(false);
+            return;
+        }
 
-            const res = await fetch(`${baseUrl}/functions/v1/pix-order-create`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${key}`,
-                    'apikey': key,
-                },
-                body: JSON.stringify({
-                    store_id: store.id,
-                    order_id: order.id,
-                    amount: Number(order.total),
-                    description: `${store.name} - Pedido #${order.order_number}`,
-                }),
-            });
+        const callApi = async (retries = 1): Promise<any> => {
+            try {
+                const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-order-create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${key}`,
+                        'apikey': key,
+                    },
+                    body: JSON.stringify({
+                        store_id: store.id,
+                        order_id: order.id,
+                        amount: Number(order.total),
+                        description: `${store.name} - Pedido #${order.order_number}`,
+                    }),
+                });
 
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.error || `Erro (${res.status}): Falha na comunicação.`);
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Erro do servidor (${res.status})`);
+                }
+                return await res.json();
+            } catch (err: any) {
+                if (retries > 0 && (err.name === 'TypeError' || err.message.includes('failed to fetch'))) {
+                    // Retry once after 1s for "Load failed" (network) errors
+                    await new Promise(r => setTimeout(r, 1000));
+                    return callApi(retries - 1);
+                }
+                throw err;
             }
-            
+        };
+
+        try {
+            await callApi();
             const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
             setPixPayments(ppx || []);
             toast.success("PIX Gerado com sucesso!");
         } catch (err: any) {
             console.error("PIX Generation Error:", err);
-            toast.error(err.message || "Erro ao gerar PIX");
+            toast.error(err.message || "Falha ao gerar PIX. Verifique sua conexão.");
         } finally {
             setIsGeneratingPix(false);
         }

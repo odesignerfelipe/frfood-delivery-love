@@ -1128,32 +1128,44 @@ const DashboardHome = () => {
                     className="w-full h-12 rounded-xl border-dashed border-2 hover:border-emerald-500 hover:text-emerald-500 transition-colors"
                     onClick={async () => {
                       setIsGeneratingPix(true);
-                      try {
-                        const amount = Math.max(0, comandaOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0) - Number(discount));
-                        
-                        const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-                        const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+                      const amount = Math.max(0, comandaOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0) - Number(discount));
+                      
+                      const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+                      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+                      
+                      const callApi = async (retries = 1): Promise<any> => {
+                        try {
+                          const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-order-create`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${key}`,
+                              'apikey': key,
+                            },
+                            body: JSON.stringify({
+                              store_id: store!.id,
+                              comanda_id: activeComanda.id,
+                              amount: Number(amount.toFixed(2)),
+                              description: `${store?.name} - Mesa ${selectedTable?.name}`,
+                            }),
+                          });
 
-                        const res = await fetch(`${baseUrl}/functions/v1/pix-order-create`, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${key}`,
-                            'apikey': key,
-                          },
-                          body: JSON.stringify({
-                            store_id: store!.id,
-                            comanda_id: activeComanda.id,
-                            amount: Number(amount.toFixed(2)),
-                            description: `${store?.name} - Mesa ${selectedTable?.name}`,
-                          }),
-                        });
-
-                        if (!res.ok) {
-                          const errorData = await res.json().catch(() => ({}));
-                          throw new Error(errorData.error || `Erro (${res.status}) ao gerar PIX.`);
+                          if (!res.ok) {
+                            const errorData = await res.json().catch(() => ({}));
+                            throw new Error(errorData.error || `Erro (${res.status}) ao gerar PIX.`);
+                          }
+                          return await res.json();
+                        } catch (err: any) {
+                          if (retries > 0 && (err.name === 'TypeError' || err.message.includes('failed to fetch'))) {
+                            await new Promise(r => setTimeout(r, 1000));
+                            return callApi(retries - 1);
+                          }
+                          throw err;
                         }
-                        
+                      };
+
+                      try {
+                        await callApi();
                         const { data: updatedPix } = await supabase.from("order_payments").select("*").eq("comanda_id", activeComanda.id).eq("payment_method", "pix");
                         setPixPayments(updatedPix || []);
                         toast.success("PIX Dinâmico Gerado!");

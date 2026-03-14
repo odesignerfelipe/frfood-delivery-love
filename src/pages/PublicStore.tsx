@@ -355,21 +355,6 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
     if (appliedCoupon) { await supabase.from("coupons").update({ current_uses: appliedCoupon.current_uses + 1 }).eq("id", appliedCoupon.id); }
 
-    if (form.customer_phone && form.customer_phone !== "00000000000") {
-      try {
-        await supabase.rpc('register_customer_from_order', {
-          p_store_id: store.id,
-          p_name: form.customer_name || (tableSession ? `Mesa ${tableSession.table_name}` : ""),
-          p_phone: form.customer_phone,
-          p_address: form.customer_address,
-          p_neighborhood: form.neighborhood,
-          p_total_spent: tableSession ? (Number(subtotal) - Number(discount)) : total
-        });
-      } catch (custErr) {
-        console.error("Error registering customer:", custErr);
-      }
-    }
-
     const stored = localStorage.getItem(`active_orders_${store.id}`);
     let activeIds: string[] = [];
     if (stored) { try { activeIds = JSON.parse(stored); } catch (e) { } }
