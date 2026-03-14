@@ -122,22 +122,30 @@ export default function OrderStatus() {
         if (!order || !store) return;
         setIsGeneratingPix(true);
         
-        const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        
-        if (!baseUrl || !key) {
-            toast.error("Configuração do servidor não encontrada.");
-            setIsGeneratingPix(false);
-            return;
-        }
+        try {
+            // Priority 1: Supabase client invoke
+            const { data, error } = await supabase.functions.invoke('pix-order-create', {
+                body: {
+                    store_id: store.id,
+                    order_id: order.id,
+                    amount: Number(order.total),
+                    description: `${store.name} - Pedido #${order.order_number}`,
+                }
+            });
 
-        const callApi = async (retries = 1): Promise<any> => {
-            try {
+            if (error) {
+                console.error("Invoke error:", error);
+                
+                // Fallback: Direct fetch with only apikey (no Authorization to avoid JWT rejection)
+                const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+                const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+                
+                if (!baseUrl || !key) throw new Error("Configuração ausente.");
+
                 const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-order-create`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${key}`,
                         'apikey': key,
                     },
                     body: JSON.stringify({
@@ -149,28 +157,17 @@ export default function OrderStatus() {
                 });
 
                 if (!res.ok) {
-                    const errorData = await res.json().catch(() => ({}));
-                    throw new Error(errorData.error || `Erro do servidor (${res.status})`);
+                    const errorText = await res.text();
+                    throw new Error(`Erro na falha: ${res.status} ${errorText.slice(0, 100)}`);
                 }
-                return await res.json();
-            } catch (err: any) {
-                if (retries > 0 && (err.name === 'TypeError' || err.message.includes('failed to fetch'))) {
-                    // Retry once after 1s for "Load failed" (network) errors
-                    await new Promise(r => setTimeout(r, 1000));
-                    return callApi(retries - 1);
-                }
-                throw err;
             }
-        };
 
-        try {
-            await callApi();
             const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
             setPixPayments(ppx || []);
             toast.success("PIX Gerado com sucesso!");
         } catch (err: any) {
-            console.error("PIX Generation Error:", err);
-            toast.error(err.message || "Falha ao gerar PIX. Verifique sua conexão.");
+            console.error("Definitive PIX Error:", err);
+            toast.error("Falha ao gerar PIX. Tente recarregar a página.");
         } finally {
             setIsGeneratingPix(false);
         }

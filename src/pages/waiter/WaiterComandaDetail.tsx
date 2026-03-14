@@ -172,13 +172,8 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
             const finalTotal = Math.max(0, subtotal - discountVal);
             const splitAmount = finalTotal / splitCount;
 
-            const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pix-order-create`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                },
-                body: JSON.stringify({
+            const { data, error } = await supabase.functions.invoke('pix-order-create', {
+                body: {
                     store_id: store.id,
                     comanda_id: comanda.id,
                     order_id: orders[0]?.id || null,
@@ -186,11 +181,39 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
                     split_index: splitIdx,
                     split_total: splitCount,
                     description: `${store.name} - Mesa ${table?.name} - PIX`,
-                }),
+                }
             });
 
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Erro ao gerar PIX');
+            if (error) {
+                console.error("Invoke error:", error);
+                
+                const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+                const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+                const { data: { session } } = await supabase.auth.getSession();
+
+                const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-order-create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': key,
+                        'Authorization': `Bearer ${session?.access_token || key}`,
+                    },
+                    body: JSON.stringify({
+                        store_id: store.id,
+                        comanda_id: comanda.id,
+                        order_id: orders[0]?.id || null,
+                        amount: Number(splitAmount.toFixed(2)),
+                        split_index: splitIdx,
+                        split_total: splitCount,
+                        description: `${store.name} - Mesa ${table?.name} - PIX`,
+                    }),
+                });
+
+                if (!res.ok) {
+                    const errorMsg = await res.text();
+                    throw new Error(errorMsg || `Erro ${res.status}`);
+                }
+            }
 
             toast.success(`PIX ${splitIdx}/${splitCount} gerado!`);
             fetchPixPayments();

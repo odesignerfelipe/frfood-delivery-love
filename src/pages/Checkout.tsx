@@ -125,43 +125,44 @@ const Checkout = () => {
         if (!session) return;
         setPixStatus("loading");
         
-        const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        
-        const callApi = async (retries = 1): Promise<any> => {
-            try {
+        try {
+            const { data, error } = await supabase.functions.invoke('pix-create', {
+                body: { plan }
+            });
+
+            if (error) {
+                console.error("Invoke error:", error);
+                
+                const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+                const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+                const userToken = session?.access_token;
+
                 const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-create`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "Authorization": `Bearer ${key}`,
                         "apikey": key,
+                        "Authorization": `Bearer ${userToken || key}`,
                     },
                     body: JSON.stringify({ plan }),
                 });
 
                 if (!res.ok) {
-                    const errorData = await res.json().catch(() => ({}));
-                    throw new Error(errorData.error || `Erro (${res.status}) ao gerar PIX.`);
+                    const errorMsg = await res.text();
+                    throw new Error(errorMsg || `Erro ${res.status}`);
                 }
-                return await res.json();
-            } catch (err: any) {
-                if (retries > 0 && (err.name === 'TypeError' || err.message.includes('failed to fetch'))) {
-                    await new Promise(r => setTimeout(r, 1000));
-                    return callApi(retries - 1);
-                }
-                throw err;
+                const fallbackData = await res.json();
+                setPixData(fallbackData);
+                startPolling(fallbackData.payment_id);
+            } else {
+                setPixData(data);
+                startPolling(data.payment_id);
             }
-        };
-
-        try {
-            const data = await callApi();
-            setPixData(data);
+            
             setPixStatus("waiting");
-            startPolling(data.payment_id);
         } catch (error: any) {
             console.error("PIX Generation error:", error);
-            toast.error(error.message || "Erro ao gerar PIX. Tente novamente.");
+            toast.error("Erro ao gerar PIX. Tente novamente.");
             setPixStatus("idle");
         }
     };
