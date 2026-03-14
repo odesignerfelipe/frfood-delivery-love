@@ -3,6 +3,7 @@ import { useOrderNotifications } from "@/hooks/useOrderNotifications";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { ultraResilientInvoke } from "@/lib/supabase-edge";
 import { ShoppingBag, Package, DollarSign, TrendingUp, Bell, Plus, Eye, Pencil, Power, Wallet, ArrowRight, User, Clock, LayoutDashboard, Calculator, Receipt, Smartphone, Table2, Search, Minus, Trash2, Send, Check, Printer, ChevronDown, Copy } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -1105,20 +1106,18 @@ const DashboardHome = () => {
                           </span>
                         </div>
                         {!p.status || p.status === 'pending' ? (
-                          <div className="space-y-2">
-                            <div className="bg-white p-2 rounded-lg w-32 h-32 mx-auto border shadow-sm flex items-center justify-center">
-                              <QRCodeSVG value={p.pix_copia_cola} size={120} level="H" />
-                            </div>
-                            <Button
-                              variant="outline" size="sm" className="w-full text-[10px] h-8 font-bold gap-2"
-                              onClick={() => { navigator.clipboard.writeText(p.pix_copia_cola); toast.success("Código PIX copiado!"); }}
-                            >
-                              <Copy className="w-3 h-3" /> Copiar Código
-                            </Button>
+                          <div className="bg-white p-2 rounded-lg w-32 h-32 mx-auto border shadow-sm flex items-center justify-center">
+                            <QRCodeSVG value={p.pix_copia_cola} size={120} level="H" />
                           </div>
                         ) : (
                           <p className="text-[10px] text-center text-emerald-600 font-bold uppercase py-4 italic">Confirmado via Webhook</p>
                         )}
+                        <Button
+                          variant="outline" size="sm" className="w-full text-[10px] h-8 font-bold gap-2"
+                          onClick={() => { navigator.clipboard.writeText(p.pix_copia_cola); toast.success("Código PIX copiado!"); }}
+                        >
+                          <Copy className="w-3 h-3" /> Copiar Código
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -1132,8 +1131,8 @@ const DashboardHome = () => {
                       const amount = Math.max(0, comandaOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0) - Number(discount));
                       
                       try {
-                        console.log("Comanda PIX Stage 1: Attempting invoke...");
-                        const { data, error: invokeError } = await supabase.functions.invoke('pix-order-create', {
+                        await ultraResilientInvoke({
+                          functionName: 'pix-order-create',
                           body: {
                             store_id: store.id,
                             comanda_id: activeComanda.id,
@@ -1142,43 +1141,20 @@ const DashboardHome = () => {
                           }
                         });
 
-                        if (!invokeError) {
-                          console.log("Comanda PIX Stage 1: Success");
-                        } else {
-                          console.warn("Comanda PIX Stage 1 failed:", invokeError);
-                          
-                          console.log("Comanda PIX Stage 2: Attempting direct fetch...");
-                          const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-                          const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-                          const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-order-create`, {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              'apikey': key,
-                            },
-                            body: JSON.stringify({
-                              store_id: store.id,
-                              comanda_id: activeComanda.id,
-                              amount: Number(amount.toFixed(2)),
-                              description: `${store.name} - Mesa ${selectedTable?.name}`,
-                            }),
-                          });
-
-                          if (!res.ok) {
-                            const errorText = await res.text();
-                            console.error("Comanda PIX Stage 2 failed:", res.status, errorText);
-                            throw new Error(errorText || `Erro ${res.status}`);
-                          }
-                          console.log("Comanda PIX Stage 2: Success");
-                        }
-
-                        const { data: updatedPix } = await supabase.from("order_payments").select("*").eq("comanda_id", activeComanda.id).eq("payment_method", "pix");
-                        setPixPayments(updatedPix || []);
-                        toast.success("PIX Dinâmico Gerado!");
+                        console.log("Comanda PIX Generated successfully");
+                        toast.success("PIX Gerado!");
+                        
+                        // Fetch payments to update UI
+                        const { data } = await supabase
+                          .from('order_payments')
+                          .select('*')
+                          .eq('comanda_id', activeComanda.id)
+                          .order('created_at', { ascending: false });
+                        
+                        setPixPayments(data || []);
                       } catch (err: any) {
-                        console.error("Comanda PIX Definitive Failure:", err);
-                        toast.error("Erro ao gerar PIX. Verifique os logs.");
+                        console.error("Dashboard PIX Failure:", err);
+                        toast.error(err.message || "Erro ao gerar PIX");
                       } finally {
                         setIsGeneratingPix(false);
                       }

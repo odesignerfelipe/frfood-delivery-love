@@ -14,6 +14,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { generatePixPayload, isPixExpired } from "@/lib/pix";
 import { AlertTriangle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ultraResilientInvoke } from "@/lib/supabase-edge";
 
 interface WaiterComandaDetailProps {
     explicitSlug?: string;
@@ -171,12 +172,12 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
             const discountVal = Number(discount) || 0;
             const finalTotal = Math.max(0, subtotal - discountVal);
             const splitAmount = finalTotal / splitCount;
-            console.log("Waiter PIX Stage 1: Attempting invoke...");
-            const { data, error: invokeError } = await supabase.functions.invoke('pix-order-create', {
+            
+            await ultraResilientInvoke({
+                functionName: 'pix-order-create',
                 body: {
                     store_id: store.id,
                     comanda_id: comanda.id,
-                    order_id: orders[0]?.id || null,
                     amount: Number(splitAmount.toFixed(2)),
                     split_index: splitIdx,
                     split_total: splitCount,
@@ -184,47 +185,14 @@ const WaiterComandaDetail = ({ explicitSlug }: WaiterComandaDetailProps) => {
                 }
             });
 
-            if (!invokeError) {
-                console.log("Waiter PIX Stage 1: Success");
-            } else {
-                console.warn("Waiter PIX Stage 1 failed:", invokeError);
-                
-                console.log("Waiter PIX Stage 2: Attempting direct fetch...");
-                const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-                const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-                const { data: { session } } = await supabase.auth.getSession();
-
-                const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-order-create`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'apikey': key,
-                        'Authorization': `Bearer ${session?.access_token || key}`,
-                    },
-                    body: JSON.stringify({
-                        store_id: store.id,
-                        comanda_id: comanda.id,
-                        order_id: orders[0]?.id || null,
-                        amount: Number(splitAmount.toFixed(2)),
-                        split_index: splitIdx,
-                        split_total: splitCount,
-                        description: `${store.name} - Mesa ${table?.name} - PIX`,
-                    }),
-                });
-
-                if (!res.ok) {
-                    const errorMsg = await res.text();
-                    console.error("Waiter PIX Stage 2 failed:", res.status, errorMsg);
-                    throw new Error(errorMsg || `Erro ${res.status}`);
-                }
-                console.log("Waiter PIX Stage 2: Success");
-            }
-
+            console.log("Waiter PIX Generated successfully");
             toast.success(`PIX ${splitIdx}/${splitCount} gerado!`);
+
+            // Fetch payments to update UI
             fetchPixPayments();
         } catch (error: any) {
             console.error("Waiter PIX Definitive Failure:", error);
-            toast.error("Erro ao gerar PIX. Tente novamente.");
+            toast.error(error.message || "Erro ao gerar PIX");
         } finally {
             setIsGeneratingPix(false);
         }

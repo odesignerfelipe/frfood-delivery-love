@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { ultraResilientInvoke } from "@/lib/supabase-edge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CreditCard, Check, ArrowLeft, Shield, Lock, Star, QrCode, Copy, CheckCircle2, Clock } from "lucide-react";
@@ -126,45 +127,28 @@ const Checkout = () => {
         setPixStatus("loading");
         
         try {
-            console.log("Subscription PIX Stage 1: Attempting invoke...");
-            const { data, error: invokeError } = await supabase.functions.invoke('pix-create', {
-                body: { plan }
+            const { data: storeData } = await supabase.from("stores").select("id").eq("owner_id", session.user.id).maybeSingle();
+
+            const { data: pixResponse, error: invokeError } = await ultraResilientInvoke({
+                functionName: 'pix-subscription-create',
+                body: {
+                    plan: plan, // Assuming 'plan' is the correct identifier for the plan
+                    store_id: storeData?.id || null // Pass store_id if available
+                }
             });
 
-            if (!invokeError) {
-                console.log("Subscription PIX Stage 1: Success");
-                setPixData(data);
-                startPolling(data.payment_id);
-            } else {
-                console.warn("Subscription PIX Stage 1 failed:", invokeError);
-                
-                console.log("Subscription PIX Stage 2: Attempting direct fetch...");
-                const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-                const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-                const userToken = session?.access_token;
-
-                const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-create`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "apikey": key,
-                        "Authorization": `Bearer ${userToken || key}`,
-                    },
-                    body: JSON.stringify({ plan }),
-                });
-
-                if (!res.ok) {
-                    const errorMsg = await res.text();
-                    console.error("Subscription PIX Stage 2 failed:", res.status, errorMsg);
-                    throw new Error(errorMsg || `Erro ${res.status}`);
-                }
-                const fallbackData = await res.json();
-                console.log("Subscription PIX Stage 2: Success");
-                setPixData(fallbackData);
-                startPolling(fallbackData.payment_id);
+            if (invokeError) {
+                console.error("Subscription PIX Failure:", invokeError);
+                toast.error(invokeError.message || "Erro ao gerar PIX");
+                setPixStatus("idle");
+                return;
             }
-            
+
+            console.log("Subscription PIX Generated successfully");
+            setPixData(pixResponse);
+            startPolling(pixResponse.payment_id);
             setPixStatus("waiting");
+            toast.success("PIX Gerado! Aguardando pagamento...");
         } catch (error: any) {
             console.error("Subscription PIX Definitive Failure:", error);
             toast.error("Erro ao gerar PIX para assinatura. Tente novamente.");

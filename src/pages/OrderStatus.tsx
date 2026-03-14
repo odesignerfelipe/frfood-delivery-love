@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { ultraResilientInvoke } from "@/lib/supabase-edge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, Link2, XCircle, AlertTriangle, QrCode, Zap, ChevronLeft, Smartphone } from "lucide-react";
@@ -124,75 +125,25 @@ export default function OrderStatus() {
             return;
         }
         setIsGeneratingPix(true);
-
-        const baseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
-        const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        const body = {
-            store_id: store.id,
-            order_id: order.id,
-            amount: Number(order.total),
-            description: `${store.name} - Pedido #${order.order_number}`,
-        };
         
-        const tryFetch = async (headers: any, label: string) => {
-            console.log(`PIX Attempt: ${label}...`);
-            const res = await fetch(`${baseUrl}/functions/v1/pix-order-create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...headers },
-                body: JSON.stringify(body),
-            });
-            if (!res.ok) {
-                const txt = await res.text();
-                throw new Error(txt || `Status ${res.status}`);
-            }
-            return await res.json();
-        };
-
         try {
-            // Attempt 1: Official Invoke
-            try {
-                console.log("PIX Attempt 1: Official Invoke...");
-                const { error } = await supabase.functions.invoke('pix-order-create', { body });
-                if (!error) {
-                    console.log("PIX Attempt 1 Success");
-                    const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
-                    setPixPayments(ppx || []);
-                    toast.success("PIX Gerado!");
-                    return;
+            await ultraResilientInvoke({
+                functionName: 'pix-order-create',
+                body: {
+                    store_id: store.id,
+                    order_id: order.id,
+                    amount: Number(order.total),
+                    description: `${store.name} - Pedido #${order.order_number}`,
                 }
-                console.warn("PIX Attempt 1 failed:", error);
-            } catch (e) { console.warn("PIX Attempt 1 exception:", e); }
+            });
 
-            await new Promise(r => setTimeout(r, 1000));
-
-            // Attempt 2: Fetch with apikey + Auth
-            try {
-                await tryFetch({ 'apikey': key, 'Authorization': `Bearer ${key}` }, "Stage 2 (Auth Fallback)");
-                const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
-                setPixPayments(ppx || []);
-                toast.success("PIX Gerado (Stage 2)!");
-                return;
-            } catch (e) { console.warn("PIX Attempt 2 failed:", e); }
-
-            await new Promise(r => setTimeout(r, 1000));
-
-            // Attempt 3: Fetch with apikey ONLY
-            try {
-                await tryFetch({ 'apikey': key }, "Stage 3 (Naked Fallback)");
-                const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
-                setPixPayments(ppx || []);
-                toast.success("PIX Gerado (Stage 3)!");
-                return;
-            } catch (e) { console.error("PIX Attempt 3 failed:", e); throw e; }
-
+            console.log("PIX Generated successfully via ultraResilientInvoke");
+            const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
+            setPixPayments(ppx || []);
+            toast.success("PIX Gerado com sucesso!");
         } catch (err: any) {
-            console.error("All PIX attempts failed:", err);
-            const msg = err.message || "Network Error";
-            if (msg.includes("Load failed") || msg.includes("Failed to fetch")) {
-                toast.error("Erro de conexão (Load failed). Tente usar outro navegador ou conexão.");
-            } else {
-                toast.error(`Falha ao gerar PIX: ${msg}`);
-            }
+            console.error("Definitive PIX Failure:", err);
+            toast.error(err.message || "Erro ao gerar PIX. Verifique sua conexão.");
         } finally {
             setIsGeneratingPix(false);
         }
