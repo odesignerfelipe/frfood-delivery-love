@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, checkStoreStatus } from "@/lib/utils";
+import { generatePixPayload } from "@/lib/pix";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -47,6 +48,8 @@ const DashboardHome = () => {
   const [isLoadingComanda, setIsLoadingComanda] = useState(false);
   const [pixPayments, setPixPayments] = useState<any[]>([]);
   const [isGeneratingPix, setIsGeneratingPix] = useState(false);
+  const [pixPayload, setPixPayload] = useState<string | null>(null);
+  const [pixGenerated, setPixGenerated] = useState(false);
   const [isManualOrderOpen, setIsManualOrderOpen] = useState(false);
 
 
@@ -1097,7 +1100,26 @@ const DashboardHome = () => {
 
                 {pixPayments.length > 0 ? (
                   <div className="space-y-3">
-                    {pixPayments.map((p, idx) => (
+                        {/* Show static PIX if generated */}
+                        {pixGenerated && !pixPayments.some(p => p.pix_copia_cola === pixPayload) && (
+                          <div className={`p-4 rounded-xl border-2 bg-white border-primary/20 shadow-sm transition-all`}>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="font-bold text-[10px] uppercase">Pagamento PIX</span>
+                              <Badge className="bg-blue-200 text-blue-700 animate-pulse">Aguardando</Badge>
+                            </div>
+                            <div className="bg-white p-2 rounded-lg w-32 h-32 mx-auto border shadow-sm flex items-center justify-center">
+                              <QRCodeSVG value={pixPayload || ""} size={120} level="H" />
+                            </div>
+                            <Button
+                              variant="outline" size="sm" className="w-full text-[10px] h-8 font-bold gap-2 mt-2"
+                              onClick={() => { navigator.clipboard.writeText(pixPayload || ""); toast.success("Código PIX copiado!"); }}
+                            >
+                              <Copy className="w-3 h-3" /> Copiar Código
+                            </Button>
+                          </div>
+                        )}
+
+                        {pixPayments.map((p, idx) => (
                       <div key={p.id} className={`p-3 rounded-xl border-2 transition-all ${p.status === 'paid' ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'}`}>
                         <div className="flex justify-between items-center mb-2">
                           <span className="font-bold text-xs uppercase">Pagamento {idx + 1}/{pixPayments.length}</span>
@@ -1127,34 +1149,23 @@ const DashboardHome = () => {
                     className="w-full h-12 rounded-xl border-dashed border-2 hover:border-emerald-500 hover:text-emerald-500 transition-colors"
                     onClick={async () => {
                       if (!store || !activeComanda) return;
-                      setIsGeneratingPix(true);
                       const amount = Math.max(0, comandaOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0) - Number(discount));
                       
                       try {
-                        await ultraResilientInvoke({
-                          functionName: 'pix-order-create',
-                          body: {
-                            store_id: store.id,
-                            comanda_id: activeComanda.id,
-                            amount: Number(amount.toFixed(2)),
-                            description: `${store.name} - Mesa ${selectedTable?.name}`,
-                          }
+                        const brCode = generatePixPayload({
+                          key: store.pix_key,
+                          name: store.name || "FRFood",
+                          city: store.city || "Brasil",
+                          amount: amount,
+                          transactionId: `COMANDA${activeComanda.id.substring(0,8)}`
                         });
 
-                        console.log("Comanda PIX Generated successfully");
+                        setPixPayload(brCode);
+                        setPixGenerated(true);
                         toast.success("PIX Gerado!");
-                        
-                        // Fetch payments to update UI
-                        const { data } = await supabase
-                          .from('order_payments')
-                          .select('*')
-                          .eq('comanda_id', activeComanda.id)
-                          .order('created_at', { ascending: false });
-                        
-                        setPixPayments(data || []);
                       } catch (err: any) {
                         console.error("Dashboard PIX Failure:", err);
-                        toast.error(err.message || "Erro ao gerar PIX");
+                        toast.error("Erro ao gerar PIX");
                       } finally {
                         setIsGeneratingPix(false);
                       }
@@ -1162,7 +1173,7 @@ const DashboardHome = () => {
                     disabled={isGeneratingPix}
                   >
                     {isGeneratingPix ? <Clock className="w-4 h-4 animate-spin mr-2" /> : <Smartphone className="w-4 h-4 mr-2" />}
-                    Gerar PIX Dinâmico
+                    Gerar QR Code PIX
                   </Button>
                 )}
               </div>

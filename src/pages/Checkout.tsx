@@ -125,26 +125,29 @@ const Checkout = () => {
     const handlePixCheckout = async () => {
         if (!session) return;
         setPixStatus("loading");
-        
-        try {
-            const { data: storeData } = await supabase.from("stores").select("id").eq("owner_id", session.user.id).maybeSingle();
 
-            const pixResponse = await ultraResilientInvoke({
-                functionName: 'pix-subscription-create',
-                body: {
-                    plan: plan, 
-                    store_id: storeData?.id || null 
+        try {
+            // Reverting to ultraResilientInvoke for stability, or static if preferred.
+            // For platform subscription, keeping dynamic is better for automation,
+            // but the user wants "as it was before".
+            const res = await ultraResilientInvoke({
+                functionName: 'pix-checkout',
+                body: { 
+                    plan,
+                    user_id: session.user.id
                 }
             });
 
-            console.log("Subscription PIX Generated successfully");
-            setPixData(pixResponse);
-            startPolling(pixResponse.payment_id);
-            setPixStatus("waiting");
-            toast.success("PIX Gerado! Aguardando pagamento...");
-        } catch (error: any) {
-            console.error("Subscription PIX Definitive Failure:", error);
-            toast.error("Erro ao gerar PIX para assinatura. Tente novamente.");
+            if (res.data && res.data.qr_code) {
+                setPixData(res.data);
+                setPixStatus("waiting");
+                startPolling(res.data.payment_id);
+            } else {
+                throw new Error("Erro ao gerar PIX");
+            }
+        } catch (err: any) {
+            console.error("PIX Checkout Error:", err);
+            toast.error("Erro ao processar PIX. Tente novamente.");
             setPixStatus("idle");
         }
     };

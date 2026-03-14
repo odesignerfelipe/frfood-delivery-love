@@ -8,6 +8,7 @@ import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, L
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { useCustomerOrderNotifications } from "@/hooks/useCustomerOrderNotifications";
+import { generatePixPayload } from "@/lib/pix";
 
 export default function OrderStatus() {
     const { id } = useParams();
@@ -19,6 +20,9 @@ export default function OrderStatus() {
     const [pixPayments, setPixPayments] = useState<any[]>([]);
     const [isGeneratingPix, setIsGeneratingPix] = useState(false);
     const [statusRefreshing, setStatusRefreshing] = useState(false);
+    const [pixPayload, setPixPayload] = useState<string | null>(null);
+    const [pixGenerated, setPixGenerated] = useState(false);
+    const [pixError, setPixError] = useState<string | null>(null);
 
     useCustomerOrderNotifications(order?.id, order?.status);
 
@@ -119,31 +123,35 @@ export default function OrderStatus() {
         }
     };
 
-    const handleGenerateDynamicPix = async () => {
-        if (!order || !store) {
-            toast.error("Dados do pedido ou loja não carregados.");
+    const handleGenerateStaticPix = async () => {
+        if (!order || !store?.pix_key) {
+            toast.error("Chave PIX da loja não configurada.");
             return;
         }
+
         setIsGeneratingPix(true);
-        
+        setPixError(null);
+
         try {
-            await ultraResilientInvoke({
-                functionName: 'pix-order-create',
-                body: {
-                    store_id: store.id,
-                    order_id: order.id,
-                    amount: Number(order.total),
-                    description: `${store.name} - Pedido #${order.order_number}`,
-                }
+            // Normalizing amount to ensure it's a number
+            const amount = Number(order.total);
+
+            // Generating the BRCode payload locally
+            const brCode = generatePixPayload({
+                key: store.pix_key,
+                name: store.name || "FRFood",
+                city: store.city || "Brasil",
+                amount: amount,
+                transactionId: `PEDIDO${order.order_number}`
             });
 
-            console.log("PIX Generated successfully via ultraResilientInvoke");
-            const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
-            setPixPayments(ppx || []);
-            toast.success("PIX Gerado com sucesso!");
+            setPixPayload(brCode);
+            setPixGenerated(true);
+            toast.success("QR Code PIX Gerado!");
         } catch (err: any) {
-            console.error("Definitive PIX Failure:", err);
-            toast.error(err.message || "Erro ao gerar PIX. Verifique sua conexão.");
+            console.error("Static PIX Generation Error:", err);
+            setPixError("Falha ao gerar PIX. Verifique os dados da loja.");
+            toast.error("Erro ao gerar PIX");
         } finally {
             setIsGeneratingPix(false);
         }
@@ -378,12 +386,45 @@ export default function OrderStatus() {
                 {/* Pix Payment Info */}
                 {order.payment_method === 'pix' && !isCancelled && !['delivered', 'picked_up'].includes(order.status) && (
                     <div className="bg-card rounded-2xl p-6 shadow-card border-2 border-primary/20 bg-primary/5 text-center space-y-4">
-                        {pixPayments.length > 0 ? (
+                        {(pixPayments.length > 0 || pixGenerated) ? (
                             <div className="space-y-4">
+                                {/* Show existing payments or the newly generated static one */}
+                                {pixGenerated && !pixPayments.some(p => p.pix_copia_cola === pixPayload) && (
+                                    <div className="p-5 rounded-2xl border-2 bg-white border-primary/20 shadow-sm transition-all">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="font-black text-[10px] uppercase tracking-widest text-muted-foreground">Pagamento PIX</span>
+                                            <Badge className="bg-blue-500">
+                                                AGUARDANDO...
+                                            </Badge>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="bg-white p-3 rounded-2xl inline-block border-2 border-muted/50 shadow-inner">
+                                                <QRCodeSVG value={pixPayload || ""} size={220} level="H" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor a pagar</p>
+                                                <p className="text-2xl font-black text-primary">R$ {order.total.toFixed(2)}</p>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full font-bold gap-2 rounded-xl h-12"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(pixPayload || "");
+                                                    toast.success("Código PIX copiado!");
+                                                }}
+                                            >
+                                                <Copy className="w-4 h-4" /> Copiar Código PIX
+                                            </Button>
+                                            <p className="text-[10px] text-muted-foreground italic font-medium">Após pagar, envie o comprovante para agilizar</p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {pixPayments.map((p, idx) => (
                                     <div key={p.id} className={`p-5 rounded-2xl border-2 transition-all ${p.status === 'paid' ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-primary/20 shadow-sm'}`}>
                                         <div className="flex justify-between items-center mb-4">
-                                            <span className="font-black text-[10px] uppercase tracking-widest text-muted-foreground">Pagamento PIX</span>
+                                            <span className="font-black text-[10px] uppercase tracking-widest text-muted-foreground">Pagamento PIX {pixPayments.length > 1 ? idx + 1 : ''}</span>
                                             <Badge className={p.status === 'paid' ? "bg-emerald-500" : "bg-blue-500 animate-pulse"}>
                                                 {p.status === 'paid' ? "PAGO ✅" : "AGUARDANDO..."}
                                             </Badge>
@@ -421,6 +462,7 @@ export default function OrderStatus() {
                                         )}
                                     </div>
                                 ))}
+
                                 {pixPayments.every(p => p.status !== 'paid') && (
                                     <Button
                                         variant="ghost"
@@ -439,13 +481,14 @@ export default function OrderStatus() {
                                 <div>
                                     <h3 className="font-bold text-lg">Pagar com PIX</h3>
                                     <p className="text-sm text-muted-foreground px-6 mt-1">
-                                        Clique no botão abaixo para gerar seu código PIX dinâmico com confirmação automática.
+                                        Gere o código PIX da loja para realizar o pagamento do seu pedido.
                                     </p>
                                 </div>
+                                {pixError && <p className="text-xs text-destructive font-medium">{pixError}</p>}
                                 <Button
                                     variant="hero"
                                     className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-lg"
-                                    onClick={handleGenerateDynamicPix}
+                                    onClick={handleGenerateStaticPix}
                                     disabled={isGeneratingPix}
                                 >
                                     {isGeneratingPix ? <Clock className="w-5 h-5 animate-spin mr-2" /> : <Zap className="w-5 h-5 mr-2" />}

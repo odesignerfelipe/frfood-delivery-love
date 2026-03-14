@@ -75,11 +75,8 @@ const Orders = () => {
     await supabase.from("orders").update({ status }).eq("id", orderId);
     toast.success("Status atualizado!");
 
-    // Auto-print to kitchen if confirmed
-    if (status === "confirmed" || status === "preparing") {
-      const order = orders.find(o => o.id === orderId);
-      if (order) handleAutoPrint(order);
-    }
+    // Automatic printing removed as per user request to avoid printing during moves in Kanban.
+    // Manual printing is still available via the order card buttons.
 
     fetchOrders();
   };
