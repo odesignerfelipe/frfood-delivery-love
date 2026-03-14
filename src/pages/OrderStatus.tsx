@@ -124,67 +124,75 @@ export default function OrderStatus() {
             return;
         }
         setIsGeneratingPix(true);
+
+        const baseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
+        const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const body = {
+            store_id: store.id,
+            order_id: order.id,
+            amount: Number(order.total),
+            description: `${store.name} - Pedido #${order.order_number}`,
+        };
         
-        try {
-            // Stage 1: Official Supabase Invoke
-            console.log("PIX Stage 1: Attempting invoke...");
-            const { data, error: invokeError } = await supabase.functions.invoke('pix-order-create', {
-                body: {
-                    store_id: store.id,
-                    order_id: order.id,
-                    amount: Number(order.total),
-                    description: `${store.name} - Pedido #${order.order_number}`,
-                }
-            });
-
-            if (!invokeError) {
-                console.log("PIX Stage 1: Success");
-                const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
-                setPixPayments(ppx || []);
-                toast.success("PIX Gerado!");
-                return;
-            }
-
-            console.warn("PIX Stage 1 failed:", invokeError);
-
-            // Stage 2: Direct Fetch with apikey and Authorization (anon)
-            console.log("PIX Stage 2: Attempting direct fetch (fallback-auth)...");
-            const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-            const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-            
-            if (!baseUrl || !key) throw new Error("Configuração VITE_SUPABASE_URL ou KEY ausente.");
-
-            const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-order-create`, {
+        const tryFetch = async (headers: any, label: string) => {
+            console.log(`PIX Attempt: ${label}...`);
+            const res = await fetch(`${baseUrl}/functions/v1/pix-order-create`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': key,
-                    'Authorization': `Bearer ${key}`,
-                },
-                body: JSON.stringify({
-                    store_id: store.id,
-                    order_id: order.id,
-                    amount: Number(order.total),
-                    description: `${store.name} - Pedido #${order.order_number}`,
-                }),
+                headers: { 'Content-Type': 'application/json', ...headers },
+                body: JSON.stringify(body),
             });
+            if (!res.ok) {
+                const txt = await res.text();
+                throw new Error(txt || `Status ${res.status}`);
+            }
+            return await res.json();
+        };
 
-            if (res.ok) {
-                console.log("PIX Stage 2: Success");
+        try {
+            // Attempt 1: Official Invoke
+            try {
+                console.log("PIX Attempt 1: Official Invoke...");
+                const { error } = await supabase.functions.invoke('pix-order-create', { body });
+                if (!error) {
+                    console.log("PIX Attempt 1 Success");
+                    const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
+                    setPixPayments(ppx || []);
+                    toast.success("PIX Gerado!");
+                    return;
+                }
+                console.warn("PIX Attempt 1 failed:", error);
+            } catch (e) { console.warn("PIX Attempt 1 exception:", e); }
+
+            await new Promise(r => setTimeout(r, 1000));
+
+            // Attempt 2: Fetch with apikey + Auth
+            try {
+                await tryFetch({ 'apikey': key, 'Authorization': `Bearer ${key}` }, "Stage 2 (Auth Fallback)");
                 const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
                 setPixPayments(ppx || []);
-                toast.success("PIX Gerado (Fallback)!");
-            } else {
-                const errTxt = await res.text();
-                let parsedError = "Erro desconhecido";
-                try { parsedError = JSON.parse(errTxt).error || JSON.parse(errTxt).message || errTxt; } catch { parsedError = errTxt; }
-                console.error("PIX Stage 2 failed:", res.status, errTxt);
-                throw new Error(parsedError);
-            }
+                toast.success("PIX Gerado (Stage 2)!");
+                return;
+            } catch (e) { console.warn("PIX Attempt 2 failed:", e); }
+
+            await new Promise(r => setTimeout(r, 1000));
+
+            // Attempt 3: Fetch with apikey ONLY
+            try {
+                await tryFetch({ 'apikey': key }, "Stage 3 (Naked Fallback)");
+                const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
+                setPixPayments(ppx || []);
+                toast.success("PIX Gerado (Stage 3)!");
+                return;
+            } catch (e) { console.error("PIX Attempt 3 failed:", e); throw e; }
+
         } catch (err: any) {
-            console.error("Definitive PIX Failure:", err);
-            const msg = err.message || "Erro de conexão";
-            toast.error(`Falha ao gerar PIX: ${msg}`);
+            console.error("All PIX attempts failed:", err);
+            const msg = err.message || "Network Error";
+            if (msg.includes("Load failed") || msg.includes("Failed to fetch")) {
+                toast.error("Erro de conexão (Load failed). Tente usar outro navegador ou conexão.");
+            } else {
+                toast.error(`Falha ao gerar PIX: ${msg}`);
+            }
         } finally {
             setIsGeneratingPix(false);
         }

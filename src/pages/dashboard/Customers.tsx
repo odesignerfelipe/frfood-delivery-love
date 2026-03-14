@@ -125,17 +125,46 @@ const Customers = () => {
         }
     };
 
+    const [sortBy, setSortBy] = useState<"name" | "orders_desc" | "orders_asc" | "recent" | "oldest">("recent");
+
     const filtered = useMemo(() => {
-        if (!search.trim()) return customers;
-        const q = search.toLowerCase();
-        return customers.filter(
-            (c) =>
-                c.name.toLowerCase().includes(q) ||
-                c.phone.toLowerCase().includes(q) ||
-                (c.address || "").toLowerCase().includes(q) ||
-                (c.neighborhood || "").toLowerCase().includes(q)
-        );
-    }, [customers, search]);
+        let result = [...customers];
+        
+        if (search.trim()) {
+            const q = search.toLowerCase();
+            result = result.filter(
+                (c) =>
+                    c.name.toLowerCase().includes(q) ||
+                    c.phone.toLowerCase().includes(q) ||
+                    (c.address || "").toLowerCase().includes(q) ||
+                    (c.neighborhood || "").toLowerCase().includes(q)
+            );
+        }
+
+        // Apply Sorting
+        result.sort((a, b) => {
+            switch (sortBy) {
+                case "name":
+                    return a.name.localeCompare(b.name);
+                case "orders_desc":
+                    return (b.total_orders || 0) - (a.total_orders || 0);
+                case "orders_asc":
+                    return (a.total_orders || 0) - (b.total_orders || 0);
+                case "recent":
+                    return new Date(b.last_order_at || 0).getTime() - new Date(a.last_order_at || 0).getTime();
+                case "oldest":
+                    const dateA = a.last_order_at ? new Date(a.last_order_at).getTime() : 0;
+                    const dateB = b.last_order_at ? new Date(b.last_order_at).getTime() : 0;
+                    if (dateA === 0) return 1;
+                    if (dateB === 0) return -1;
+                    return dateA - dateB;
+                default:
+                    return 0;
+            }
+        });
+
+        return result;
+    }, [customers, search, sortBy]);
 
     const exportCSV = () => {
         if (filtered.length === 0) {
@@ -183,14 +212,31 @@ const Customers = () => {
                 </div>
             </div>
 
-            <div className="relative mb-4 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                    placeholder="Buscar cliente por nome, telefone..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-9"
-                />
+            <div className="flex flex-col sm:flex-row gap-4 mb-4 items-start sm:items-center justify-between">
+                <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Buscar cliente por nome, telefone..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-9"
+                    />
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Label className="text-xs font-bold uppercase text-muted-foreground whitespace-nowrap">Ordenar por:</Label>
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="bg-background border border-input rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                        <option value="recent">Mais Recentes</option>
+                        <option value="oldest">Mais Antigos</option>
+                        <option value="orders_desc">Mais Pedidos</option>
+                        <option value="orders_asc">Menos Pedidos</option>
+                        <option value="name">Ordem Alfabética</option>
+                    </select>
+                </div>
             </div>
 
             <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
