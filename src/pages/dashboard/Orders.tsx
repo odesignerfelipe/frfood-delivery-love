@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/hooks/useStore";
 import { printerService } from "@/lib/printer";
@@ -7,9 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Clock, Check, ChefHat, Truck, X, Printer, GripVertical, Store } from "lucide-react";
+import { Clock, Check, ChefHat, Truck, X, Printer, GripVertical, Store, Plus, ChevronDown, ShoppingBag } from "lucide-react";
 import { format, isToday, isThisWeek, isThisMonth, isThisYear, parseISO, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const columns = [
   { id: "pending", label: "Pendente", icon: Clock, color: "border-yellow-400 bg-yellow-50" },
@@ -24,6 +26,7 @@ const columns = [
 
 const Orders = () => {
   const { store } = useStore();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [dragging, setDragging] = useState<string | null>(null);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
@@ -31,6 +34,7 @@ const Orders = () => {
   const [viewMode, setViewMode] = useState<"kanban" | "history">("kanban");
   const [historyFilter, setHistoryFilter] = useState<"today" | "week" | "month" | "year" | "all">("today");
   const [printerSettings, setPrinterSettings] = useState<any[]>([]);
+  const [isManualOrderOpen, setIsManualOrderOpen] = useState(false);
 
   // Cancellation modal state
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -255,6 +259,98 @@ const Orders = () => {
     }
   };
 
+  const handlePrintAction = async (order: any, mode: 'manual' | 'auto') => {
+    let itemsToPrint = orderItems[order.id];
+    if (!itemsToPrint) {
+      const { data } = await supabase.from("order_items").select("*").eq("order_id", order.id);
+      itemsToPrint = data || [];
+      setOrderItems((prev) => ({ ...prev, [order.id]: data || [] }));
+    }
+
+    const paymentLabels: Record<string, string> = {
+      pix: "PIX",
+      dinheiro: "Dinheiro",
+      cartao_credito: "Cartão de Crédito",
+      cartao_debito: "Cartão de Débito",
+    };
+    const paymentLabel = order.payment_method ? (paymentLabels[order.payment_method] || order.payment_method.toUpperCase()) : "";
+
+    const renderItemVariations = (item: any) => {
+      const vars = item.variations;
+      if (!vars || !Array.isArray(vars) || vars.length === 0) return "";
+      return vars.map((v: any) => `
+        <div class="item-variation">${v.group}: ${Array.isArray(v.selected) ? v.selected.map((s: any) => s.name).join(", ") : v.selected}</div>
+      `).join('');
+    };
+
+    const printContent = `
+      <html>
+      <head>
+        <style>
+          body { font-family: 'Courier New', Courier, monospace; width: 280px; margin: 0; padding: 10px; font-size: 12px; }
+          .text-center { text-align: center; }
+          .bold { font-weight: bold; }
+          .mb-1 { margin-bottom: 4px; }
+          .hr { border-top: 1px dashed #000; margin: 8px 0; }
+          .row { display: flex; justify-content: space-between; }
+          .total { font-size: 14px; font-weight: bold; margin-top: 4px; }
+          .item-row { margin-bottom: 4px; }
+          .item-line { display: flex; justify-content: space-between; }
+          .item-variation { font-size: 10px; color: #444; padding-left: 10px; }
+          .item-note { font-size: 10px; font-style: italic; color: #666; padding-left: 10px; }
+        </style>
+      </head>
+      <body>
+        <h2 class="text-center mb-1">${store?.name || 'Recibo'}</h2>
+        <p class="text-center mb-1">PEDIDO #${order.order_number}</p>
+        <p class="text-center mb-1">${format(new Date(order.created_at), "dd/MM/yyyy HH:mm")}</p>
+        <div class="hr"></div>
+        <p class="bold mb-1">CLIENTE: ${order.customer_name || 'Consumidor'}</p>
+        ${order.delivery_type === 'table' ? `<p class="bold mb-1">MESA: ${order.table?.name || '---'}</p>` : ''}
+        <div class="hr"></div>
+        <p class="bold mb-1">ITENS DO PEDIDO:</p>
+        ${itemsToPrint.map((item: any) => `
+          <div class="item-row">
+            <div class="item-line">
+              <span class="item-name">${item.quantity}x ${item.product_name}</span>
+              <span>R$ ${item.subtotal.toFixed(2)}</span>
+            </div>
+            ${renderItemVariations(item)}
+            ${item.notes ? `<div class="item-note">Obs: ${item.notes}</div>` : ""}
+          </div>
+        `).join('')}
+        ${order.notes ? `
+          <div class="hr"></div>
+          <p class="bold mb-1">OBSERVAÇÕES DO PEDIDO:</p>
+          <p class="mb-1">${order.notes}</p>
+        ` : ""}
+        <div class="hr"></div>
+        <div class="row"><span>Subtotal</span><span>R$ ${order.subtotal.toFixed(2)}</span></div>
+        ${order.discount > 0 ? `<div class="row"><span>Desconto</span><span>-R$ ${order.discount.toFixed(2)}</span></div>` : ""}
+        ${order.delivery_fee > 0 ? `<div class="row"><span>Taxa Entrega</span><span>R$ ${order.delivery_fee.toFixed(2)}</span></div>` : ""}
+        <div class="row total"><span>TOTAL</span><span>R$ ${order.total.toFixed(2)}</span></div>
+        <div class="hr"></div>
+        ${paymentLabel ? `<p class="bold text-center">PAGAMENTO: ${paymentLabel}</p>` : ""}
+      </body></html>
+    `;
+
+    if (mode === 'auto') {
+      const cashierPrinter = printerSettings.find(s => s.type === 'cashier');
+      if (cashierPrinter) {
+        await printerService.printHTML(cashierPrinter.identifier, printContent);
+      } else {
+        toast.error("Nenhuma impressora configurada para o caixa.");
+      }
+    } else {
+      const win = window.open("", "_blank", "width=350,height=600");
+      if (win) {
+        win.document.write(printContent);
+        win.document.close();
+        win.print();
+      }
+    }
+  };
+
   const handleAutoPrint = async (order: any) => {
     let items = orderItems[order.id];
     if (!items) {
@@ -319,21 +415,19 @@ const Orders = () => {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-        <h2 className="text-2xl font-bold text-foreground">Pedidos</h2>
-        <div className="flex bg-muted rounded-lg p-1">
-          <button
-            onClick={() => setViewMode("kanban")}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === "kanban" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            Kanban Visual
-          </button>
-          <button
-            onClick={() => setViewMode("history")}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === "history" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            Histórico & Lista
-          </button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Gestão de Pedidos</h1>
+          <p className="text-muted-foreground">Monitore e gerencie todos os pedidos em tempo real.</p>
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="hero" className="flex-1 sm:flex-none shadow-sm h-11" onClick={() => navigate("/dashboard")}>
+            <Plus className="w-4 h-4 mr-2" /> Novo Pedido (Manual)
+          </Button>
+          <div className="flex bg-muted p-1 rounded-lg">
+            <Button variant={viewMode === "kanban" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("kanban")} className="rounded-md">Kanban</Button>
+            <Button variant={viewMode === "history" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("history")} className="rounded-md">Histórico</Button>
+          </div>
         </div>
       </div>
 
@@ -353,7 +447,6 @@ const Orders = () => {
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 placeholder="Ex: Ingrediente indisponível, loja fechando, pedido duplicado..."
-                rows={3}
                 autoFocus
               />
             </div>
@@ -446,9 +539,21 @@ const Orders = () => {
                             <p className="text-xs text-muted-foreground">🚚 Taxa de entrega: R$ {Number(order.delivery_fee).toFixed(2)}</p>
                           )}
                           <div className="flex gap-1 flex-wrap pt-1">
-                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); handlePrint(order); }}>
-                              <Printer className="w-3 h-3 mr-1" /> Imprimir
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-7 text-xs">
+                                  <Printer className="w-3 h-3 mr-1" /> Imprimir
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                <DropdownMenuItem onClick={() => handlePrintAction(order, 'manual')}>
+                                  🖥️ Manual (Navegador)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handlePrintAction(order, 'auto')}>
+                                  🖨️ Automática (Impressora)
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                             {col.id !== "cancelled" && col.id !== "delivered" && col.id !== "picked_up" && (
                               <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={(e) => { e.stopPropagation(); openCancelModal(order.id); }}>
                                 <X className="w-3 h-3 mr-1" /> Cancelar
@@ -546,9 +651,21 @@ const Orders = () => {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handlePrint(order)}>
-                          <Printer className="w-3 h-3 mr-1" /> Imprimir
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 text-xs">
+                              <Printer className="w-3 h-3 mr-1" /> Imprimir
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handlePrintAction(order, 'manual')}>
+                              🖥️ Manual (Navegador)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handlePrintAction(order, 'auto')}>
+                              🖨️ Automática (Impressora)
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   );

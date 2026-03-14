@@ -3,7 +3,8 @@ import { useOrderNotifications } from "@/hooks/useOrderNotifications";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ShoppingBag, Package, DollarSign, TrendingUp, Bell, Plus, Eye, Pencil, Power, Wallet, ArrowRight, User, Clock, LayoutDashboard, Calculator, Receipt, Smartphone, Table2, Search, Minus, Trash2, Send, Check } from "lucide-react";
+import { ShoppingBag, Package, DollarSign, TrendingUp, Bell, Plus, Eye, Pencil, Power, Wallet, ArrowRight, User, Clock, LayoutDashboard, Calculator, Receipt, Smartphone, Table2, Search, Minus, Trash2, Send, Check, Printer, ChevronDown, Copy } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { printerService } from "@/lib/printer";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const DashboardHome = () => {
   const { store, updateStore } = useStore();
@@ -40,6 +42,8 @@ const DashboardHome = () => {
   const [activeComanda, setActiveComanda] = useState<any>(null);
   const [comandaOrders, setComandaOrders] = useState<any[]>([]);
   const [isLoadingComanda, setIsLoadingComanda] = useState(false);
+  const [pixPayments, setPixPayments] = useState<any[]>([]);
+  const [isGeneratingPix, setIsGeneratingPix] = useState(false);
 
   // Product Launching State
   const [isLaunching, setIsLaunching] = useState(false);
@@ -75,24 +79,17 @@ const DashboardHome = () => {
   const fetchStats = useCallback(async () => {
     if (!store) return;
     const todayStr = new Date().toISOString().split("T")[0];
-    const [ordersRes, productsRes, todayRes, recentRes, sessionRes, tablesRes, waitersRes, printerSettingsRes] = await Promise.all([
-      supabase.from("orders").select("id, total").eq("store_id", store.id),
-      supabase.from("products").select("id").eq("store_id", store.id),
-      supabase.from("orders").select("id, total, delivery_type, status, payment_method").eq("store_id", store.id).gte("created_at", todayStr),
+    const [statsRes, recentRes, sessionRes, tablesRes, waitersRes, lowStockRes, printerSettingsRes] = await Promise.all([
+      supabase.rpc("get_store_stats", { store_id: store.id }),
       supabase.from("orders").select("*, table:tables(name), waiter:waiters(name)").eq("store_id", store.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("cashier_sessions").select("*").eq("store_id", store.id).eq("status", "open").maybeSingle(),
-      supabase.from("tables").select("*, comandas(id, status, table_id)").eq("store_id", store.id).order("name"),
+      supabase.from("tables").select("*").eq("store_id", store.id).order("name"),
       supabase.from("waiters").select("*").eq("store_id", store.id).eq("is_active", true),
-      supabase.from("printer_settings").select("*").eq("store_id", store.id).eq("is_active", true),
       supabase.from("inventory_items").select("*").eq("store_id", store.id),
+      supabase.from("printer_settings").select("*").eq("store_id", store.id).eq("is_active", true)
     ]);
 
-    setStats({
-      orders: ordersRes.data?.length || 0,
-      products: productsRes.data?.length || 0,
-      revenue: todayRes.data?.reduce((s, o) => s + (o.total || 0), 0) || 0,
-      todayOrders: todayRes.data?.length || 0,
-    });
+    setStats(statsRes.data || { orders: 0, products: 0, revenue: 0, todayOrders: 0 });
     setRecentOrders(recentRes.data || []);
     setActiveSession(sessionRes.data);
     setTables(tablesRes.data || []);
@@ -100,7 +97,7 @@ const DashboardHome = () => {
     setPrinterSettings(printerSettingsRes.data || []);
     
     // Calculate low stock items
-    const inventory = inventoryRes.data || [];
+    const inventory = lowStockRes.data || [];
     setLowStockItems(inventory.filter((item: any) => item.current_stock <= item.min_stock));
   }, [store]);
 
@@ -1074,12 +1071,94 @@ const DashboardHome = () => {
               </div>
             )}
 
+            {paymentMethod === 'pix' && (
+              <div className="bg-muted/50 p-4 rounded-2xl border border-border/50 space-y-4 animate-in slide-in-from-top-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">PIX Automático</span>
+                  {pixPayments.length > 0 && pixPayments.every(p => p.status === 'paid') && (
+                    <Badge className="bg-emerald-500 text-white border-none py-0.5">✅ PAGO</Badge>
+                  )}
+                </div>
+
+                {pixPayments.length > 0 ? (
+                  <div className="space-y-3">
+                    {pixPayments.map((p, idx) => (
+                      <div key={p.id} className={`p-3 rounded-xl border-2 transition-all ${p.status === 'paid' ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'}`}>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-bold text-xs uppercase">Pagamento {idx + 1}/{pixPayments.length}</span>
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${p.status === 'paid' ? 'bg-emerald-200 text-emerald-700' : 'bg-blue-200 text-blue-700 animate-pulse'}`}>
+                            {p.status === 'paid' ? 'Confirmado' : 'Aguardando'}
+                          </span>
+                        </div>
+                        {!p.status || p.status === 'pending' ? (
+                          <div className="space-y-2">
+                            <div className="bg-white p-2 rounded-lg w-32 h-32 mx-auto border shadow-sm flex items-center justify-center">
+                              <QRCodeSVG value={p.pix_copia_cola} size={120} level="H" />
+                            </div>
+                            <Button
+                              variant="outline" size="sm" className="w-full text-[10px] h-8 font-bold gap-2"
+                              onClick={() => { navigator.clipboard.writeText(p.pix_copia_cola); toast.success("Código PIX copiado!"); }}
+                            >
+                              <Copy className="w-3 h-3" /> Copiar Código
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-center text-emerald-600 font-bold uppercase py-4 italic">Confirmado via Webhook</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full h-12 rounded-xl border-dashed border-2 hover:border-emerald-500 hover:text-emerald-500 transition-colors"
+                    onClick={async () => {
+                      setIsGeneratingPix(true);
+                      try {
+                        const amount = Math.max(0, comandaOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0) - Number(discount));
+                        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pix-order-create`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                          },
+                          body: JSON.stringify({
+                            store_id: store!.id,
+                            comanda_id: activeComanda.id,
+                            amount: Number(amount.toFixed(2)),
+                            description: `${store?.name} - Mesa ${selectedTable?.name}`,
+                          }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error);
+                        const { data: updatedPix } = await supabase.from("order_payments").select("*").eq("comanda_id", activeComanda.id).eq("payment_method", "pix");
+                        setPixPayments(updatedPix || []);
+                        toast.success("PIX Dinâmico Gerado!");
+                      } catch (err: any) {
+                        toast.error(err.message || "Erro ao gerar PIX");
+                      } finally {
+                        setIsGeneratingPix(false);
+                      }
+                    }}
+                    disabled={isGeneratingPix}
+                  >
+                    {isGeneratingPix ? <Clock className="w-4 h-4 animate-spin mr-2" /> : <Smartphone className="w-4 h-4 mr-2" />}
+                    Gerar PIX Dinâmico
+                  </Button>
+                )}
+              </div>
+            )}
+
             <Button
               className="w-full h-16 text-lg font-black uppercase tracking-tighter bg-emerald-500 hover:bg-emerald-600 shadow-xl shadow-emerald-500/20 rounded-2xl"
               onClick={handleCloseBill}
-              disabled={isClosingComanda}
+              disabled={isClosingComanda || (paymentMethod === 'pix' && pixPayments.length > 0 && !pixPayments.every(p => p.status === 'paid'))}
             >
-              {isClosingComanda ? <Clock className="w-6 h-6 animate-spin" /> : "Confirmar Recebimento"}
+              {isClosingComanda ? <Clock className="w-6 h-6 animate-spin" /> : (
+                paymentMethod === 'pix' && pixPayments.length > 0 && pixPayments.every(p => p.status === 'paid')
+                  ? "Finalizar (Pago no PIX)"
+                  : "Confirmar Recebimento"
+              )}
             </Button>
           </div>
         </DialogContent>
@@ -1098,9 +1177,28 @@ const DashboardHome = () => {
           </div>
           <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Vendas Hoje</p>
           <p className="text-3xl font-black text-foreground">{formatCurrency(stats.revenue)}</p>
-          <div className="mt-4 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            Em tempo real
+          <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Em tempo real
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-[10px] font-black uppercase tracking-tighter rounded-lg border-emerald-500/30 text-emerald-600 hover:bg-emerald-50"
+              onClick={() => {
+                setSelectedTable(null);
+                setActiveComanda(null);
+                setComandaOrders([]);
+                setIsLaunching(true);
+                setCart([]);
+                setSearch("");
+                setPosCustomerName("");
+                setPosCustomerPhone("");
+              }}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" /> Venda Rápida
+            </Button>
           </div>
         </div>
 

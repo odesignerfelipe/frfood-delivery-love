@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, Link2, XCircle, AlertTriangle, QrCode, Zap, ChevronLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Clock, MapPin, CheckCircle2, MessageCircle, ShoppingBag, Store, Copy, Link2, XCircle, AlertTriangle, QrCode, Zap, ChevronLeft, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { useCustomerOrderNotifications } from "@/hooks/useCustomerOrderNotifications";
-import { generatePixPayload, isPixExpired, getPixRemainingTime } from "@/lib/pix";
 
 export default function OrderStatus() {
     const { id } = useParams();
@@ -15,7 +15,9 @@ export default function OrderStatus() {
     const [loading, setLoading] = useState(true);
     const [otherActiveOrders, setOtherActiveOrders] = useState<any[]>([]);
     const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
-    const [pixRefreshedAt, setPixRefreshedAt] = useState<string | null>(localStorage.getItem(`pix_refresh_${id}`));
+    const [pixPayments, setPixPayments] = useState<any[]>([]);
+    const [isGeneratingPix, setIsGeneratingPix] = useState(false);
+    const [statusRefreshing, setStatusRefreshing] = useState(false);
 
     useCustomerOrderNotifications(order?.id, order?.status);
 
@@ -23,12 +25,20 @@ export default function OrderStatus() {
         fetchOrder();
 
         const channel = supabase
-            .channel("order-updates")
+            .channel(`order-updates-${id}`)
             .on(
                 "postgres_changes",
                 { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${id}` },
                 (payload) => {
                     setOrder((prev: any) => ({ ...prev, ...payload.new }));
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "order_payments", filter: `order_id=eq.${id}` },
+                async () => {
+                    const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", id).eq("payment_method", "pix");
+                    setPixPayments(ppx || []);
                 }
             )
             .subscribe();
@@ -100,30 +110,41 @@ export default function OrderStatus() {
             }
         }
         setLoading(false);
+
+        // Fetch PIX payments if payment method is pix
+        if (o && o.payment_method === 'pix') {
+            const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", o.id).eq("payment_method", "pix");
+            setPixPayments(ppx || []);
+        }
     };
 
-    // PIX Countdown timer
-    useEffect(() => {
-        if (!order || order.payment_method !== 'pix') return;
-
-        const baseTime = pixRefreshedAt || order.created_at;
-
-        const updateTimer = () => {
-            const time = getPixRemainingTime(baseTime, 1);
-            setRemainingSeconds(time);
-        };
-
-        updateTimer();
-        const interval = setInterval(updateTimer, 1000);
-
-        return () => clearInterval(interval);
-    }, [order, pixRefreshedAt]);
-
-    const handleRenewPix = () => {
-        const now = new Date().toISOString();
-        setPixRefreshedAt(now);
-        localStorage.setItem(`pix_refresh_${id}`, now);
-        toast.success("QR Code renovado por mais 1 hora!");
+    const handleGenerateDynamicPix = async () => {
+        if (!order || !store) return;
+        setIsGeneratingPix(true);
+        try {
+            const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pix-order-create`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                },
+                body: JSON.stringify({
+                    store_id: store.id,
+                    order_id: order.id,
+                    amount: Number(order.total),
+                    description: `${store.name} - Pedido #${order.order_number}`,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
+            setPixPayments(ppx || []);
+            toast.success("PIX Gerado com sucesso!");
+        } catch (err: any) {
+            toast.error(err.message || "Erro ao gerar PIX");
+        } finally {
+            setIsGeneratingPix(false);
+        }
     };
 
     const formatTime = (seconds: number) => {
@@ -224,16 +245,7 @@ export default function OrderStatus() {
         );
     };
 
-    const isExpired = isPixExpired(pixRefreshedAt || order.created_at);
-    const pixPayload = order.payment_method === 'pix' && store.pix_key
-        ? generatePixPayload({
-            key: store.pix_key,
-            name: store.name,
-            city: store.city || '',
-            amount: order.total,
-            transactionId: order.order_number.toString()
-        })
-        : '';
+
 
     return (
         <div className="min-h-screen bg-muted/50 pb-24">
@@ -378,90 +390,85 @@ export default function OrderStatus() {
                 )}
 
                 {/* Pix Payment Info */}
-                {order.payment_method === 'pix' &&
-                    store.pix_key &&
-                    !isCancelled &&
-                    !['delivered', 'picked_up'].includes(order.status) && (
-                        <div className="bg-card rounded-2xl p-6 shadow-card border-2 border-primary/20 bg-primary/5 text-center space-y-4">
-                            {isExpired ? (
-                                <div className="py-4 space-y-3">
-                                    <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">
-                                        <AlertTriangle className="w-6 h-6 text-yellow-600" />
-                                    </div>
-                                    <h3 className="font-bold text-foreground">QR Code Expirado</h3>
-                                    <p className="text-xs text-muted-foreground px-4">
-                                        Por segurança, este QR Code expirou (validade de 1 hora).
-                                        Se você já realizou o pagamento, aguarde a confirmação do restaurante.
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-2 mt-2">
-                                        <Button
-                                            variant="hero"
-                                            onClick={handleRenewPix}
-                                        >
-                                            <Zap className="w-4 h-4 mr-1" />
-                                            Novo QR Code
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}`, "_blank")}
-                                        >
-                                            Falar com a Loja
-                                        </Button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                                        <QrCode className="w-6 h-6 text-primary" />
-                                    </div>
-
-                                    <div>
-                                        <h3 className="font-bold text-foreground">Pagamento via PIX</h3>
-                                        <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
-                                            Expira em: <span className="font-mono font-bold text-primary">{remainingSeconds !== null ? formatTime(remainingSeconds) : '--:--'}</span>
-                                        </p>
-                                    </div>
-
-                                    {/* QR Code */}
-                                    <div className="bg-white p-4 rounded-2xl inline-block shadow-sm">
-                                        <QRCodeSVG value={pixPayload} size={200} />
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <div>
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 text-center">Código Pix Copia e Cola</p>
-                                            <div className="relative group">
-                                                <button
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(pixPayload);
-                                                        toast.success("Código PIX copiado!");
-                                                    }}
-                                                    className="w-full p-3 bg-muted/50 rounded-xl text-xs font-mono break-all text-left border border-border group-hover:border-primary/30 transition-colors pr-10"
-                                                >
-                                                    <span className="line-clamp-2">{pixPayload}</span>
-                                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-background p-1.5 rounded-lg border shadow-sm">
-                                                        <Copy className="w-3.5 h-3.5 text-primary" />
-                                                    </div>
-                                                </button>
-                                            </div>
+                {order.payment_method === 'pix' && !isCancelled && !['delivered', 'picked_up'].includes(order.status) && (
+                    <div className="bg-card rounded-2xl p-6 shadow-card border-2 border-primary/20 bg-primary/5 text-center space-y-4">
+                        {pixPayments.length > 0 ? (
+                            <div className="space-y-4">
+                                {pixPayments.map((p, idx) => (
+                                    <div key={p.id} className={`p-5 rounded-2xl border-2 transition-all ${p.status === 'paid' ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-primary/20 shadow-sm'}`}>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="font-black text-[10px] uppercase tracking-widest text-muted-foreground">Pagamento PIX</span>
+                                            <Badge className={p.status === 'paid' ? "bg-emerald-500" : "bg-blue-500 animate-pulse"}>
+                                                {p.status === 'paid' ? "PAGO ✅" : "AGUARDANDO..."}
+                                            </Badge>
                                         </div>
 
-                                        <Button
-                                            variant="hero"
-                                            className="w-full font-bold shadow-lg h-12"
-                                            onClick={() => {
-                                                const text = `Olá! Acabei de fazer o pedido #${order.order_number} no valor de R$ ${order.total.toFixed(2)} e este é o comprovante do PIX.`;
-                                                window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`, "_blank");
-                                            }}
-                                        >
-                                            <MessageCircle className="w-4 h-4 mr-2" />
-                                            Enviar Comprovante
-                                        </Button>
+                                        {p.status !== 'paid' ? (
+                                            <div className="space-y-4">
+                                                <div className="bg-white p-3 rounded-2xl inline-block border-2 border-muted/50 shadow-inner">
+                                                    <QRCodeSVG value={p.pix_copia_cola} size={220} level="H" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor a pagar</p>
+                                                    <p className="text-2xl font-black text-primary">R$ {p.amount.toFixed(2)}</p>
+                                                </div>
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full font-bold gap-2 rounded-xl h-12"
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(p.pix_copia_cola);
+                                                        toast.success("Código PIX copiado!");
+                                                    }}
+                                                >
+                                                    <Copy className="w-4 h-4" /> Copiar Código PIX
+                                                </Button>
+                                                <p className="text-[10px] text-muted-foreground italic font-medium">A confirmação é automática após o pagamento</p>
+                                            </div>
+                                        ) : (
+                                            <div className="py-6 space-y-2">
+                                                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                                                    <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                                                </div>
+                                                <p className="font-bold text-emerald-600">Pagamento Recebido!</p>
+                                                <p className="text-xs text-muted-foreground">Seu pedido já foi liberado para produção.</p>
+                                            </div>
+                                        )}
                                     </div>
-                                </>
-                            )}
-                        </div>
-                    )}
+                                ))}
+                                {pixPayments.every(p => p.status !== 'paid') && (
+                                    <Button
+                                        variant="ghost"
+                                        className="w-full text-xs font-bold gap-2 text-muted-foreground"
+                                        onClick={() => window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}`, "_blank")}
+                                    >
+                                        <MessageCircle className="w-4 h-4" /> Problemas com o pagamento?
+                                    </Button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="py-6 space-y-4">
+                                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                                    <QrCode className="w-8 h-8 text-primary" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-lg">Pagar com PIX</h3>
+                                    <p className="text-sm text-muted-foreground px-6 mt-1">
+                                        Clique no botão abaixo para gerar seu código PIX dinâmico com confirmação automática.
+                                    </p>
+                                </div>
+                                <Button
+                                    variant="hero"
+                                    className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-lg"
+                                    onClick={handleGenerateDynamicPix}
+                                    disabled={isGeneratingPix}
+                                >
+                                    {isGeneratingPix ? <Clock className="w-5 h-5 animate-spin mr-2" /> : <Zap className="w-5 h-5 mr-2" />}
+                                    Gerar QR Code PIX
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Copy Link */}
                 <div className="bg-card rounded-2xl p-4 shadow-card border border-border/50">
