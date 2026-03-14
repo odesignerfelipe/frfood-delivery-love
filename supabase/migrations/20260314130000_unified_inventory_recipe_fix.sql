@@ -67,6 +67,8 @@ CREATE POLICY "Admin inventory_items manage" ON public.inventory_items FOR ALL U
 CREATE POLICY "Public product_recipe_items viewable" ON public.product_recipe_items FOR SELECT USING (true);
 CREATE POLICY "Admin product_recipe_items manage" ON public.product_recipe_items FOR ALL USING (EXISTS (
     SELECT 1 FROM public.products p WHERE p.id = product_id AND public.is_store_owner(p.store_id)
+)) WITH CHECK (EXISTS (
+    SELECT 1 FROM public.products p WHERE p.id = product_id AND public.is_store_owner(p.store_id)
 ));
 
 CREATE POLICY "Public stock_movements viewable" ON public.stock_movements FOR SELECT USING (true);

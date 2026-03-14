@@ -417,21 +417,49 @@ const Orders = () => {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Gestão de Pedidos</h1>
-          <p className="text-muted-foreground">Monitore e gerencie todos os pedidos em tempo real.</p>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto ml-auto">
-          <Button variant="hero" className="flex-1 sm:flex-none shadow-sm h-11" onClick={() => setIsManualOrderOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" /> Novo Pedido (Manual)
-          </Button>
-          <div className="flex bg-muted p-1 rounded-lg">
-            <Button variant={viewMode === "kanban" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("kanban")} className="rounded-md">Kanban</Button>
-            <Button variant={viewMode === "history" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("history")} className="rounded-md">Histórico</Button>
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8 bg-card/30 p-4 rounded-2xl border border-border/50">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 flex-1">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Pedidos</h1>
+            <p className="text-xs text-muted-foreground">Gestão em tempo real</p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="hero" className="shadow-sm h-10 px-4 text-xs" onClick={() => setIsManualOrderOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" /> Novo Pedido (Manual)
+            </Button>
+            
+            <div className="flex bg-muted p-1 rounded-lg border border-border/50">
+              <Button 
+                variant={viewMode === "kanban" ? "secondary" : "ghost"} 
+                size="sm" 
+                onClick={() => setViewMode("kanban")} 
+                className={`h-8 text-xs px-3 ${viewMode === "kanban" ? "shadow-sm" : ""}`}
+              >
+                Kanban
+              </Button>
+              <Button 
+                variant={viewMode === "history" ? "secondary" : "ghost"} 
+                size="sm" 
+                onClick={() => setViewMode("history")} 
+                className={`h-8 text-xs px-3 ${viewMode === "history" ? "shadow-sm" : ""}`}
+              >
+                Histórico
+              </Button>
+            </div>
           </div>
         </div>
 
+        <div className="flex items-center gap-3 w-full lg:w-auto">
+          <Button 
+            variant="default" 
+            className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 h-11 px-6 rounded-xl font-bold flex-1 lg:flex-none mr-2"
+            onClick={() => navigate("/dashboard")}
+          >
+            <ShoppingBag className="w-5 h-5 mr-2" />
+            Venda Rápida (PDV)
+          </Button>
+        </div>
       </div>
 
       {/* Cancel Order Modal */}
