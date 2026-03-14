@@ -119,7 +119,10 @@ export default function OrderStatus() {
     };
 
     const handleGenerateDynamicPix = async () => {
-        if (!order || !store) return;
+        if (!order || !store) {
+            toast.error("Dados do pedido ou loja não carregados.");
+            return;
+        }
         setIsGeneratingPix(true);
         
         try {
@@ -144,18 +147,19 @@ export default function OrderStatus() {
 
             console.warn("PIX Stage 1 failed:", invokeError);
 
-            // Stage 2: Direct Fetch with apikey only (bypass potential JWT/Auth issues)
-            console.log("PIX Stage 2: Attempting direct fetch (no-auth)...");
+            // Stage 2: Direct Fetch with apikey and Authorization (anon)
+            console.log("PIX Stage 2: Attempting direct fetch (fallback-auth)...");
             const baseUrl = import.meta.env.VITE_SUPABASE_URL;
             const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
             
-            if (!baseUrl || !key) throw new Error("Configuração ausente.");
+            if (!baseUrl || !key) throw new Error("Configuração VITE_SUPABASE_URL ou KEY ausente.");
 
             const res = await fetch(`${baseUrl.replace(/\/$/, '')}/functions/v1/pix-order-create`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'apikey': key,
+                    'Authorization': `Bearer ${key}`,
                 },
                 body: JSON.stringify({
                     store_id: store.id,
@@ -169,15 +173,18 @@ export default function OrderStatus() {
                 console.log("PIX Stage 2: Success");
                 const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
                 setPixPayments(ppx || []);
-                toast.success("PIX Gerado!");
+                toast.success("PIX Gerado (Fallback)!");
             } else {
                 const errTxt = await res.text();
+                let parsedError = "Erro desconhecido";
+                try { parsedError = JSON.parse(errTxt).error || JSON.parse(errTxt).message || errTxt; } catch { parsedError = errTxt; }
                 console.error("PIX Stage 2 failed:", res.status, errTxt);
-                throw new Error("Falha na comunicação com o servidor de pagamentos.");
+                throw new Error(parsedError);
             }
         } catch (err: any) {
             console.error("Definitive PIX Failure:", err);
-            toast.error("Erro ao gerar PIX. Verifique sua conexão ou tente novamente.");
+            const msg = err.message || "Erro de conexão";
+            toast.error(`Falha ao gerar PIX: ${msg}`);
         } finally {
             setIsGeneratingPix(false);
         }
