@@ -39,6 +39,7 @@ const Products = () => {
     image_url: "",
     manage_stock: false,
     stock_quantity: 0,
+    recipe: [] as any[],
   });
   const [variations, setVariations] = useState<Variation[]>([]);
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
@@ -140,11 +141,30 @@ const Products = () => {
     setOpen(false);
     resetForm();
     fetchAll();
+
+    // Save recipe items after product is saved/updated
+    if (productId) {
+      try {
+        await supabase.from("product_recipe_items").delete().eq("product_id", productId);
+        const toInsert = form.recipe
+          .filter((ri: any) => ri.inventory_item_id)
+          .map((ri: any) => ({
+            product_id: productId,
+            inventory_item_id: ri.inventory_item_id,
+            quantity: ri.quantity
+          }));
+        if (toInsert.length > 0) {
+          await supabase.from("product_recipe_items").insert(toInsert);
+        }
+      } catch (err: any) {
+        console.error("Error saving recipe:", err);
+      }
+    }
   };
 
   const resetForm = () => {
     setEditing(null);
-    setForm({ name: "", description: "", price: 0, promotional_price: 0, serves_people: 0, category_id: "", is_active: true, is_sold_out: false, image_url: "", manage_stock: false, stock_quantity: 0 });
+    setForm({ name: "", description: "", price: 0, promotional_price: 0, serves_people: 0, category_id: "", is_active: true, is_sold_out: false, image_url: "", manage_stock: false, stock_quantity: 0, recipe: [] });
     setVariations([]);
   };
 
@@ -169,7 +189,12 @@ const Products = () => {
       manage_stock: p.manage_stock || false,
       stock_quantity: p.stock_quantity || 0,
       image_url: p.image_url || "",
+      recipe: [],
     });
+
+    const { data: recipeData } = await supabase.from("product_recipe_items").select("*").eq("product_id", p.id);
+    setForm(prev => ({ ...prev, recipe: recipeData || [] }));
+
     const vars = await fetchVariations(p.id);
     setVariations(vars);
     setOpen(true);
@@ -378,6 +403,53 @@ const Products = () => {
                 )}
               </div>
 
+              <div className="border border-border rounded-xl p-4 bg-muted/20 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="font-bold">Ficha Técnica (Receita)</Label>
+                    <p className="text-xs text-muted-foreground">Selecione os insumos que compõem este produto</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setForm(prev => ({ ...prev, recipe: [...prev.recipe, { inventory_item_id: "", quantity: 1 }] }))}>
+                    <Plus className="w-3 h-3 mr-1" /> Insumo
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {form.recipe.map((ri, ii) => (
+                    <div key={ii} className="flex gap-2 items-center">
+                      <Select
+                        value={ri.inventory_item_id}
+                        onValueChange={v => {
+                          const updated = [...form.recipe];
+                          updated[ii].inventory_item_id = v;
+                          setForm({ ...form, recipe: updated });
+                        }}
+                      >
+                        <SelectTrigger className="flex-1 h-8"><SelectValue placeholder="Insumo..." /></SelectTrigger>
+                        <SelectContent>
+                          {inventoryItems.map(inv => (
+                            <SelectItem key={inv.id} value={inv.id}>{inv.name} ({inv.unit})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        className="w-20 h-8"
+                        value={ri.quantity}
+                        onChange={e => {
+                          const updated = [...form.recipe];
+                          updated[ii].quantity = parseFloat(e.target.value) || 0;
+                          setForm({ ...form, recipe: updated });
+                        }}
+                      />
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setForm(prev => ({ ...prev, recipe: prev.recipe.filter((_, i) => i !== ii) }))}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {form.recipe.length === 0 && <p className="text-[10px] text-muted-foreground text-center">Nenhum insumo vinculado</p>}
+                </div>
+              </div>
+
               {/* Variations Section */}
               <div className="border-t border-border pt-4 mt-4">
                 <div className="flex items-center justify-between mb-3">
@@ -569,7 +641,7 @@ const Products = () => {
               )}
               {p.manage_stock && !p.is_sold_out && (
                 <span className="text-xs text-blue-600 font-medium mt-1 block">
-                  Estoque: {p.stock_quantity} un
+                  Estoque: {Math.floor(p.stock_quantity)} un
                 </span>
               )}
               <div className="flex flex-wrap gap-2 mt-3">

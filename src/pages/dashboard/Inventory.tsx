@@ -219,6 +219,12 @@ const Inventory = () => {
     const typeLabel: Record<string, string> = { entry: "Entrada", exit: "Saída", adjustment: "Ajuste" };
     const typeColor: Record<string, string> = { entry: "text-green-600 bg-green-50", exit: "text-red-600 bg-red-50", adjustment: "text-amber-600 bg-amber-50" };
     const typeIcon: Record<string, any> = { entry: <ArrowUpCircle className="w-4 h-4" />, exit: <ArrowDownCircle className="w-4 h-4" />, adjustment: <RotateCcw className="w-4 h-4" /> };
+    const formatStockValue = (value: number, unit: string) => {
+        if (unit === "unidade") {
+            return Math.floor(value).toString();
+        }
+        return value.toFixed(3).replace(/\.?0+$/, "");
+    };
     
     const getUnitSuffix = (unit: string) => {
         switch (unit) {
@@ -498,13 +504,13 @@ const Inventory = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`font-bold ${item.current_stock <= item.min_stock ? 'text-destructive' : 'text-foreground'}`}>
-                                            {Number(item.current_stock).toFixed(3)} {getUnitSuffix(item.unit)}
+                                            {formatStockValue(item.current_stock, item.unit)} {getUnitSuffix(item.unit)}
                                         </span>
                                         {item.current_stock <= item.min_stock && (
                                             <AlertTriangle className="w-3 h-3 inline ml-1 text-destructive animate-pulse" />
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 text-muted-foreground">{Number(item.min_stock).toFixed(3)} {getUnitSuffix(item.unit)}</td>
+                                    <td className="px-6 py-4 text-muted-foreground">{formatStockValue(item.min_stock, item.unit)} {getUnitSuffix(item.unit)}</td>
                                     <td className="px-6 py-4">{formatCurrency(item.cost_per_unit)}</td>
                                     <td className="px-6 py-4 font-medium text-primary">{formatCurrency(item.current_stock * item.cost_per_unit)}</td>
                                     <td className="px-6 py-4 text-right">
