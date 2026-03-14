@@ -29,6 +29,26 @@ export default function OrderStatus() {
     useEffect(() => {
         fetchOrder();
 
+        // Load saved PIX if it exists and is less than 1 hour old
+        if (id) {
+            const savedPix = localStorage.getItem(`pix_order_${id}`);
+            if (savedPix) {
+                try {
+                    const { payload, timestamp } = JSON.parse(savedPix);
+                    const now = new Date().getTime();
+                    const oneHour = 60 * 60 * 1000;
+                    if (now - timestamp < oneHour) {
+                        setPixPayload(payload);
+                        setPixGenerated(true);
+                    } else {
+                        localStorage.removeItem(`pix_order_${id}`);
+                    }
+                } catch (e) {
+                    console.error("Error parsing saved PIX", e);
+                }
+            }
+        }
+
         const channel = supabase
             .channel(`order-updates-${id}`)
             .on(
@@ -147,6 +167,13 @@ export default function OrderStatus() {
 
             setPixPayload(brCode);
             setPixGenerated(true);
+
+            // Persist to localStorage
+            localStorage.setItem(`pix_order_${id}`, JSON.stringify({
+                payload: brCode,
+                timestamp: new Date().getTime()
+            }));
+
             toast.success("QR Code PIX Gerado!");
         } catch (err: any) {
             console.error("Static PIX Generation Error:", err);
@@ -410,13 +437,24 @@ export default function OrderStatus() {
                                                 variant="outline"
                                                 className="w-full font-bold gap-2 rounded-xl h-12"
                                                 onClick={() => {
+                                                    const message = encodeURIComponent(`Olá! Segue o comprovante do meu pedido #${order.order_number}.\nValor: R$ ${order.total.toFixed(2)}`);
+                                                    window.open(`https://wa.me/55${store.phone.replace(/\D/g, "")}?text=${message}`, "_blank");
+                                                }}
+                                            >
+                                                <MessageCircle className="w-4 h-4 text-green-500" /> Enviar Comprovante
+                                            </Button>
+
+                                            <Button
+                                                variant="ghost"
+                                                className="w-full text-[10px] font-bold gap-2 text-muted-foreground"
+                                                onClick={() => {
                                                     navigator.clipboard.writeText(pixPayload || "");
                                                     toast.success("Código PIX copiado!");
                                                 }}
                                             >
-                                                <Copy className="w-4 h-4" /> Copiar Código PIX
+                                                <Copy className="w-3 h-3" /> Copiar Código PIX
                                             </Button>
-                                            <p className="text-[10px] text-muted-foreground italic font-medium">Após pagar, envie o comprovante para agilizar</p>
+                                            <p className="text-[10px] text-muted-foreground italic font-medium">O QR Code expira em 1 hora.</p>
                                         </div>
                                     </div>
                                 )}
