@@ -122,16 +122,30 @@ export default function OrderStatus() {
         if (!order || !store) return;
         setIsGeneratingPix(true);
         try {
-            const { data, error } = await supabase.functions.invoke('pix-order-create', {
-                body: {
+            const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            
+            if (!baseUrl || !key) throw new Error("Configuração do servidor indisponível.");
+
+            const res = await fetch(`${baseUrl}/functions/v1/pix-order-create`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${key}`,
+                    'apikey': key,
+                },
+                body: JSON.stringify({
                     store_id: store.id,
                     order_id: order.id,
                     amount: Number(order.total),
                     description: `${store.name} - Pedido #${order.order_number}`,
-                }
+                }),
             });
 
-            if (error) throw error;
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || `Erro (${res.status}): Falha na comunicação.`);
+            }
             
             const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
             setPixPayments(ppx || []);

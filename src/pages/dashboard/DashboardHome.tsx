@@ -1131,16 +1131,28 @@ const DashboardHome = () => {
                       try {
                         const amount = Math.max(0, comandaOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0) - Number(discount));
                         
-                        const { data, error } = await supabase.functions.invoke('pix-order-create', {
-                          body: {
+                        const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+                        const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+                        const res = await fetch(`${baseUrl}/functions/v1/pix-order-create`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${key}`,
+                            'apikey': key,
+                          },
+                          body: JSON.stringify({
                             store_id: store!.id,
                             comanda_id: activeComanda.id,
                             amount: Number(amount.toFixed(2)),
                             description: `${store?.name} - Mesa ${selectedTable?.name}`,
-                          }
+                          }),
                         });
 
-                        if (error) throw error;
+                        if (!res.ok) {
+                          const errorData = await res.json().catch(() => ({}));
+                          throw new Error(errorData.error || `Erro (${res.status}) ao gerar PIX.`);
+                        }
                         
                         const { data: updatedPix } = await supabase.from("order_payments").select("*").eq("comanda_id", activeComanda.id).eq("payment_method", "pix");
                         setPixPayments(updatedPix || []);

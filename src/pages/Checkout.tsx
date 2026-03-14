@@ -126,12 +126,25 @@ const Checkout = () => {
         setPixStatus("loading");
 
         try {
-            const { data, error } = await supabase.functions.invoke('pix-create', {
-                body: { plan },
+            const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+            const res = await fetch(`${baseUrl}/functions/v1/pix-create`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${key}`,
+                    "apikey": key,
+                },
+                body: JSON.stringify({ plan }),
             });
 
-            if (error) throw error;
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || `Erro (${res.status}) ao gerar PIX.`);
+            }
 
+            const data = await res.json();
             setPixData(data);
             setPixStatus("waiting");
             startPolling(data.payment_id);
