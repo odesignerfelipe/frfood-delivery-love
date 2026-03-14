@@ -22,6 +22,7 @@ const Tables = () => {
     const [qrOpen, setQrOpen] = useState(false);
     const [selectedTable, setSelectedTable] = useState<any>(null);
     const [printerSettings, setPrinterSettings] = useState<any[]>([]);
+    const [logoDataUrl, setLogoDataUrl] = useState<string>("");
 
     const fetchTables = async () => {
         if (!store) return;
@@ -43,6 +44,29 @@ const Tables = () => {
         const { data } = await supabase.from("printer_settings").select("*").eq("store_id", store.id).eq("is_active", true);
         setPrinterSettings(data || []);
     };
+
+    const preloadLogo = async () => {
+        if (!store?.logo_url) {
+            setLogoDataUrl("");
+            return;
+        }
+        try {
+            const response = await fetch(store.logo_url);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setLogoDataUrl(reader.result as string);
+            };
+            reader.readAsDataURL(blob);
+        } catch (error) {
+            console.error("Error preloading logo:", error);
+            setLogoDataUrl(store.logo_url); // Fallback to original URL
+        }
+    };
+
+    useEffect(() => {
+        if (store) preloadLogo();
+    }, [store?.logo_url]);
 
     const handleSave = async () => {
         if (!store || !name.trim()) return;
@@ -88,6 +112,7 @@ const Tables = () => {
         const canvas = document.getElementById("qr-code-canvas") as HTMLCanvasElement;
         const qrImage = canvas ? canvas.toDataURL("image/png") : "";
         const qrHtml = qrImage ? `<img src="${qrImage}" style="width: 160px; height: 160px; display: block;" />` : "";
+        const logoUrl = logoDataUrl || store.logo_url;
 
         const html = `
       <html>
@@ -100,34 +125,35 @@ const Tables = () => {
               display: flex;
               justify-content: center;
               align-items: center;
-              height: 100vh;
+              min-height: 100vh;
               margin: 0;
               background-color: #fff;
             }
             .card {
               border: 1px solid #E5E7EB;
-              border-radius: 16px;
-              padding: 24px;
+              border-radius: 24px;
+              padding: 32px 24px;
               width: 280px;
               box-sizing: border-box;
               background: #fff;
               text-align: center;
+              position: relative;
             }
-            .logo { max-height: 48px; max-width: 180px; margin-bottom: 20px; object-fit: contain; }
-            .title { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: #111827; text-transform: uppercase; }
-            .instruction { font-size: 12px; margin-bottom: 20px; color: #6B7280; }
-            .qr-container { background: white; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 20px; border: 1px solid #E5E7EB; }
+            .logo { height: 48px; width: auto; margin-bottom: 16px; object-fit: contain; }
+            .title { font-size: 18px; font-weight: 800; margin-bottom: 8px; color: #111827; text-transform: uppercase; letter-spacing: 1px; }
+            .instruction { font-size: 12px; font-weight: 500; margin-bottom: 24px; color: #6B7280; line-height: 1.4; padding: 0 16px; }
+            .qr-container { background: white; padding: 12px; border-radius: 16px; display: inline-block; margin-bottom: 24px; border: 1px solid #F3F4F6; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05); }
             .qr-container img { width: 160px !important; height: 160px !important; display: block; }
-            .table-name { font-size: 14px; font-weight: 800; color: #374151; padding: 8px 16px; background-color: #F3F4F6; border-radius: 8px; display: inline-block; }
+            .table-badge { background-color: #F3F4F6; padding: 8px 16px; border-radius: 8px; font-weight: 900; color: #111827; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; border: 1px solid #E5E7EB; display: inline-block; }
           </style>
         </head>
         <body>
           <div class="card">
-            ${store.logo_url ? `<img src="${store.logo_url}" class="logo" alt="Logo" />` : ''}
+            ${logoUrl ? `<img src="${logoUrl}" class="logo" alt="Logo" />` : ''}
             <div class="title">Faça seu Pedido</div>
-            <div class="instruction">Aponte a câmera do seu celular para o QR CODE para realizar o seu pedido</div>
+            <p class="instruction">Aponte a câmera do seu celular para o QR CODE para realizar o seu pedido</p>
             <div class="qr-container">${qrHtml}</div>
-            <div class="table-name">${selectedTable.name}</div>
+            <div class="table-badge">${selectedTable.name}</div>
           </div>
         </body>
       </html>
@@ -277,15 +303,14 @@ const Tables = () => {
                     </DialogHeader>
                     {selectedTable && store && (
                         <div className="flex flex-col items-center justify-center py-6 space-y-6">
-                            
-                            {/* Card que será exportado como imagem */}
-                            <div id="qr-card" className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center w-full max-w-[280px] mx-auto text-center relative overflow-hidden">
-                                {store.logo_url && <img src={store.logo_url} className="h-12 w-auto mb-4 object-contain" alt="Logo" />}
-                                <h3 className="font-black text-lg text-foreground uppercase tracking-widest mb-2">Faça seu Pedido</h3>
-                                <p className="text-xs font-medium text-muted-foreground mb-6 leading-tight">
+                                                 {/* Card que será exportado como imagem */}
+                            <div id="qr-card" className="bg-white p-8 rounded-[24px] border border-gray-200 shadow-sm flex flex-col items-center w-full max-w-[280px] mx-auto text-center relative overflow-hidden">
+                                {store.logo_url && <img src={logoDataUrl || store.logo_url} className="h-12 w-auto mb-4 object-contain" alt="Logo" />}
+                                <h3 className="font-black text-lg text-gray-900 uppercase tracking-widest mb-2">Faça seu Pedido</h3>
+                                <p className="text-xs font-medium text-gray-500 mb-6 leading-tight px-2">
                                     Aponte a câmera do seu celular para o QR CODE para realizar o seu pedido
                                 </p>
-                                <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-6">
+                                <div className="bg-white p-3 rounded-[16px] shadow-sm border border-gray-100 mb-6">
                                     <QRCodeCanvas
                                         id="qr-code-canvas"
                                         value={`${window.location.protocol}//${window.location.host}/mesa/${selectedTable.id}`}
@@ -293,14 +318,14 @@ const Tables = () => {
                                         level={"H"}
                                         includeMargin={false}
                                         imageSettings={store.logo_url ? {
-                                            src: store.logo_url,
+                                            src: logoDataUrl || store.logo_url,
                                             height: 40,
                                             width: 40,
                                             excavate: true,
                                         } : undefined}
                                     />
                                 </div>
-                                <div className="bg-muted px-4 py-2 rounded-lg font-black text-foreground text-sm uppercase tracking-widest inline-block border border-border">
+                                <div className="bg-[#F3F4F6] px-4 py-2 rounded-lg font-black text-gray-900 text-sm uppercase tracking-widest inline-block border border-gray-200">
                                     {selectedTable.name}
                                 </div>
                             </div>
