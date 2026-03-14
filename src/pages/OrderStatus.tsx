@@ -122,25 +122,22 @@ export default function OrderStatus() {
         if (!order || !store) return;
         setIsGeneratingPix(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pix-order-create`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                },
-                body: JSON.stringify({
+            const { data, error } = await supabase.functions.invoke('pix-order-create', {
+                body: {
                     store_id: store.id,
                     order_id: order.id,
                     amount: Number(order.total),
                     description: `${store.name} - Pedido #${order.order_number}`,
-                }),
+                }
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
+
+            if (error) throw error;
+            
             const { data: ppx } = await supabase.from("order_payments").select("*").eq("order_id", order.id).eq("payment_method", "pix");
             setPixPayments(ppx || []);
             toast.success("PIX Gerado com sucesso!");
         } catch (err: any) {
+            console.error("PIX Generation Error:", err);
             toast.error(err.message || "Erro ao gerar PIX");
         } finally {
             setIsGeneratingPix(false);
@@ -154,22 +151,6 @@ export default function OrderStatus() {
         if (h > 0) return `${h}h ${m}m ${s}s`;
         return `${m}m ${s}s`;
     };
-
-    useEffect(() => {
-        if (store) {
-            document.title = `Pedido #${order?.order_number || ''} - ${store.name}`;
-
-            if (store.logo_url) {
-                let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
-                if (!link) {
-                    link = document.createElement('link');
-                    link.rel = 'icon';
-                    document.getElementsByTagName('head')[0].appendChild(link);
-                }
-                link.href = store.logo_url;
-            }
-        }
-    }, [store, order]);
 
     if (loading) {
         return (

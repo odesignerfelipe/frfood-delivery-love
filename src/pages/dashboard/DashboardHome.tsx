@@ -1130,25 +1130,23 @@ const DashboardHome = () => {
                       setIsGeneratingPix(true);
                       try {
                         const amount = Math.max(0, comandaOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0) - Number(discount));
-                        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pix-order-create`, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                          },
-                          body: JSON.stringify({
+                        
+                        const { data, error } = await supabase.functions.invoke('pix-order-create', {
+                          body: {
                             store_id: store!.id,
                             comanda_id: activeComanda.id,
                             amount: Number(amount.toFixed(2)),
                             description: `${store?.name} - Mesa ${selectedTable?.name}`,
-                          }),
+                          }
                         });
-                        const data = await res.json();
-                        if (!res.ok) throw new Error(data.error);
+
+                        if (error) throw error;
+                        
                         const { data: updatedPix } = await supabase.from("order_payments").select("*").eq("comanda_id", activeComanda.id).eq("payment_method", "pix");
                         setPixPayments(updatedPix || []);
                         toast.success("PIX Dinâmico Gerado!");
                       } catch (err: any) {
+                        console.error("PIX Generation Error:", err);
                         toast.error(err.message || "Erro ao gerar PIX");
                       } finally {
                         setIsGeneratingPix(false);

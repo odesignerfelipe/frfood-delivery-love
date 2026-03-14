@@ -142,6 +142,25 @@ const Orders = () => {
       setDragging(null);
       return;
     }
+
+    // Validation: Only allow delivery orders to move to delivery columns
+    if (order.delivery_type === 'delivery') {
+      if (['ready_for_pickup', 'picked_up'].includes(targetStatus)) {
+        toast.error("Pedidos para ENTREGA não podem ser movidos para colunas de Retirada.");
+        setDragging(null);
+        return;
+      }
+    }
+
+    // Validation: Only allow withdrawal/local orders to move to pickup columns
+    if (order.delivery_type !== 'delivery') {
+      if (['delivering', 'delivered'].includes(targetStatus)) {
+        toast.error("Pedidos de RETIRADA/MESA não podem ser movidos para colunas de Entrega.");
+        setDragging(null);
+        return;
+      }
+    }
+
     if (targetStatus === "cancelled") {
       openCancelModal(orderId);
       setDragging(null);

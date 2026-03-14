@@ -126,29 +126,20 @@ const Checkout = () => {
         setPixStatus("loading");
 
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
-
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/pix-create`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({ plan }),
-                signal: controller.signal,
+            const { data, error } = await supabase.functions.invoke('pix-create', {
+                body: { plan },
             });
-            clearTimeout(timeoutId);
 
-            const data = await res.json();
-            if (!res.ok || data.error) throw new Error(data.error || "Erro ao gerar PIX.");
+            if (error) throw error;
 
             setPixData(data);
             setPixStatus("waiting");
             startPolling(data.payment_id);
         } catch (error: any) {
+            console.error("PIX Generation error:", error);
             toast.error(error.message || "Erro ao gerar PIX. Tente novamente.");
-            setPixStatus("idle");
+        } finally {
+            if (pixStatus === 'loading') setPixStatus("idle");
         }
     };
 
