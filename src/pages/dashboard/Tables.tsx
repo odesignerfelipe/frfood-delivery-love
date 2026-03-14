@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, QrCode as QrCodeIcon, Printer, Download } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { printerService } from "@/lib/printer";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -82,11 +82,12 @@ const Tables = () => {
         setSelectedTable(table);
         setQrOpen(true);
     };
-
     const handlePrint = async () => {
         if (!selectedTable || !store) return;
 
-        const svgElement = document.getElementById("qr-code-svg")?.outerHTML;
+        const canvas = document.getElementById("qr-code-canvas") as HTMLCanvasElement;
+        const qrImage = canvas ? canvas.toDataURL("image/png") : "";
+        const qrHtml = qrImage ? `<img src="${qrImage}" style="width: 160px; height: 160px; display: block;" />` : "";
 
         const html = `
       <html>
@@ -111,13 +112,12 @@ const Tables = () => {
               box-sizing: border-box;
               background: #fff;
               text-align: center;
-              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
             }
             .logo { max-height: 48px; max-width: 180px; margin-bottom: 20px; object-fit: contain; }
-            .title { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: #111827; text-transform: uppercase; letter-spacing: 0.5px; }
-            .instruction { font-size: 12px; margin-bottom: 20px; color: #6B7280; line-height: 1.4; }
-            .qr-container { background: white; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 20px; border: 1px solid #E5E7EB; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); }
-            svg { width: 160px !important; height: 160px !important; display: block; }
+            .title { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: #111827; text-transform: uppercase; }
+            .instruction { font-size: 12px; margin-bottom: 20px; color: #6B7280; }
+            .qr-container { background: white; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 20px; border: 1px solid #E5E7EB; }
+            .qr-container img { width: 160px !important; height: 160px !important; display: block; }
             .table-name { font-size: 14px; font-weight: 800; color: #374151; padding: 8px 16px; background-color: #F3F4F6; border-radius: 8px; display: inline-block; }
           </style>
         </head>
@@ -126,7 +126,7 @@ const Tables = () => {
             ${store.logo_url ? `<img src="${store.logo_url}" class="logo" alt="Logo" />` : ''}
             <div class="title">Faça seu Pedido</div>
             <div class="instruction">Aponte a câmera do seu celular para o QR CODE para realizar o seu pedido</div>
-            <div class="qr-container">${svgElement || ''}</div>
+            <div class="qr-container">${qrHtml}</div>
             <div class="table-name">${selectedTable.name}</div>
           </div>
         </body>
@@ -286,19 +286,16 @@ const Tables = () => {
                                     Aponte a câmera do seu celular para o QR CODE para realizar o seu pedido
                                 </p>
                                 <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-6">
-                                    <QRCodeSVG
-                                        id="qr-code-svg"
+                                    <QRCodeCanvas
+                                        id="qr-code-canvas"
                                         value={`${window.location.protocol}//${window.location.host}/mesa/${selectedTable.id}`}
                                         size={160}
                                         level={"H"}
                                         includeMargin={false}
-                                        fgColor={"#000000"}
                                         imageSettings={store.logo_url ? {
                                             src: store.logo_url,
-                                            x: undefined,
-                                            y: undefined,
-                                            height: 38,
-                                            width: 38,
+                                            height: 40,
+                                            width: 40,
                                             excavate: true,
                                         } : undefined}
                                     />
