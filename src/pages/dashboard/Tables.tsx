@@ -10,6 +10,7 @@ import { Plus, Pencil, Trash2, QrCode as QrCodeIcon, Printer, Download } from "l
 import { QRCodeSVG } from "qrcode.react";
 import { printerService } from "@/lib/printer";
 import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 const Tables = () => {
     const { store } = useStore();
@@ -150,7 +151,7 @@ const Tables = () => {
         if (!element) return;
         
         try {
-            const canvas = await html2canvas(element, { backgroundColor: '#ffffff', scale: 2 });
+            const canvas = await html2canvas(element, { backgroundColor: '#ffffff', scale: 3 });
             const dataUrl = canvas.toDataURL("image/png");
             const link = document.createElement("a");
             link.download = `QR_Code_${selectedTable?.name || 'mesa'}.png`;
@@ -160,6 +161,45 @@ const Tables = () => {
         } catch (error) {
             console.error("Erro ao gerar imagem:", error);
             toast.error("Erro ao gerar a imagem do QR Code.");
+        }
+    };
+
+    const handleDownloadPDF = async () => {
+        const element = document.getElementById("qr-card");
+        if (!element) return;
+
+        try {
+            toast.loading("Gerando PDF...");
+            // Usamos uma escala alta para garantir nitidez no PDF
+            const canvas = await html2canvas(element, { 
+                backgroundColor: '#ffffff', 
+                scale: 4,
+                useCORS: true, // Garante que imagens externas (como logo) sejam carregadas se estiverem em domínios permitidos
+                logging: false
+            });
+            
+            const imgData = canvas.toDataURL('image/png', 1.0);
+            
+            // Calculamos o tamanho do PDF baseado nas proporções do card (280px de largura no CSS)
+            // No PDF (A4 é ~210mm de largura), mas aqui usaremos o tamanho exato do elemento em mm
+            const imgWidth = 80; // Largura em mm no PDF
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            const pdf = new jsPDF({
+                orientation: imgHeight > imgWidth ? 'portrait' : 'landscape',
+                unit: 'mm',
+                format: [imgWidth + 20, imgHeight + 20] // Margem de 10mm em cada lado
+            });
+            
+            pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight, undefined, 'FAST');
+            pdf.save(`QR_Code_${selectedTable?.name || 'mesa'}.pdf`);
+            
+            toast.dismiss();
+            toast.success("PDF gerado com sucesso!");
+        } catch (error) {
+            toast.dismiss();
+            console.error("Erro ao gerar PDF:", error);
+            toast.error("Erro ao gerar o PDF do QR Code.");
         }
     };
 
@@ -272,12 +312,15 @@ const Tables = () => {
                                 Link direto: <span className="lowercase">{`${window.location.protocol}//${window.location.host}/mesa/${selectedTable.id}`}</span>
                             </p>
 
-                            <div className="flex flex-col sm:flex-row gap-3 w-full mt-6 justify-center">
-                                <Button onClick={handlePrint} className="flex-1" variant="outline">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full mt-6">
+                                <Button onClick={handlePrint} variant="outline" className="h-11 font-bold">
                                     <Printer className="w-4 h-4 mr-2" /> Imprimir
                                 </Button>
-                                <Button onClick={handleDownloadPNG} className="flex-1" variant="hero">
-                                    <Download className="w-4 h-4 mr-2" /> Baixar Imagem
+                                <Button onClick={handleDownloadPDF} variant="hero" className="h-11 font-extrabold">
+                                    <Download className="w-4 h-4 mr-2" /> Baixar PDF
+                                </Button>
+                                <Button onClick={handleDownloadPNG} variant="ghost" className="h-11 text-xs sm:col-span-2 opacity-70 hover:opacity-100">
+                                    <Download className="w-3 h-3 mr-2" /> Baixar em PNG
                                 </Button>
                             </div>
                         </div>
