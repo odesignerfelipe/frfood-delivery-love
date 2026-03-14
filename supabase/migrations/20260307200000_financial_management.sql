@@ -34,12 +34,25 @@ CREATE POLICY "Financial transactions viewable by store owner" ON public.financi
 -- Trigger para registrar venda automaticamente no financeiro
 CREATE OR REPLACE FUNCTION public.sync_order_to_financial()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_production_cost DECIMAL(10,2);
 BEGIN
     IF (TG_OP = 'UPDATE' AND NEW.status = 'delivered' AND OLD.status != 'delivered') OR 
        (TG_OP = 'INSERT' AND NEW.delivery_type = 'table' AND NEW.status = 'confirmed') THEN
         
+        -- 1. Register Revenue (Entry)
         INSERT INTO public.financial_transactions (store_id, order_id, type, amount, description, status, paid_at)
         VALUES (NEW.store_id, NEW.id, 'entry', NEW.total, 'Venda Pedido #' || NEW.order_number, 'paid', NOW());
+        
+        -- 2. Calculate and Register Production Cost (Exit)
+        SELECT COALESCE(SUM(cost), 0) INTO v_production_cost
+        FROM public.stock_movements
+        WHERE order_id = NEW.id;
+
+        IF v_production_cost > 0 THEN
+            INSERT INTO public.financial_transactions (store_id, order_id, type, amount, description, status, paid_at)
+            VALUES (NEW.store_id, NEW.id, 'exit', v_production_cost, 'Custo de Produção - Pedido #' || NEW.order_number, 'paid', NOW());
+        END IF;
         
     END IF;
     RETURN NEW;

@@ -41,12 +41,16 @@ CREATE TABLE IF NOT EXISTS public.stock_movements (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     store_id UUID NOT NULL REFERENCES public.stores(id) ON DELETE CASCADE,
     inventory_item_id UUID NOT NULL REFERENCES public.inventory_items(id) ON DELETE CASCADE,
+    order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE,
     type VARCHAR(20) NOT NULL CHECK (type IN ('entry', 'exit', 'adjustment')),
     quantity NUMERIC(12,3) NOT NULL,
     cost NUMERIC(12,2) DEFAULT 0,
     reference TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure order_id exists
+ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE;
 
 -- 4. Enable RLS and Policies for all tables
 ALTER TABLE public.inventory_items ENABLE ROW LEVEL SECURITY;
@@ -98,10 +102,11 @@ BEGIN
 
         -- Record movement
         IF v_store_id IS NOT NULL THEN
-            INSERT INTO public.stock_movements (store_id, inventory_item_id, type, quantity, cost, reference)
+            INSERT INTO public.stock_movements (store_id, inventory_item_id, order_id, type, quantity, cost, reference)
             VALUES (
                 v_store_id,
                 recipe_item.inventory_item_id,
+                NEW.order_id,
                 'exit',
                 recipe_item.quantity * NEW.quantity,
                 recipe_item.cost_per_unit * recipe_item.quantity * NEW.quantity,

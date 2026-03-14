@@ -1196,15 +1196,6 @@ const DashboardHome = () => {
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               Em tempo real
             </div>
-            <Button
-              variant="default"
-              size="lg"
-              className="h-10 text-[10px] font-black uppercase tracking-widest rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 flex-1"
-              onClick={() => setIsManualOrderOpen(true)}
-            >
-              <Plus className="w-4 h-4 mr-2" /> Venda Rápida
-            </Button>
-
           </div>
         </div>
 
