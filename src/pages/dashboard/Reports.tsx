@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { BarChart3, TrendingUp, ShoppingBag, DollarSign, Package, AlertTriangle, Users, Download, Printer, Medal, UserCircle } from "lucide-react";
+import { BarChart3, TrendingUp, ShoppingBag, DollarSign, Package, AlertTriangle, Users, Download, Printer, Medal, UserCircle, Boxes, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay, endOfWeek, endOfMonth, endOfYear, subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -38,6 +38,15 @@ const Reports = () => {
     totalUses: 0,
     totalRevenue: 0,
     totalDiscountGiven: 0
+  });
+  const [stockMetrics, setStockMetrics] = useState({
+    totalConsumed: 0,
+    totalCostConsumed: 0,
+    totalPurchased: 0,
+    totalCostPurchased: 0,
+    topConsumed: [] as { name: string, unit: string, quantity: number, cost: number }[],
+    movements: [] as any[],
+    cmv: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -191,13 +200,16 @@ const Reports = () => {
         leastSoldProducts = [...allProductsWithProfit].sort((a, b) => a.quantity - b.quantity).slice(0, 5);
       }
 
-      setMetrics({
-        revenue, orderCount, ticketMedio,
-        topProducts, leastSoldProducts,
-        topCustomers, waiterMetrics,
-        chartData,
-        financials: await fetchFinancials(startDate, endDate)
-      });
+      const financials = await fetchFinancials(startDate, endDate);
+      const stockData = await fetchStockMetrics(startDate, endDate);
+      setMetrics(prev => ({
+        ...prev,
+        revenue, orderCount, ticketMedio, topProducts, leastSoldProducts, topCustomers,
+        waiterMetrics: Object.entries(waiterMap).map(([name, wm]: any) => ({ name, ...wm })).sort((a, b) => b.revenue - a.revenue),
+        chartData: Object.entries(chartDataMap).map(([label, amount]: any) => ({ label, amount })),
+        financials
+      }));
+      setStockMetrics(stockData);
     } catch (err) {
       console.error("Error fetching metrics:", err);
       toast.error("Erro ao carregar relatórios.");
@@ -243,6 +255,39 @@ const Reports = () => {
       exits: stats.exits,
       netProfit: stats.entries - stats.exits,
       categories: Object.values(stats.catMap) as { name: string, amount: number, type: string }[]
+    };
+  };
+
+  const fetchStockMetrics = async (startDate: Date, endDate: Date) => {
+    if (!store) return stockMetrics;
+    const { data: movs } = await supabase
+      .from("stock_movements")
+      .select("*, inventory_items(name, unit)")
+      .eq("store_id", store.id)
+      .gte("created_at", startDate.toISOString())
+      .lte("created_at", endDate.toISOString())
+      .order("created_at", { ascending: false });
+
+    const movements = movs || [];
+    const exits = movements.filter(m => m.type === 'exit');
+    const entries = movements.filter(m => m.type === 'entry');
+
+    const consumedMap: Record<string, { name: string, unit: string, quantity: number, cost: number }> = {};
+    exits.forEach(m => {
+      const key = m.inventory_item_id;
+      if (!consumedMap[key]) consumedMap[key] = { name: m.inventory_items?.name || 'Desconhecido', unit: m.inventory_items?.unit || '', quantity: 0, cost: 0 };
+      consumedMap[key].quantity += Number(m.quantity);
+      consumedMap[key].cost += Number(m.cost);
+    });
+
+    return {
+      totalConsumed: exits.reduce((s, m) => s + Number(m.quantity), 0),
+      totalCostConsumed: exits.reduce((s, m) => s + Number(m.cost), 0),
+      totalPurchased: entries.reduce((s, m) => s + Number(m.quantity), 0),
+      totalCostPurchased: entries.reduce((s, m) => s + Number(m.cost), 0),
+      topConsumed: Object.values(consumedMap).sort((a, b) => b.quantity - a.quantity).slice(0, 10),
+      movements: movements.slice(0, 50),
+      cmv: exits.reduce((s, m) => s + Number(m.cost), 0),
     };
   };
 
@@ -447,9 +492,10 @@ const Reports = () => {
         </div>
       ) : (
         <Tabs defaultValue="finance" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 lg:w-[400px] mb-8">
-            <TabsTrigger value="finance">Desempenho Financeiro</TabsTrigger>
-            <TabsTrigger value="coupons">Auditoria de Cupons</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 lg:w-[600px] mb-8">
+            <TabsTrigger value="finance">Financeiro</TabsTrigger>
+            <TabsTrigger value="stock">Estoque</TabsTrigger>
+            <TabsTrigger value="coupons">Cupons</TabsTrigger>
           </TabsList>
           
           <TabsContent value="finance" className="space-y-8 mt-0">
@@ -875,6 +921,205 @@ const Reports = () => {
                             <td className="px-4 py-3 text-right text-red-600 font-medium">
                               {formatCurrency(coupon.discountGiven)}
                             </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="stock" className="space-y-8 mt-0">
+            {/* Stock KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card className="shadow-sm border-border">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Consumo Total</CardTitle>
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center print:hidden">
+                    <ArrowDownCircle className="w-4 h-4 text-red-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-foreground">{stockMetrics.totalConsumed.toFixed(1)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">unidades consumidas no período</p>
+                </CardContent>
+              </Card>
+              <Card className="shadow-sm border-border">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Custo de Produção (CMV)</CardTitle>
+                  <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center print:hidden">
+                    <DollarSign className="w-4 h-4 text-orange-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-foreground">{formatCurrency(stockMetrics.cmv)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">custo de insumos nos pedidos</p>
+                </CardContent>
+              </Card>
+              <Card className="shadow-sm border-border">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Compras (Entradas)</CardTitle>
+                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center print:hidden">
+                    <ArrowUpCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-foreground">{formatCurrency(stockMetrics.totalCostPurchased)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">investido em compras</p>
+                </CardContent>
+              </Card>
+              <Card className="shadow-sm border-border">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Lucro Estimado</CardTitle>
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center print:hidden">
+                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-3xl font-black ${(metrics.revenue - stockMetrics.cmv) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                    {formatCurrency(metrics.revenue - stockMetrics.cmv)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">vendas - custo de produção</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Top Consumed Ingredients */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="shadow-sm border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Boxes className="w-5 h-5 text-red-500" />
+                    Insumos Mais Consumidos
+                  </CardTitle>
+                  <CardDescription>Ranking de consumo de ingredientes no período.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {stockMetrics.topConsumed.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-xl border border-dashed border-border">
+                      Nenhum consumo registrado neste período.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {stockMetrics.topConsumed.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                              index === 0 ? 'bg-red-100 text-red-700' :
+                              index === 1 ? 'bg-orange-100 text-orange-700' :
+                              index === 2 ? 'bg-amber-100 text-amber-700' :
+                              'bg-muted text-muted-foreground'
+                            }`}>
+                              {index + 1}
+                            </div>
+                            <div>
+                              <p className="font-bold text-foreground text-sm">{item.name}</p>
+                              <p className="text-xs text-muted-foreground">{item.quantity.toFixed(3)} {item.unit}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-red-600">{formatCurrency(item.cost)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Margin Analysis */}
+              <Card className="shadow-sm border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-emerald-500" />
+                    Análise de Margem
+                  </CardTitle>
+                  <CardDescription>Comparativo vendas vs custo de produção.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <p className="text-xs font-bold text-emerald-700 uppercase">Receita Bruta</p>
+                        <p className="text-2xl font-black text-emerald-800">{formatCurrency(metrics.revenue)}</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-red-50 border border-red-100">
+                        <p className="text-xs font-bold text-red-700 uppercase">CMV (Custo)</p>
+                        <p className="text-2xl font-black text-red-800">{formatCurrency(stockMetrics.cmv)}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Margem Bruta</span>
+                        <span className={`text-lg font-black ${(metrics.revenue - stockMetrics.cmv) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                          {formatCurrency(metrics.revenue - stockMetrics.cmv)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">% Margem</span>
+                        <span className={`text-lg font-black ${metrics.revenue > 0 && ((metrics.revenue - stockMetrics.cmv) / metrics.revenue * 100) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                          {metrics.revenue > 0 ? ((metrics.revenue - stockMetrics.cmv) / metrics.revenue * 100).toFixed(1) : '0.0'}%
+                        </span>
+                      </div>
+                      {/* Visual bar */}
+                      <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all"
+                          style={{ width: `${Math.min(100, Math.max(0, metrics.revenue > 0 ? ((metrics.revenue - stockMetrics.cmv) / metrics.revenue * 100) : 0))}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Movement History */}
+            <Card className="shadow-sm border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5 text-blue-500" />
+                  Histórico de Movimentações
+                </CardTitle>
+                <CardDescription>Últimas 50 entradas, saídas e ajustes do período.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {stockMetrics.movements.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-xl border border-dashed border-border">
+                    Nenhuma movimentação no período selecionado.
+                  </div>
+                ) : (
+                  <div className="border border-border rounded-xl overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Data</th>
+                          <th className="px-4 py-2 text-left">Insumo</th>
+                          <th className="px-4 py-2 text-center">Tipo</th>
+                          <th className="px-4 py-2 text-right">Quantidade</th>
+                          <th className="px-4 py-2 text-right">Custo</th>
+                          <th className="px-4 py-2 text-left">Referência</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {stockMetrics.movements.map((m: any, i: number) => (
+                          <tr key={i} className="hover:bg-muted/30">
+                            <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{new Date(m.created_at).toLocaleString('pt-BR')}</td>
+                            <td className="px-4 py-3 font-medium">{m.inventory_items?.name || '—'}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                                m.type === 'entry' ? 'bg-green-100 text-green-700' :
+                                m.type === 'exit' ? 'bg-red-100 text-red-700' :
+                                'bg-amber-100 text-amber-700'
+                              }`}>
+                                {m.type === 'entry' ? 'Entrada' : m.type === 'exit' ? 'Saída' : 'Ajuste'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium">{Number(m.quantity).toFixed(3)} {m.inventory_items?.unit || ''}</td>
+                            <td className="px-4 py-3 text-right">{m.cost > 0 ? formatCurrency(m.cost) : '—'}</td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[200px]">{m.reference || '—'}</td>
                           </tr>
                         ))}
                       </tbody>

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -505,10 +505,9 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
                 <div className="h-px bg-border flex-1" />
               </div>
               <div className={`grid gap-4 ${cat.products.length === 1 ? "grid-cols-1 max-w-sm" :
-                cat.products.length === 2 ? "grid-cols-2" :
+                cat.products.length === 2 ? "grid-cols-1 sm:grid-cols-2" :
                   cat.products.length === 3 ? "grid-cols-1 sm:grid-cols-3" :
-                    cat.products.length === 4 ? "grid-cols-2" :
-                      "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                    "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
                 }`}>
                 {cat.products.map(p => <ProductCard key={p.id} product={p} onAdd={() => handleAddToCart(p)} hasVariations={!!productVariations[p.id]?.length} />)}
               </div>
