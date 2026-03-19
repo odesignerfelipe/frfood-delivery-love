@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Users, UserPlus, Search, Edit2, Trash2, Mail, Phone, Shield, Calendar, Eye, EyeOff } from "lucide-react";
+import { Users, UserPlus, Search, Edit2, Trash2, Mail, Phone, Shield, Calendar, Eye, EyeOff, CreditCard, Store } from "lucide-react";
 import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 
@@ -39,6 +39,12 @@ const AdminUsers = () => {
     const [deleteUser, setDeleteUser] = useState<any>(null);
     const [deleting, setDeleting] = useState(false);
 
+    // Plan Management Modal
+    const [planUser, setPlanUser] = useState<any>(null);
+    const [userStores, setUserStores] = useState<any[]>([]);
+    const [allStores, setAllStores] = useState<any[]>([]);
+    const [savingPlan, setSavingPlan] = useState(false);
+
     const fetchProfiles = useCallback(async () => {
         const { data, error } = await supabase
             .from("profiles")
@@ -58,6 +64,13 @@ const AdminUsers = () => {
             .subscribe();
         return () => { supabase.removeChannel(channel); };
     }, [fetchProfiles]);
+
+    // Fetch all stores for plan management
+    useEffect(() => {
+        supabase.from("stores").select("id, name, slug, owner_id, plan_type, plan_status").order("name").then(({ data }) => {
+            setAllStores(data || []);
+        });
+    }, []);
 
     const getAuthToken = async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -190,6 +203,30 @@ const AdminUsers = () => {
         }
     };
 
+    const openPlanModal = (profile: any) => {
+        setPlanUser(profile);
+        const owned = allStores.filter(s => s.owner_id === profile.id);
+        setUserStores(owned);
+    };
+
+    const handlePlanChange = async (storeId: string, field: string, value: string) => {
+        setSavingPlan(true);
+        try {
+            const { error } = await supabase.from("stores").update({ [field]: value }).eq("id", storeId);
+            if (error) throw error;
+            toast.success("Plano atualizado!");
+            const { data } = await supabase.from("stores").select("id, name, slug, owner_id, plan_type, plan_status").order("name");
+            setAllStores(data || []);
+            if (planUser) {
+                setUserStores((data || []).filter(s => s.owner_id === planUser.id));
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Erro ao atualizar plano");
+        } finally {
+            setSavingPlan(false);
+        }
+    };
+
     const filteredProfiles = profiles.filter((p) => {
         if (filterRole !== "all" && (p as any).role !== filterRole) return false;
         if (search) {
@@ -287,6 +324,7 @@ const AdminUsers = () => {
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Nome</th>
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Telefone</th>
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Tipo</th>
+                                <th className="text-left px-6 py-4 font-semibold text-slate-600">Plano</th>
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Cadastro</th>
                                 <th className="text-right px-6 py-4 font-semibold text-slate-600">Ações</th>
                             </tr>
@@ -313,11 +351,29 @@ const AdminUsers = () => {
                                             {roleLabel((profile as any).role)}
                                         </span>
                                     </td>
+                                    <td className="px-6 py-4">
+                                        {(() => {
+                                            const owned = allStores.filter(s => s.owner_id === profile.id);
+                                            if (owned.length === 0) return <span className="text-xs text-slate-400">Sem loja</span>;
+                                            return owned.map(s => (
+                                                <span key={s.id} className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium mr-1 ${
+                                                    s.plan_type === "yearly" ? "bg-purple-100 text-purple-700" :
+                                                    s.plan_type === "monthly" ? "bg-blue-100 text-blue-700" :
+                                                    "bg-slate-100 text-slate-600"
+                                                }`}>
+                                                    {s.plan_type === "yearly" ? "Anual" : s.plan_type === "monthly" ? "Mensal" : "Trial"}
+                                                </span>
+                                            ));
+                                        })()}
+                                    </td>
                                     <td className="px-6 py-4 text-xs text-slate-500">
                                         {profile.created_at ? format(new Date(profile.created_at), "dd/MM/yyyy") : "—"}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="flex items-center justify-end gap-2">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openPlanModal(profile)} title="Gerenciar Plano">
+                                                <CreditCard className="w-4 h-4 text-emerald-500" />
+                                            </Button>
                                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(profile)} title="Editar">
                                                 <Edit2 className="w-4 h-4 text-blue-500" />
                                             </Button>
@@ -330,7 +386,7 @@ const AdminUsers = () => {
                             ))}
                             {filteredProfiles.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-16 text-center text-slate-400">
+                                    <td colSpan={6} className="px-6 py-16 text-center text-slate-400">
                                         Nenhum usuário encontrado.
                                     </td>
                                 </tr>
@@ -463,6 +519,59 @@ const AdminUsers = () => {
                                 <><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" />Removendo...</>
                             ) : "Sim, Remover"}
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Plan Management Modal */}
+            <Dialog open={!!planUser} onOpenChange={(v) => !v && setPlanUser(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <CreditCard className="w-5 h-5 text-emerald-500" /> Gerenciar Plano
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                        <p className="text-sm text-slate-600">Lojas de <strong>{planUser?.full_name || "usuário"}</strong>:</p>
+                        {userStores.length === 0 ? (
+                            <div className="bg-slate-50 border rounded-xl p-4 text-center text-sm text-slate-400">
+                                Este usuário não possui nenhuma loja vinculada.
+                            </div>
+                        ) : userStores.map(s => (
+                            <div key={s.id} className="bg-slate-50 border rounded-xl p-4 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <Store className="w-4 h-4 text-primary" />
+                                    <span className="font-medium text-slate-800">{s.name}</span>
+                                    <span className="text-xs text-slate-400">({s.slug})</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Tipo do Plano</Label>
+                                        <Select value={s.plan_type || "trial"} onValueChange={(val) => handlePlanChange(s.id, "plan_type", val)}>
+                                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="trial">Trial</SelectItem>
+                                                <SelectItem value="monthly">Mensal</SelectItem>
+                                                <SelectItem value="yearly">Anual</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Status</Label>
+                                        <Select value={s.plan_status || "active"} onValueChange={(val) => handlePlanChange(s.id, "plan_status", val)}>
+                                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="active">Ativo</SelectItem>
+                                                <SelectItem value="overdue">Congelado</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setPlanUser(null)}>Fechar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

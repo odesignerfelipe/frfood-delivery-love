@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Store, Trash2, ArrowLeft, ExternalLink, ShieldCheck, Activity, Users, ShoppingCart } from "lucide-react";
+import { Store, Trash2, ArrowLeft, ExternalLink, ShieldCheck, Activity, Users, ShoppingCart, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
     Table,
     TableBody,
@@ -20,6 +23,15 @@ const AdminStores = () => {
     const [stores, setStores] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+
+    // Create Store Modal
+    const [createOpen, setCreateOpen] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [newStoreName, setNewStoreName] = useState("");
+    const [newStoreSlug, setNewStoreSlug] = useState("");
+    const [newStorePlan, setNewStorePlan] = useState("trial");
+    const [newStoreOwner, setNewStoreOwner] = useState("");
+    const [allProfiles, setAllProfiles] = useState<any[]>([]);
 
     const fetchStores = async () => {
         setLoading(true);
@@ -61,7 +73,43 @@ const AdminStores = () => {
 
     useEffect(() => {
         fetchStores();
+        // Also fetch profiles for the owner selector
+        supabase.from("profiles").select("id, full_name, phone").order("full_name").then(({ data }) => {
+            setAllProfiles(data || []);
+        });
     }, []);
+
+    const handleCreateStore = async () => {
+        if (!newStoreName || !newStoreSlug) {
+            toast.error("Nome e slug são obrigatórios");
+            return;
+        }
+        setCreating(true);
+        try {
+            const storeData: any = {
+                name: newStoreName,
+                slug: newStoreSlug.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                plan_type: newStorePlan,
+                plan_status: "active",
+            };
+            if (newStoreOwner) storeData.owner_id = newStoreOwner;
+
+            const { error } = await supabase.from("stores").insert(storeData);
+            if (error) throw error;
+
+            toast.success("Loja criada com sucesso!");
+            setCreateOpen(false);
+            setNewStoreName("");
+            setNewStoreSlug("");
+            setNewStorePlan("trial");
+            setNewStoreOwner("");
+            fetchStores();
+        } catch (err: any) {
+            toast.error("Erro ao criar loja: " + (err.message || "Tente novamente"));
+        } finally {
+            setCreating(false);
+        }
+    };
 
     const handleDelete = async (id: string) => {
         if (!confirm("Tem certeza que deseja excluir esta loja? Todos os dados serão perdidos.")) return;
@@ -126,6 +174,9 @@ const AdminStores = () => {
                         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Gerenciar Lojas</h1>
                         <p className="text-sm text-slate-500 mt-1">Visão geral de todas as lojas e assinantes da plataforma.</p>
                     </div>
+                    <Button onClick={() => setCreateOpen(true)} className="shadow-lg shadow-primary/20">
+                        <Plus className="w-4 h-4 mr-2" /> Criar Loja
+                    </Button>
                 </div>
             </div>
 
@@ -270,6 +321,57 @@ const AdminStores = () => {
                     </TableBody>
                 </Table>
             </div>
+
+            {/* Create Store Modal */}
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Plus className="w-5 h-5 text-primary" /> Criar Nova Loja
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Nome da Loja *</Label>
+                            <Input value={newStoreName} onChange={(e) => { setNewStoreName(e.target.value); if (!newStoreSlug || newStoreSlug === newStoreName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")) setNewStoreSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")); }} placeholder="Pizzaria do João" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Slug (URL) *</Label>
+                            <Input value={newStoreSlug} onChange={(e) => setNewStoreSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="pizzaria-do-joao" />
+                            <p className="text-xs text-slate-400">Será usado como subdomínio: {newStoreSlug || "slug"}.frfood.com.br</p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Plano Inicial</Label>
+                            <Select value={newStorePlan} onValueChange={(val) => setNewStorePlan(val as "trial" | "monthly" | "yearly")}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="trial">Teste (Trial)</SelectItem>
+                                    <SelectItem value="monthly">Mensal</SelectItem>
+                                    <SelectItem value="yearly">Anual</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Proprietário (opcional)</Label>
+                            <Select value={newStoreOwner} onValueChange={setNewStoreOwner}>
+                                <SelectTrigger><SelectValue placeholder="Selecione um usuário..." /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Nenhum</SelectItem>
+                                    {allProfiles.map((p) => (
+                                        <SelectItem key={p.id} value={p.id}>{p.full_name || "Sem nome"} {p.phone ? `(${p.phone})` : ""}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Cancelar</Button>
+                        <Button onClick={handleCreateStore} disabled={creating}>
+                            {creating ? (<><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" />Criando...</>) : "Criar Loja"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

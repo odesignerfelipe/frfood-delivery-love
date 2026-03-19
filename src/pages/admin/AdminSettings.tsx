@@ -109,39 +109,11 @@ export default function AdminSettings() {
         if (!settingsId) { toast.error("Erro: ID de configurações não encontrado."); return; }
         setSaving(true);
 
-        // Store settings inside individual columns and the 'value' JSONB column for backward compatibility
+        // Save all settings into the "value" JSONB column for maximum compatibility
+        // Individual columns may not always exist depending on which migrations ran
         const { error } = await supabase
             .from("platform_settings")
-            .update({
-                primary_color: settings.primaryColor,
-                secondary_color: settings.secondaryColor,
-                logo_url: settings.logoUrl,
-                favicon_url: settings.faviconUrl,
-                site_name: settings.siteName,
-                navbar_button_text: settings.navbarButtonText,
-                hero_title: settings.heroTitle,
-                hero_subtitle: settings.heroSubtitle,
-                hero_button_text: settings.heroButtonText,
-                hero_image_url: settings.heroImageUrl,
-                hero_badge_text: settings.heroBadgeText,
-                hero_bg_type: settings.heroBgType,
-                hero_bg_color: settings.heroBgColor,
-                pricing_title: settings.pricingTitle,
-                pricing_subtitle: settings.pricingSubtitle,
-                monthly_price: settings.monthlyPrice,
-                yearly_price: settings.yearlyPrice,
-                promo_monthly_price: settings.promoMonthlyPrice,
-                promo_yearly_price: settings.promoYearlyPrice,
-                promo_active: settings.promoActive,
-                promo_label: settings.promoLabel,
-                cta_title: settings.ctaTitle,
-                cta_subtitle: settings.ctaSubtitle,
-                cta_button_text: settings.ctaButtonText,
-                footer_text: settings.footerText,
-                hero_stats: settings.heroStats as any,
-                faq_items: settings.faqItems as any,
-                value: settings as any,
-            })
+            .update({ value: settings as any })
             .eq("id", settingsId);
 
         if (error) {
