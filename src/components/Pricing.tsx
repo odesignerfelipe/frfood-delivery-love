@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Check, Star } from "lucide-react";
+import { Check, Star, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useGlobalSettings } from "@/contexts/GlobalSettingsContext";
@@ -21,8 +21,16 @@ const allFeatures = [
 const Pricing = () => {
   const { settings } = useGlobalSettings();
 
-  const monthlyParts = (settings.monthlyPrice || "149,90").split(",");
-  const yearlyParts = (settings.yearlyPrice || "124,90").split(",");
+  const isPromo = settings.promoActive;
+
+  // Determine which prices to show
+  const displayMonthly = isPromo && settings.promoMonthlyPrice ? settings.promoMonthlyPrice : settings.monthlyPrice || "149,90";
+  const displayYearly = isPromo && settings.promoYearlyPrice ? settings.promoYearlyPrice : settings.yearlyPrice || "124,90";
+  const originalMonthly = settings.monthlyPrice || "149,90";
+  const originalYearly = settings.yearlyPrice || "124,90";
+
+  const monthlyParts = displayMonthly.split(",");
+  const yearlyParts = displayYearly.split(",");
 
   const plans = [
     {
@@ -33,6 +41,7 @@ const Pricing = () => {
       description: "Ideal para testar e começar a vender online",
       highlight: false,
       cta: "Começar agora",
+      originalPrice: isPromo && settings.promoMonthlyPrice ? originalMonthly : null,
     },
     {
       name: "Anual",
@@ -44,6 +53,7 @@ const Pricing = () => {
       cta: "Assinar plano anual",
       badge: "Mais popular",
       installment: "12x de",
+      originalPrice: isPromo && settings.promoYearlyPrice ? originalYearly : null,
     },
   ];
 
@@ -58,6 +68,12 @@ const Pricing = () => {
           <p className="text-muted-foreground text-lg">
             {settings.pricingSubtitle || "Todos os recursos inclusos em qualquer plano. Sem taxa por pedido."}
           </p>
+          {isPromo && (
+            <div className="mt-4 inline-flex items-center gap-2 bg-amber-100 text-amber-800 px-4 py-2 rounded-full text-sm font-bold animate-pulse">
+              <Zap className="w-4 h-4" />
+              {settings.promoLabel || "Promoção"} — Preços especiais por tempo limitado!
+            </div>
+          )}
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -84,6 +100,18 @@ const Pricing = () => {
               <div className="mb-8">
                 {plan.installment && (
                   <p className={cn("text-sm mb-1", plan.highlight ? "text-primary-foreground/80" : "text-muted-foreground")}>{plan.installment}</p>
+                )}
+                {plan.originalPrice && (
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={cn("text-lg line-through opacity-60", plan.highlight ? "text-primary-foreground/60" : "text-muted-foreground")}>
+                      R$ {plan.originalPrice}
+                    </span>
+                    {isPromo && (
+                      <span className={cn("text-[10px] font-bold uppercase px-2 py-0.5 rounded-full", plan.highlight ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700")}>
+                        {settings.promoLabel || "Promoção"}
+                      </span>
+                    )}
+                  </div>
                 )}
                 <div className="flex items-baseline gap-1">
                   <span className={cn("text-sm font-medium", plan.highlight ? "text-primary-foreground/80" : "text-muted-foreground")}>R$</span>

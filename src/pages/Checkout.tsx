@@ -4,12 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { ultraResilientInvoke } from "@/lib/supabase-edge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { CreditCard, Check, ArrowLeft, Shield, Lock, Star, QrCode, Copy, CheckCircle2, Clock } from "lucide-react";
+import { CreditCard, Check, ArrowLeft, Shield, Lock, Star, QrCode, Copy, CheckCircle2, Clock, LogIn, Zap } from "lucide-react";
+import { useGlobalSettings } from "@/contexts/GlobalSettingsContext";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 const Checkout = () => {
     const navigate = useNavigate();
+    const { settings: globalSettings } = useGlobalSettings();
     const [session, setSession] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -176,6 +178,13 @@ const Checkout = () => {
                     <ArrowLeft className="w-4 h-4" /> Voltar ao início
                 </Link>
 
+                <div className="flex items-center justify-between mb-6">
+                    <div />
+                    <Link to="/auth" className="inline-flex items-center gap-2 text-primary hover:text-primary/80 text-sm font-semibold transition-colors">
+                        <LogIn className="w-4 h-4" /> Já tenho uma loja
+                    </Link>
+                </div>
+
                 <div className="grid lg:grid-cols-5 gap-8">
                     {/* Left: Plan selection */}
                     <div className="lg:col-span-2 space-y-4">
@@ -183,6 +192,18 @@ const Checkout = () => {
                         <p className="text-muted-foreground text-sm mb-6">Todos os recursos inclusos. Comece a vender agora.</p>
 
                         {/* Monthly */}
+                        {(() => {
+                            const isPromo = globalSettings.promoActive;
+                            const displayMonthly = isPromo && globalSettings.promoMonthlyPrice ? globalSettings.promoMonthlyPrice : globalSettings.monthlyPrice || "149,90";
+                            const displayYearly = isPromo && globalSettings.promoYearlyPrice ? globalSettings.promoYearlyPrice : globalSettings.yearlyPrice || "124,90";
+                            const origMonthly = globalSettings.monthlyPrice || "149,90";
+                            const origYearly = globalSettings.yearlyPrice || "124,90";
+                            const monthlyParts = displayMonthly.split(",");
+                            const yearlyParts = displayYearly.split(",");
+                            const yearlyTotal = (parseFloat(displayYearly.replace(",", ".")) * 12).toFixed(2).replace(".", ",");
+                            const savings = ((parseFloat(origMonthly.replace(",", ".")) - parseFloat(displayYearly.replace(",", "."))) * 12).toFixed(0);
+                            return (
+                              <>
                         <button
                             onClick={() => setPlan("monthly")}
                             className={`w-full p-5 rounded-2xl border-2 text-left transition-all ${plan === "monthly" ? "border-primary bg-primary/5 shadow-md" : "border-border bg-card hover:border-primary/50"}`}
@@ -193,10 +214,16 @@ const Checkout = () => {
                                     {plan === "monthly" && <Check className="w-3 h-3 text-primary-foreground" />}
                                 </div>
                             </div>
+                            {isPromo && globalSettings.promoMonthlyPrice && (
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-sm line-through text-muted-foreground">R$ {origMonthly}</span>
+                                    <span className="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{globalSettings.promoLabel || "Promoção"}</span>
+                                </div>
+                            )}
                             <div className="flex items-baseline gap-1">
                                 <span className="text-sm text-muted-foreground">R$</span>
-                                <span className="text-3xl font-extrabold text-foreground">149</span>
-                                <span className="text-lg font-bold text-foreground">,90</span>
+                                <span className="text-3xl font-extrabold text-foreground">{monthlyParts[0]}</span>
+                                <span className="text-lg font-bold text-foreground">,{monthlyParts[1] || "90"}</span>
                                 <span className="text-sm text-muted-foreground">/mês</span>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">Cancele quando quiser</p>
@@ -216,14 +243,25 @@ const Checkout = () => {
                                     {plan === "yearly" && <Check className="w-3 h-3 text-primary-foreground" />}
                                 </div>
                             </div>
+                            {isPromo && globalSettings.promoYearlyPrice && (
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-sm line-through text-muted-foreground">R$ {origYearly}</span>
+                                    <span className="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{globalSettings.promoLabel || "Promoção"}</span>
+                                </div>
+                            )}
                             <div className="flex items-baseline gap-1">
                                 <span className="text-sm text-muted-foreground">12x de R$</span>
-                                <span className="text-3xl font-extrabold text-foreground">124</span>
-                                <span className="text-lg font-bold text-foreground">,90</span>
+                                <span className="text-3xl font-extrabold text-foreground">{yearlyParts[0]}</span>
+                                <span className="text-lg font-bold text-foreground">,{yearlyParts[1] || "90"}</span>
                                 <span className="text-sm text-muted-foreground">/mês</span>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">Total: R$ 1.498,80/ano · Economize R$ 300</p>
+                            <p className="text-xs text-muted-foreground mt-1">Total: R$ {yearlyTotal}/ano · Economize R$ {savings}</p>
                         </button>
+                              </>
+                            );
+                        })()}
+
+
 
                         <div className="bg-card rounded-xl border border-border/50 p-4 mt-4">
                             <p className="text-xs font-semibold text-foreground mb-2">Todos os planos incluem:</p>
@@ -303,7 +341,17 @@ const Checkout = () => {
                                             </div>
 
                                             <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-xl text-sm text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800 text-center mb-6">
-                                                <p className="font-semibold mb-1">💰 {plan === "monthly" ? "R$ 149,90" : "R$ 1.498,80"}</p>
+                                                <p className="font-semibold mb-1">💰 {(() => {
+                                                    const isPromo = globalSettings.promoActive;
+                                                    if (plan === "monthly") {
+                                                        const p = isPromo && globalSettings.promoMonthlyPrice ? globalSettings.promoMonthlyPrice : globalSettings.monthlyPrice || "149,90";
+                                                        return `R$ ${p}`;
+                                                    } else {
+                                                        const p = isPromo && globalSettings.promoYearlyPrice ? globalSettings.promoYearlyPrice : globalSettings.yearlyPrice || "124,90";
+                                                        const total = (parseFloat(p.replace(",", ".")) * 12).toFixed(2).replace(".", ",");
+                                                        return `R$ ${total}`;
+                                                    }
+                                                })()}</p>
                                                 <p className="text-xs opacity-80">Um QR code será gerado para você pagar pelo app do seu banco. A confirmação é automática!</p>
                                             </div>
 

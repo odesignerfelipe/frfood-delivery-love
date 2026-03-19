@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ultraResilientInvoke } from "@/lib/supabase-edge";
-import { ShoppingBag, Package, DollarSign, TrendingUp, Bell, Plus, Eye, Pencil, Power, Wallet, ArrowRight, User, Clock, LayoutDashboard, Calculator, Receipt, Smartphone, Table2, Search, Minus, Trash2, Send, Check, Printer, ChevronDown, Copy } from "lucide-react";
+import { ShoppingBag, Package, DollarSign, TrendingUp, Bell, Plus, Eye, Pencil, Power, Wallet, ArrowRight, User, Clock, LayoutDashboard, Calculator, Receipt, Smartphone, Table2, Search, Minus, Trash2, Send, Check, Printer, ChevronDown, Copy, Zap } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -24,11 +24,14 @@ import { Separator } from "@/components/ui/separator";
 import { printerService } from "@/lib/printer";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import ManualOrderDialog from "@/components/dashboard/ManualOrderDialog";
+import { useGlobalSettings } from "@/contexts/GlobalSettingsContext";
 
 
 const DashboardHome = () => {
   const { store, updateStore } = useStore();
   const navigate = useNavigate();
+  const { settings: globalSettings } = useGlobalSettings();
+  const [showPlanPopup, setShowPlanPopup] = useState(false);
   const [stats, setStats] = useState({ orders: 0, products: 0, revenue: 0, todayOrders: 0 });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [toggling, setToggling] = useState(false);
@@ -536,6 +539,24 @@ const DashboardHome = () => {
     return () => { supabase.removeChannel(channel); };
   }, [store, fetchStats]);
 
+  // Check plan status and show popup for inactive/trial plans
+  useEffect(() => {
+    if (!store) return;
+    const storeAny = store as any;
+    const planStatus = storeAny.plan_status || 'active';
+    const planType = storeAny.plan_type || 'trial';
+    const needsUpgrade = planStatus !== 'active' || planType === 'trial';
+
+    if (needsUpgrade) {
+      const lastDismissed = localStorage.getItem('plan_popup_dismissed');
+      if (lastDismissed) {
+        const elapsed = Date.now() - parseInt(lastDismissed, 10);
+        if (elapsed < 24 * 60 * 60 * 1000) return; // 24h cooldown
+      }
+      setShowPlanPopup(true);
+    }
+  }, [store]);
+
   const toggleStore = async () => {
     if (!store) return;
     setToggling(true);
@@ -632,6 +653,51 @@ const DashboardHome = () => {
 
   return (
     <div className="space-y-6">
+      {/* Inactive Plan Popup */}
+      <Dialog open={showPlanPopup} onOpenChange={(open) => {
+        if (!open) {
+          setShowPlanPopup(false);
+          localStorage.setItem('plan_popup_dismissed', String(Date.now()));
+        }
+      }}>
+        <DialogContent className="sm:max-w-md border-none shadow-hero rounded-3xl overflow-hidden p-0">
+          <div className="bg-gradient-to-br from-primary to-orange-500 p-8 text-white text-center">
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Zap className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-extrabold mb-2">Finalize sua compra!</h2>
+            <p className="text-white/90 text-sm">
+              Finalize sua compra agora e aproveite todos os benefícios por apenas{" "}
+              <span className="font-black text-lg">
+                R$ {globalSettings.promoActive && globalSettings.promoMonthlyPrice
+                  ? globalSettings.promoMonthlyPrice
+                  : globalSettings.monthlyPrice || "149,90"}/mês
+              </span>
+            </p>
+          </div>
+          <div className="p-6 space-y-3">
+            <Button
+              variant="hero"
+              className="w-full h-14 text-lg font-bold rounded-2xl shadow-lg"
+              onClick={() => {
+                setShowPlanPopup(false);
+                navigate("/checkout");
+              }}
+            >
+              <Zap className="w-5 h-5 mr-2" /> Assinar agora
+            </Button>
+            <button
+              className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+              onClick={() => {
+                setShowPlanPopup(false);
+                localStorage.setItem('plan_popup_dismissed', String(Date.now()));
+              }}
+            >
+              Talvez mais tarde
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Frente de Caixa</h2>

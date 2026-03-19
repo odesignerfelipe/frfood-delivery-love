@@ -25,6 +25,11 @@ type GlobalThemeSettings = {
     pricingSubtitle: string;
     monthlyPrice: string;
     yearlyPrice: string;
+    // Promo
+    promoMonthlyPrice: string;
+    promoYearlyPrice: string;
+    promoActive: boolean;
+    promoLabel: string;
     // CTA
     ctaTitle: string;
     ctaSubtitle: string;
@@ -65,6 +70,10 @@ const defaultSettings: GlobalThemeSettings = {
     pricingSubtitle: "Todos os recursos inclusos em qualquer plano. Sem taxa por pedido.",
     monthlyPrice: "149,90",
     yearlyPrice: "124,90",
+    promoMonthlyPrice: "",
+    promoYearlyPrice: "",
+    promoActive: false,
+    promoLabel: "Promoção",
     ctaTitle: "Pronto para vender mais?",
     ctaSubtitle: "Comece agora e tenha seu delivery online funcionando em minutos. Sem taxa por pedido, sem complicação.",
     ctaButtonText: "Criar minha loja agora",
@@ -126,6 +135,10 @@ export const GlobalSettingsProvider = ({ children }: { children: React.ReactNode
                         pricingSubtitle: row.pricing_subtitle || val.pricingSubtitle || defaultSettings.pricingSubtitle,
                         monthlyPrice: row.monthly_price || val.monthlyPrice || defaultSettings.monthlyPrice,
                         yearlyPrice: row.yearly_price || val.yearlyPrice || defaultSettings.yearlyPrice,
+                        promoMonthlyPrice: row.promo_monthly_price || val.promoMonthlyPrice || defaultSettings.promoMonthlyPrice,
+                        promoYearlyPrice: row.promo_yearly_price || val.promoYearlyPrice || defaultSettings.promoYearlyPrice,
+                        promoActive: row.promo_active ?? val.promoActive ?? defaultSettings.promoActive,
+                        promoLabel: row.promo_label || val.promoLabel || defaultSettings.promoLabel,
                         ctaTitle: row.cta_title || val.ctaTitle || defaultSettings.ctaTitle,
                         ctaSubtitle: row.cta_subtitle || val.ctaSubtitle || defaultSettings.ctaSubtitle,
                         ctaButtonText: row.cta_button_text || val.ctaButtonText || defaultSettings.ctaButtonText,

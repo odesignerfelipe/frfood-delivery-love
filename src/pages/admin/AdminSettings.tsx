@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Settings, ArrowLeft, Save, Upload, Plus, Trash2, Palette, Type, Image, LayoutDashboard, HelpCircle, MessageSquare } from "lucide-react";
+import { Settings, ArrowLeft, Save, Upload, Plus, Trash2, Palette, Type, Image, LayoutDashboard, HelpCircle, MessageSquare, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,10 @@ export default function AdminSettings() {
         pricingSubtitle: "Todos os recursos inclusos em qualquer plano. Sem taxa por pedido.",
         monthlyPrice: "149,90",
         yearlyPrice: "124,90",
+        promoMonthlyPrice: "",
+        promoYearlyPrice: "",
+        promoActive: false,
+        promoLabel: "Promoção",
         ctaTitle: "Pronto para vender mais?",
         ctaSubtitle: "Comece agora e tenha seu delivery online funcionando em minutos.",
         ctaButtonText: "Criar minha loja agora",
@@ -86,6 +90,10 @@ export default function AdminSettings() {
                 pricingSubtitle: v.pricing_subtitle || val.pricingSubtitle || "",
                 monthlyPrice: v.monthly_price || val.monthlyPrice || "149,90",
                 yearlyPrice: v.yearly_price || val.yearlyPrice || "124,90",
+                promoMonthlyPrice: v.promo_monthly_price || val.promoMonthlyPrice || "",
+                promoYearlyPrice: v.promo_yearly_price || val.promoYearlyPrice || "",
+                promoActive: v.promo_active ?? val.promoActive ?? false,
+                promoLabel: v.promo_label || val.promoLabel || "Promoção",
                 ctaTitle: v.cta_title || val.ctaTitle || "Pronto para vender mais?",
                 ctaSubtitle: v.cta_subtitle || val.ctaSubtitle || "",
                 ctaButtonText: v.cta_button_text || val.ctaButtonText || "Criar minha loja agora",
@@ -122,6 +130,10 @@ export default function AdminSettings() {
                 pricing_subtitle: settings.pricingSubtitle,
                 monthly_price: settings.monthlyPrice,
                 yearly_price: settings.yearlyPrice,
+                promo_monthly_price: settings.promoMonthlyPrice,
+                promo_yearly_price: settings.promoYearlyPrice,
+                promo_active: settings.promoActive,
+                promo_label: settings.promoLabel,
                 cta_title: settings.ctaTitle,
                 cta_subtitle: settings.ctaSubtitle,
                 cta_button_text: settings.ctaButtonText,
@@ -336,6 +348,43 @@ export default function AdminSettings() {
                                 <div className="space-y-2"><Label>Preço Mensal (ex: 149,90)</Label><Input value={settings.monthlyPrice} onChange={e => setSettings(p => ({ ...p, monthlyPrice: e.target.value }))} /></div>
                                 <div className="space-y-2"><Label>Preço Anual (ex: 124,90)</Label><Input value={settings.yearlyPrice} onChange={e => setSettings(p => ({ ...p, yearlyPrice: e.target.value }))} /></div>
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-none shadow-sm max-w-2xl">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="flex items-center gap-2"><Zap className="w-5 h-5 text-amber-500" />Promoções</CardTitle>
+                                <button
+                                    type="button"
+                                    onClick={() => setSettings(p => ({ ...p, promoActive: !p.promoActive }))}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.promoActive ? 'bg-primary' : 'bg-slate-200'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.promoActive ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            <CardDescription>Ative para exibir preços promocionais no site e checkout. Os valores originais aparecem riscados.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Preço Promo Mensal (ex: 99,90)</Label>
+                                    <Input value={settings.promoMonthlyPrice} onChange={e => setSettings(p => ({ ...p, promoMonthlyPrice: e.target.value }))} placeholder="99,90" disabled={!settings.promoActive} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Preço Promo Anual (ex: 89,90)</Label>
+                                    <Input value={settings.promoYearlyPrice} onChange={e => setSettings(p => ({ ...p, promoYearlyPrice: e.target.value }))} placeholder="89,90" disabled={!settings.promoActive} />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Texto do Badge Promocional</Label>
+                                <Input value={settings.promoLabel} onChange={e => setSettings(p => ({ ...p, promoLabel: e.target.value }))} placeholder="Promoção" disabled={!settings.promoActive} />
+                            </div>
+                            {settings.promoActive && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-700">
+                                    ⚡ Promoção ativa! Os preços promocionais serão exibidos na landing page e no checkout automaticamente.
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>

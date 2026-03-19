@@ -520,7 +520,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
       {
         variationModalOpen && variationProduct && (
           <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}>
-            <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white border-none shadow-hero">
+            <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white border-none shadow-hero max-h-[85vh] flex flex-col">
               <div className="p-6 space-y-6 flex-1 overflow-y-auto min-h-0 bg-white">
                 <div className="flex gap-4">
                   {variationProduct.image_url && <img src={variationProduct.image_url} className="w-20 h-20 rounded-xl object-cover" />}
