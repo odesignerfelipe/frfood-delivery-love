@@ -47,6 +47,7 @@ import AdminClients from "./pages/admin/AdminClients";
 import AdminPlans from "./pages/admin/AdminPlans";
 import AdminReports from "./pages/admin/AdminReports";
 import AdminUpdates from "./pages/admin/AdminUpdates";
+import AdminUsers from "./pages/admin/AdminUsers";
 import AdminRoute from "./components/admin/AdminRoute";
 
 // Domain configuration
@@ -126,6 +127,7 @@ const AppRouter = () => {
         <Route path="stores" element={<AdminStores />} />
         <Route path="clients" element={<AdminClients />} />
         <Route path="plans" element={<AdminPlans />} />
+        <Route path="users" element={<AdminUsers />} />
         <Route path="reports" element={<AdminReports />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="landing-page" element={<AdminLandingPage />} />

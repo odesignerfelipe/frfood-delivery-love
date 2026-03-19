@@ -618,23 +618,53 @@ const DashboardHome = () => {
     if (!activeSession) return;
     setIsProcessingSession(true);
     try {
+      const now = new Date();
+      const todayStr = format(now, "yyyy-MM-dd");
+
       const { error } = await supabase.from("cashier_sessions").update({
         status: "closed",
         closing_balance: stats.revenue + activeSession.opening_balance,
-        closed_at: new Date().toISOString()
+        closed_at: now.toISOString()
       }).eq("id", activeSession.id);
 
       if (error) throw error;
 
-      // Record in Financials (Exit of the total balance to "empty" the drawer for the next shift/deposit)
+      // 1. Record daily sales summary in Financials
+      // Get today's delivered orders for this store
+      const { data: todayOrders } = await supabase
+        .from("orders")
+        .select("id, total, payment_method")
+        .eq("store_id", store.id)
+        .gte("created_at", `${todayStr}T00:00:00`)
+        .lte("created_at", `${todayStr}T23:59:59`)
+        .in("status", ["delivered", "completed", "ready"]);
+
+      const dailyTotal = (todayOrders || []).reduce((sum, o) => sum + Number(o.total || 0), 0);
+      const orderCount = (todayOrders || []).length;
+
+      if (dailyTotal > 0) {
+        const { error: salesError } = await supabase.from("financial_transactions").insert({
+          store_id: store.id,
+          description: `Vendas do Dia (${format(now, "dd/MM/yyyy")}) — ${orderCount} pedido(s)`,
+          amount: dailyTotal,
+          type: "entry",
+          status: "paid",
+          paid_at: now.toISOString(),
+          due_date: todayStr,
+          payment_method: "diversos"
+        });
+        if (salesError) console.error("Error recording daily sales:", salesError);
+      }
+
+      // 2. Record cashier closure (withdrawal)
       const { error: financialError } = await supabase.from("financial_transactions").insert({
         store_id: store.id,
         description: "Fechamento de Caixa / Retirada",
         amount: stats.revenue + activeSession.opening_balance,
         type: "exit",
         status: "paid",
-        paid_at: new Date().toISOString(),
-        due_date: format(new Date(), "yyyy-MM-dd"),
+        paid_at: now.toISOString(),
+        due_date: todayStr,
         payment_method: "dinheiro"
       });
 

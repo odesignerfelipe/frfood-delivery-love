@@ -140,7 +140,6 @@ export default function AdminSettings() {
                 footer_text: settings.footerText,
                 hero_stats: settings.heroStats as any,
                 faq_items: settings.faqItems as any,
-                features: settings.features as any,
                 value: settings as any,
             })
             .eq("id", settingsId);
