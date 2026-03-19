@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { CreditCard, Store, Clock, AlertTriangle, CheckCircle, Edit2, Trash2, Eye, Search } from "lucide-react";
+import { CreditCard, Store, Clock, AlertTriangle, CheckCircle, Edit2, Trash2, Eye, Search, Zap, Plus, DollarSign, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
+import { Label } from "@/components/ui/label";
 
 const AdminPlans = () => {
     const [stores, setStores] = useState<any[]>([]);
@@ -18,6 +19,8 @@ const AdminPlans = () => {
     const [editStore, setEditStore] = useState<any>(null);
     const [editPlan, setEditPlan] = useState("");
     const [editStatus, setEditStatus] = useState("");
+    const [editPrice, setEditPrice] = useState("");
+    const [editExpires, setEditExpires] = useState("");
     // Delete Modal
     const [deleteStore, setDeleteStore] = useState<any>(null);
     const [deleting, setDeleting] = useState(false);
@@ -43,15 +46,22 @@ const AdminPlans = () => {
 
     const openEdit = (store: any) => {
         setEditStore(store);
-        setEditPlan(store.plan_type || "monthly");
+        setEditPlan(store.plan_type || "trial");
         setEditStatus(store.plan_status || "active");
+        setEditPrice(String(store.plan_price || 0));
+        setEditExpires(store.plan_expires_at ? format(new Date(store.plan_expires_at), "yyyy-MM-dd") : "");
     };
 
     const saveEdit = async () => {
         if (!editStore) return;
         const { error } = await supabase
             .from("stores")
-            .update({ plan_type: editPlan, plan_status: editStatus } as any)
+            .update({
+                plan_type: editPlan,
+                plan_status: editStatus,
+                plan_price: Number(editPrice) || 0,
+                plan_expires_at: editExpires ? new Date(editExpires + "T23:59:59").toISOString() : null,
+            } as any)
             .eq("id", editStore.id);
         if (error) { toast.error("Erro ao atualizar"); console.error(error); }
         else { toast.success("Plano atualizado!"); setEditStore(null); fetchStores(); }
@@ -60,7 +70,6 @@ const AdminPlans = () => {
     const confirmDelete = async () => {
         if (!deleteStore) return;
         setDeleting(true);
-        // Delete all associated data first
         await supabase.from("order_items").delete().in("order_id",
             (await supabase.from("orders").select("id").eq("store_id", deleteStore.id)).data?.map((o: any) => o.id) || []
         );
@@ -89,10 +98,54 @@ const AdminPlans = () => {
 
     const planCounts = {
         total: stores.length,
+        trial: stores.filter(s => s.plan_type === "trial").length,
         monthly: stores.filter(s => s.plan_type === "monthly").length,
         yearly: stores.filter(s => s.plan_type === "yearly").length,
         active: stores.filter(s => s.plan_status === "active").length,
         overdue: stores.filter(s => s.plan_status === "overdue").length,
+    };
+
+    const totalMRR = stores.reduce((acc, s) => {
+        if (s.plan_status !== "active") return acc;
+        if (s.plan_type === "monthly") return acc + (Number(s.plan_price) || 0);
+        if (s.plan_type === "yearly") return acc + ((Number(s.plan_price) || 0) / 12);
+        return acc;
+    }, 0);
+
+    const planLabel = (type: string) => {
+        switch (type) {
+            case "trial": return "Teste";
+            case "monthly": return "Mensal";
+            case "yearly": return "Anual";
+            default: return type;
+        }
+    };
+
+    const planBadgeColor = (type: string) => {
+        switch (type) {
+            case "trial": return "bg-amber-100 text-amber-700";
+            case "monthly": return "bg-blue-100 text-blue-700";
+            case "yearly": return "bg-purple-100 text-purple-700";
+            default: return "bg-slate-100 text-slate-600";
+        }
+    };
+
+    const statusBadgeColor = (status: string) => {
+        switch (status) {
+            case "active": return "bg-green-100 text-green-700";
+            case "overdue": return "bg-red-100 text-red-700";
+            case "cancelled": return "bg-slate-100 text-slate-600";
+            default: return "bg-slate-100 text-slate-600";
+        }
+    };
+
+    const statusLabel = (status: string) => {
+        switch (status) {
+            case "active": return "Ativo";
+            case "overdue": return "Inadimplente";
+            case "cancelled": return "Cancelado";
+            default: return status;
+        }
     };
 
     if (loading) {
@@ -111,13 +164,15 @@ const AdminPlans = () => {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
                 {[
                     { label: "Total de Lojas", value: planCounts.total, icon: Store, color: "bg-slate-100 text-slate-700" },
+                    { label: "Teste/Trial", value: planCounts.trial, icon: Zap, color: "bg-amber-50 text-amber-700" },
                     { label: "Mensal", value: planCounts.monthly, icon: CreditCard, color: "bg-blue-50 text-blue-700" },
                     { label: "Anual", value: planCounts.yearly, icon: CreditCard, color: "bg-purple-50 text-purple-700" },
                     { label: "Ativos", value: planCounts.active, icon: CheckCircle, color: "bg-green-50 text-green-700" },
                     { label: "Inadimplentes", value: planCounts.overdue, icon: AlertTriangle, color: "bg-red-50 text-red-700" },
+                    { label: "MRR Estimado", value: `R$ ${totalMRR.toFixed(0)}`, icon: DollarSign, color: "bg-emerald-50 text-emerald-700" },
                 ].map((card, i) => (
                     <div key={i} className={`rounded-2xl p-4 ${card.color} border border-white/50`}>
                         <card.icon className="w-5 h-5 mb-2 opacity-70" />
@@ -135,14 +190,14 @@ const AdminPlans = () => {
                 </div>
                 <div className="flex gap-2">
                     <span className="text-sm text-slate-500 self-center">Plano:</span>
-                    {["all", "monthly", "yearly"].map((f) => (
+                    {["all", "trial", "monthly", "yearly"].map((f) => (
                         <button
                             key={f}
                             onClick={() => setFilterPlan(f)}
                             className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${filterPlan === f ? "bg-primary text-white border-primary" : "bg-white text-slate-500 border-slate-200 hover:border-primary/40"
                                 }`}
                         >
-                            {f === "all" ? "Todos" : f === "monthly" ? "Mensal" : "Anual"}
+                            {f === "all" ? "Todos" : planLabel(f)}
                         </button>
                     ))}
                 </div>
@@ -155,7 +210,7 @@ const AdminPlans = () => {
                             className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${filterStatus === f ? "bg-primary text-white border-primary" : "bg-white text-slate-500 border-slate-200 hover:border-primary/40"
                                 }`}
                         >
-                            {f === "all" ? "Todos" : f === "active" ? "Ativo" : f === "overdue" ? "Inadimplente" : "Cancelado"}
+                            {f === "all" ? "Todos" : statusLabel(f)}
                         </button>
                     ))}
                 </div>
@@ -170,68 +225,84 @@ const AdminPlans = () => {
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Loja</th>
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Proprietário</th>
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Plano</th>
+                                <th className="text-left px-6 py-4 font-semibold text-slate-600">Valor</th>
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Status</th>
+                                <th className="text-left px-6 py-4 font-semibold text-slate-600">Validade</th>
                                 <th className="text-left px-6 py-4 font-semibold text-slate-600">Criado em</th>
                                 <th className="text-right px-6 py-4 font-semibold text-slate-600">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredStores.map((store) => (
-                                <tr key={store.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            {store.logo_url ? (
-                                                <img src={store.logo_url} alt="" className="w-10 h-10 rounded-xl object-cover" />
-                                            ) : (
-                                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                                    <Store className="w-5 h-5 text-primary" />
+                            {filteredStores.map((store) => {
+                                const isExpired = store.plan_expires_at && new Date(store.plan_expires_at) < new Date();
+                                return (
+                                    <tr key={store.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                {store.logo_url ? (
+                                                    <img src={store.logo_url} alt="" className="w-10 h-10 rounded-xl object-cover" />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                                        <Store className="w-5 h-5 text-primary" />
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <p className="font-medium text-slate-900">{store.name}</p>
+                                                    <p className="text-xs text-slate-400">{store.slug}</p>
                                                 </div>
-                                            )}
-                                            <div>
-                                                <p className="font-medium text-slate-900">{store.name}</p>
-                                                <p className="text-xs text-slate-400">{store.slug}</p>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <p className="text-slate-700">{(store as any).profiles?.full_name || "—"}</p>
-                                        <p className="text-xs text-slate-400">{(store as any).profiles?.phone || ""}</p>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${store.plan_type === "yearly" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                                            }`}>
-                                            {store.plan_type === "yearly" ? "Anual" : "Mensal"}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${store.plan_status === "active" ? "bg-green-100 text-green-700" :
-                                            store.plan_status === "overdue" ? "bg-red-100 text-red-700" :
-                                                "bg-slate-100 text-slate-600"
-                                            }`}>
-                                            {store.plan_status === "active" ? "Ativo" : store.plan_status === "overdue" ? "Inadimplente" : store.plan_status === "cancelled" ? "Cancelado" : store.plan_status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-xs text-slate-500">
-                                        {format(new Date(store.created_at), "dd/MM/yyyy")}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => window.open(`/loja/${store.slug}`, "_blank")} title="Ver loja">
-                                                <Eye className="w-4 h-4 text-slate-500" />
-                                            </Button>
-                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(store)} title="Editar plano">
-                                                <Edit2 className="w-4 h-4 text-blue-500" />
-                                            </Button>
-                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setDeleteStore(store)} title="Remover">
-                                                <Trash2 className="w-4 h-4 text-red-500" />
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <p className="text-slate-700">{(store as any).profiles?.full_name || "—"}</p>
+                                            <p className="text-xs text-slate-400">{(store as any).profiles?.phone || ""}</p>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${planBadgeColor(store.plan_type)}`}>
+                                                {planLabel(store.plan_type)}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="font-semibold text-slate-700">
+                                                {Number(store.plan_price) > 0 ? `R$ ${Number(store.plan_price).toFixed(2)}` : "—"}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${statusBadgeColor(store.plan_status)}`}>
+                                                {statusLabel(store.plan_status)}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {store.plan_expires_at ? (
+                                                <span className={`text-xs font-medium ${isExpired ? "text-red-600" : "text-slate-600"}`}>
+                                                    {format(new Date(store.plan_expires_at), "dd/MM/yyyy")}
+                                                    {isExpired && <AlertTriangle className="w-3 h-3 inline ml-1 text-red-500" />}
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-slate-400">—</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-xs text-slate-500">
+                                            {format(new Date(store.created_at), "dd/MM/yyyy")}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => window.open(`/loja/${store.slug}`, "_blank")} title="Ver loja">
+                                                    <Eye className="w-4 h-4 text-slate-500" />
+                                                </Button>
+                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(store)} title="Editar plano">
+                                                    <Edit2 className="w-4 h-4 text-blue-500" />
+                                                </Button>
+                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setDeleteStore(store)} title="Remover">
+                                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                                </Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             {filteredStores.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-16 text-center text-slate-400">
+                                    <td colSpan={8} className="px-6 py-16 text-center text-slate-400">
                                         Nenhuma loja encontrada.
                                     </td>
                                 </tr>
@@ -249,17 +320,18 @@ const AdminPlans = () => {
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700">Tipo de Plano</label>
+                            <Label className="text-sm font-medium text-slate-700">Tipo de Plano</Label>
                             <Select value={editPlan} onValueChange={setEditPlan}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="trial">Teste (Trial)</SelectItem>
                                     <SelectItem value="monthly">Mensal</SelectItem>
                                     <SelectItem value="yearly">Anual</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700">Status do Plano</label>
+                            <Label className="text-sm font-medium text-slate-700">Status do Plano</Label>
                             <Select value={editStatus} onValueChange={setEditStatus}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
@@ -268,6 +340,25 @@ const AdminPlans = () => {
                                     <SelectItem value="cancelled">Cancelado</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Valor do Plano (R$)</Label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                value={editPrice}
+                                onChange={(e) => setEditPrice(e.target.value)}
+                                placeholder="0.00"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Data de Validade</Label>
+                            <Input
+                                type="date"
+                                value={editExpires}
+                                onChange={(e) => setEditExpires(e.target.value)}
+                            />
+                            <p className="text-xs text-slate-400">Deixe vazio para plano sem expiração</p>
                         </div>
                     </div>
                     <DialogFooter>

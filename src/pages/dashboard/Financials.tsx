@@ -12,7 +12,9 @@ import {
     CheckCircle2,
     Clock,
     Trash2,
-    MoreVertical
+    MoreVertical,
+    Package,
+    TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -156,8 +158,12 @@ const Financials = () => {
         if (t.status === 'cancelled') return acc;
         if (t.type === 'entry') acc.entries += t.amount;
         else acc.exits += t.amount;
+        // Track supply/production costs (auto-generated from orders)
+        if (t.type === 'exit' && t.order_id) acc.supplyCosts += t.amount;
         return acc;
-    }, { entries: 0, exits: 0 });
+    }, { entries: 0, exits: 0, supplyCosts: 0 });
+
+    const grossProfit = totals.entries - totals.supplyCosts;
 
     const filteredTransactions = transactions.filter(t => {
         const matchesSearch = t.description?.toLowerCase().includes(search.toLowerCase());
@@ -276,7 +282,7 @@ const Financials = () => {
                 </Dialog>
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div className="bg-card p-6 rounded-xl border border-border/50 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
                         <ArrowUpCircle className="w-12 h-12 text-green-600" />
@@ -290,6 +296,24 @@ const Financials = () => {
                     </div>
                     <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Total Despesas</p>
                     <p className="text-3xl font-black text-red-600">{formatCurrency(totals.exits)}</p>
+                </div>
+                <div className="bg-card p-6 rounded-xl border border-border/50 shadow-sm relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
+                        <Package className="w-12 h-12 text-orange-600" />
+                    </div>
+                    <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Custo de Insumos</p>
+                    <p className="text-3xl font-black text-orange-600">{formatCurrency(totals.supplyCosts)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Deduzido automaticamente dos pedidos</p>
+                </div>
+                <div className="bg-card p-6 rounded-xl border border-border/50 shadow-sm relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
+                        <TrendingUp className="w-12 h-12 text-emerald-600" />
+                    </div>
+                    <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Lucro Bruto</p>
+                    <p className={`text-3xl font-black ${grossProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                        {formatCurrency(grossProfit)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Receita − Custo de Insumos</p>
                 </div>
                 <div className="bg-card p-6 rounded-xl border border-border/50 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
