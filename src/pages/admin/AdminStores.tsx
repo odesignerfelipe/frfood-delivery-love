@@ -31,11 +31,11 @@ const AdminStores = () => {
     const [newStoreSlug, setNewStoreSlug] = useState("");
     const [newStorePlan, setNewStorePlan] = useState("trial");
     const [newStoreOwner, setNewStoreOwner] = useState("");
+    const [newStorePhone, setNewStorePhone] = useState("");
     const [allProfiles, setAllProfiles] = useState<any[]>([]);
 
     const fetchStores = async () => {
         setLoading(true);
-        // Busca baseada em tabela separada para evitar bloqueio por foreign key ausente (PostgREST issue)
         const { data: storesData, error: storesError } = await supabase
             .from("stores")
             .select("*")
@@ -73,7 +73,6 @@ const AdminStores = () => {
 
     useEffect(() => {
         fetchStores();
-        // Also fetch profiles for the owner selector
         supabase.from("profiles").select("id, full_name, phone").order("full_name").then(({ data }) => {
             setAllProfiles(data || []);
         });
@@ -89,10 +88,11 @@ const AdminStores = () => {
             const storeData: any = {
                 name: newStoreName,
                 slug: newStoreSlug.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                phone: newStorePhone || "(00) 00000-0000",
                 plan_type: newStorePlan,
                 plan_status: "active",
             };
-            if (newStoreOwner) storeData.owner_id = newStoreOwner;
+            if (newStoreOwner && newStoreOwner !== "none") storeData.owner_id = newStoreOwner;
 
             const { error } = await supabase.from("stores").insert(storeData);
             if (error) throw error;
@@ -103,6 +103,7 @@ const AdminStores = () => {
             setNewStoreSlug("");
             setNewStorePlan("trial");
             setNewStoreOwner("");
+            setNewStorePhone("");
             fetchStores();
         } catch (err: any) {
             toast.error("Erro ao criar loja: " + (err.message || "Tente novamente"));
@@ -174,10 +175,10 @@ const AdminStores = () => {
                         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Gerenciar Lojas</h1>
                         <p className="text-sm text-slate-500 mt-1">Visão geral de todas as lojas e assinantes da plataforma.</p>
                     </div>
-                    <Button onClick={() => setCreateOpen(true)} className="shadow-lg shadow-primary/20">
-                        <Plus className="w-4 h-4 mr-2" /> Criar Loja
-                    </Button>
                 </div>
+                <Button onClick={() => setCreateOpen(true)} className="shadow-lg shadow-primary/20">
+                    <Plus className="w-4 h-4 mr-2" /> Criar Loja
+                </Button>
             </div>
 
             {/* Metrics Dashboard */}
@@ -333,16 +334,28 @@ const AdminStores = () => {
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label>Nome da Loja *</Label>
-                            <Input value={newStoreName} onChange={(e) => { setNewStoreName(e.target.value); if (!newStoreSlug || newStoreSlug === newStoreName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")) setNewStoreSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")); }} placeholder="Pizzaria do João" />
+                            <Input
+                                value={newStoreName}
+                                onChange={(e) => {
+                                    setNewStoreName(e.target.value);
+                                    const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+                                    setNewStoreSlug(slug);
+                                }}
+                                placeholder="Pizzaria do João"
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Slug (URL) *</Label>
                             <Input value={newStoreSlug} onChange={(e) => setNewStoreSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="pizzaria-do-joao" />
-                            <p className="text-xs text-slate-400">Será usado como subdomínio: {newStoreSlug || "slug"}.frfood.com.br</p>
+                            <p className="text-xs text-slate-400">Subdomínio: {newStoreSlug || "slug"}.frfood.com.br</p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Telefone / WhatsApp</Label>
+                            <Input value={newStorePhone} onChange={(e) => setNewStorePhone(e.target.value)} placeholder="(11) 99999-9999" />
                         </div>
                         <div className="space-y-2">
                             <Label>Plano Inicial</Label>
-                            <Select value={newStorePlan} onValueChange={(val) => setNewStorePlan(val as "trial" | "monthly" | "yearly")}>
+                            <Select value={newStorePlan} onValueChange={setNewStorePlan}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="trial">Teste (Trial)</SelectItem>
