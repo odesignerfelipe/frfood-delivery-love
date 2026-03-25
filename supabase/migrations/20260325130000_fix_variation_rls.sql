@@ -23,6 +23,13 @@ FOR ALL TO authenticated
 USING (public.is_product_owner(product_id))
 WITH CHECK (public.is_product_owner(product_id));
 
+-- Fix for Categories
+DROP POLICY IF EXISTS "Owners can manage categories" ON public.categories;
+CREATE POLICY "Owners can manage categories" ON public.categories
+FOR ALL TO authenticated
+USING (public.is_store_owner(store_id))
+WITH CHECK (public.is_store_owner(store_id));
+
 -- Also fix categories RLS just in case
 DROP POLICY IF EXISTS "Owners can manage categories" ON public.categories;
 CREATE POLICY "Owners can manage categories" ON public.categories

@@ -25,17 +25,25 @@ const Categories = () => {
 
   const handleSave = async () => {
     if (!store || !name.trim()) return;
-    if (editing) {
-      await supabase.from("categories").update({ name }).eq("id", editing.id);
-      toast.success("Categoria atualizada!");
-    } else {
-      await supabase.from("categories").insert({ name, store_id: store.id, sort_order: categories.length });
-      toast.success("Categoria criada!");
+    
+    try {
+      if (editing) {
+        const { error } = await supabase.from("categories").update({ name }).eq("id", editing.id);
+        if (error) throw error;
+        toast.success("Categoria atualizada!");
+      } else {
+        const { error } = await supabase.from("categories").insert({ name, store_id: store.id, sort_order: categories.length });
+        if (error) throw error;
+        toast.success("Categoria criada!");
+      }
+      setOpen(false);
+      setName("");
+      setEditing(null);
+      fetch();
+    } catch (err: any) {
+      console.error("Error saving category:", err);
+      toast.error("Erro ao salvar categoria: " + err.message);
     }
-    setOpen(false);
-    setName("");
-    setEditing(null);
-    fetch();
   };
 
   const handleDelete = async (id: string) => {
