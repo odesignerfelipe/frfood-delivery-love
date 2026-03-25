@@ -60,7 +60,17 @@ const Inventory = () => {
 
     useEffect(() => {
         fetchInventory();
-    }, [fetchInventory]);
+
+        if (!store) return;
+        const channel = supabase
+            .channel("inventory-refresh")
+            .on("postgres_changes", { event: "*", schema: "public", table: "inventory_items", filter: `store_id=eq.${store.id}` }, () => {
+                fetchInventory();
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [fetchInventory, store]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
