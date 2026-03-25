@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, AlertTriangle, GripVertical, BookOpen, X } from "lucide-react";
+import { Plus, Pencil, Trash2, AlertTriangle, GripVertical, BookOpen, X, Copy } from "lucide-react";
 
 type VariationOption = { name: string; price: number; recipe?: any[] };
 type Variation = {
@@ -178,6 +178,55 @@ const Products = () => {
     await supabase.from("products").delete().eq("id", id);
     toast.success("Produto excluído!");
     fetchAll();
+  };
+
+  const handleDuplicate = async (p: any) => {
+    if (!store) return;
+    const toastId = toast.loading("Duplicando produto...");
+    
+    try {
+      // 1. Duplicate base product
+      const { id, created_at, updated_at, categories, ...productData } = p;
+      const { data: newProduct, error: prodErr } = await supabase
+        .from("products")
+        .insert({
+          ...productData,
+          name: `${productData.name} (Cópia)`,
+          is_active: false,
+          sort_order: products.length
+        })
+        .select("id")
+        .single();
+        
+      if (prodErr) throw prodErr;
+      const newId = newProduct.id;
+
+      // 2. Duplicate recipe
+      const { data: recipeData } = await supabase.from("product_recipe_items").select("*").eq("product_id", p.id);
+      if (recipeData && recipeData.length > 0) {
+        const newRecipe = recipeData.map(({ id, created_at, product_id, ...rest }) => ({
+          ...rest,
+          product_id: newId
+        }));
+        await supabase.from("product_recipe_items").insert(newRecipe);
+      }
+
+      // 3. Duplicate variations
+      const { data: varsData } = await supabase.from("product_variations").select("*").eq("product_id", p.id);
+      if (varsData && varsData.length > 0) {
+        const newVars = varsData.map(({ id, created_at, product_id, ...rest }) => ({
+          ...rest,
+          product_id: newId
+        }));
+        await supabase.from("product_variations").insert(newVars);
+      }
+
+      toast.success("Produto duplicado com sucesso!", { id: toastId });
+      fetchAll();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao duplicar: " + err.message, { id: toastId });
+    }
   };
 
   const openEdit = async (p: any) => {
@@ -746,6 +795,9 @@ const Products = () => {
               <div className="flex flex-wrap gap-2 mt-3">
                 <Button variant="outline" size="sm" onClick={() => openEdit(p)}>
                   <Pencil className="w-3 h-3 mr-1" /> Editar
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleDuplicate(p)}>
+                  <Copy className="w-3 h-3 mr-1" /> Duplicar
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => openRecipe(p)} className="border-primary/50 text-primary">
                   <BookOpen className="w-3 h-3 mr-1" /> Ficha Téc.
