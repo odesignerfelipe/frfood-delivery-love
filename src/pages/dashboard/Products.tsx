@@ -108,72 +108,79 @@ const Products = () => {
 
   const handleSave = async () => {
     if (!store || !form.name.trim()) return;
-    const payload = {
-      name: form.name,
-      description: form.description,
-      price: form.price,
-      promotional_price: form.promotional_price || null,
-      serves_people: form.serves_people || null,
-      category_id: form.category_id || null,
-      is_active: form.is_active,
-      is_sold_out: form.is_sold_out,
-      manage_stock: form.manage_stock,
-      stock_quantity: form.manage_stock ? form.stock_quantity : 0,
-      image_url: form.image_url,
-      store_id: store.id,
-    };
 
-    let productId = editing?.id;
+    try {
+      const payload = {
+        name: form.name,
+        description: form.description,
+        price: form.price,
+        promotional_price: form.promotional_price || null,
+        serves_people: form.serves_people || null,
+        category_id: form.category_id || null,
+        is_active: form.is_active,
+        is_sold_out: form.is_sold_out,
+        manage_stock: form.manage_stock,
+        stock_quantity: form.manage_stock ? form.stock_quantity : 0,
+        image_url: form.image_url,
+        store_id: store.id,
+      };
 
-    if (editing) {
-      const { store_id, ...updatePayload } = payload;
-      await supabase.from("products").update(updatePayload).eq("id", editing.id);
-      toast.success("Produto atualizado!");
-    } else {
-      const { data } = await supabase.from("products").insert({ ...payload, sort_order: products.length }).select("id").single();
-      if (data) productId = data.id;
-      toast.success("Produto criado!");
-    }
+      let productId = editing?.id;
 
-    // Save variations
-    if (productId) {
-      // Delete removed variations
       if (editing) {
-        const existingIds = variations.filter(v => v.id).map(v => v.id);
-        const { data: currentVars } = await supabase.from("product_variations").select("id").eq("product_id", productId);
-        const toDelete = (currentVars || []).filter((cv: any) => !existingIds.includes(cv.id));
-        if (toDelete.length > 0) {
-          await supabase.from("product_variations").delete().in("id", toDelete.map((d: any) => d.id));
-        }
+        const { store_id, ...updatePayload } = payload;
+        const { error: updateErr } = await supabase.from("products").update(updatePayload).eq("id", editing.id);
+        if (updateErr) throw new Error(`Erro ao atualizar produto: ${updateErr.message}`);
+      } else {
+        const { data, error: insertErr } = await supabase.from("products").insert({ ...payload, sort_order: products.length }).select("id").single();
+        if (insertErr) throw new Error(`Erro criar produto: ${insertErr.message}`);
+        if (data) productId = data.id;
       }
 
-      // Upsert variations
-      for (let i = 0; i < variations.length; i++) {
-        const v = variations[i];
-        const varPayload = {
-          product_id: productId,
-          name: v.name,
-          required: v.required,
-          max_selections: v.max_selections,
-          options: v.options,
-          sort_order: i,
-        };
-        if (v.id) {
-          await supabase.from("product_variations").update(varPayload).eq("id", v.id);
-        } else {
-          await supabase.from("product_variations").insert(varPayload);
+      if (productId) {
+        // variations check
+        for (let i = 0; i < variations.length; i++) {
+          if (!variations[i].name.trim()) {
+            throw new Error(`O grupo de variação ${i + 1} precisa ter um nome.`);
+          }
         }
-      }
-    }
 
-    setOpen(false);
-    resetForm();
-    fetchAll();
+        // Delete removed variations if editing
+        if (editing) {
+          const existingIds = variations.filter(v => v.id).map(v => v.id);
+          const { data: currentVars } = await supabase.from("product_variations").select("id").eq("product_id", productId);
+          const toDelete = (currentVars || []).filter((cv: any) => !existingIds.includes(cv.id));
+          if (toDelete.length > 0) {
+            const { error: delErr } = await supabase.from("product_variations").delete().in("id", toDelete.map((d: any) => d.id));
+            if (delErr) throw new Error(`Erro ao remover variações: ${delErr.message}`);
+          }
+        }
 
-    // Save recipe items after product is saved/updated
-    if (productId) {
-      try {
-        await supabase.from("product_recipe_items").delete().eq("product_id", productId);
+        // Upsert variations
+        for (let i = 0; i < variations.length; i++) {
+          const v = variations[i];
+          const varPayload = {
+            product_id: productId,
+            name: v.name,
+            required: v.required,
+            max_selections: v.max_selections,
+            options: v.options,
+            sort_order: i,
+          };
+
+          if (v.id) {
+            const { error: uvErr } = await supabase.from("product_variations").update(varPayload).eq("id", v.id);
+            if (uvErr) throw new Error(`Erro ao atualizar variação "${v.name}": ${uvErr.message}`);
+          } else {
+            const { error: ivErr } = await supabase.from("product_variations").insert(varPayload);
+            if (ivErr) throw new Error(`Erro ao criar variação "${v.name}": ${ivErr.message}`);
+          }
+        }
+
+        // Handle recipe items
+        const { error: delRecipeErr } = await supabase.from("product_recipe_items").delete().eq("product_id", productId);
+        if (delRecipeErr) throw new Error(`Erro ao atualizar receita: ${delRecipeErr.message}`);
+
         const toInsert = form.recipe
           .filter((ri: any) => ri.inventory_item_id)
           .map((ri: any) => ({
@@ -182,18 +189,39 @@ const Products = () => {
             quantity: ri.quantity,
             measurement_unit: ri.measurement_unit || null
           }));
+
         if (toInsert.length > 0) {
-          await supabase.from("product_recipe_items").insert(toInsert);
+          const { error: recipeErr } = await supabase.from("product_recipe_items").insert(toInsert);
+          if (recipeErr) throw new Error(`Erro na Ficha Técnica: ${recipeErr.message}`);
         }
-      } catch (err: any) {
-        console.error("Error saving recipe:", err);
       }
+
+      toast.success(editing ? "Produto atualizado!" : "Produto criado!");
+      setOpen(false);
+      resetForm();
+      fetchAll();
+    } catch (globalErr: any) {
+      console.error("Save error:", globalErr);
+      toast.error(globalErr.message || "Erro desconhecido ao salvar");
     }
   };
 
   const resetForm = () => {
     setEditing(null);
-    setForm({ name: "", description: "", price: 0, promotional_price: 0, serves_people: 0, category_id: "", is_active: true, is_sold_out: false, image_url: "", manage_stock: false, stock_quantity: 0, recipe: [] });
+    setForm({
+      name: "",
+      description: "",
+      price: 0,
+      promotional_price: 0,
+      serves_people: 0,
+      category_id: "",
+      is_active: true,
+      is_sold_out: false,
+      image_url: "",
+      manage_stock: false,
+      stock_quantity: 0,
+      recipe: []
+    });
     setVariations([]);
   };
 
