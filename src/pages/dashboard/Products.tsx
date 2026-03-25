@@ -690,22 +690,9 @@ const Products = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="w-20">
-                      <Input
-                        type="number"
-                        step="0.001"
-                        value={item.quantity}
-                        onChange={e => {
-                          const updated = [...recipeItems];
-                          updated[index].quantity = parseFloat(e.target.value) || 0;
-                          setRecipeItems(updated);
-                        }}
-                        placeholder="Qtd"
-                      />
-                    </div>
-                    <div className="w-20">
+                    <div className="w-24">
                       <Select
-                        value={item.measurement_unit || ""}
+                        value={item.measurement_unit || "un"}
                         onValueChange={v => {
                           const updated = [...recipeItems];
                           updated[index].measurement_unit = v;
@@ -714,13 +701,30 @@ const Products = () => {
                       >
                         <SelectTrigger><SelectValue placeholder="Unid." /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="g">g</SelectItem>
-                          <SelectItem value="kg">kg</SelectItem>
-                          <SelectItem value="ml">ml</SelectItem>
-                          <SelectItem value="l">l</SelectItem>
-                          <SelectItem value="un">un</SelectItem>
+                          <SelectItem value="g">Gramas</SelectItem>
+                          <SelectItem value="kg">Quilos</SelectItem>
+                          <SelectItem value="ml">Mililitros</SelectItem>
+                          <SelectItem value="l">Litros</SelectItem>
+                          <SelectItem value="un">Unidade</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="w-28 relative">
+                      <Input
+                        type="number"
+                        step="0.001"
+                        value={item.quantity || ""}
+                        onChange={e => {
+                          const updated = [...recipeItems];
+                          updated[index].quantity = parseFloat(e.target.value) || 0;
+                          setRecipeItems(updated);
+                        }}
+                        placeholder="Qtd"
+                        className="pr-8 text-right font-medium"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-xs text-muted-foreground font-bold">
+                        {item.measurement_unit || "un"}
+                      </div>
                     </div>
                     <Button variant="ghost" size="icon" className="shrink-0 text-destructive h-8 w-8" onClick={() => removeRecipeItem(index)}>
                       <X className="w-4 h-4" />
@@ -781,22 +785,9 @@ const Products = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="w-20">
-                      <Input
-                        type="number"
-                        step="0.001"
-                        value={item.quantity}
-                        onChange={e => {
-                          const updated = [...optionRecipeItems];
-                          updated[index].quantity = parseFloat(e.target.value) || 0;
-                          setOptionRecipeItems(updated);
-                        }}
-                        placeholder="Qtd"
-                      />
-                    </div>
-                    <div className="w-20">
+                    <div className="w-24">
                       <Select
-                        value={item.measurement_unit || ""}
+                        value={item.measurement_unit || "un"}
                         onValueChange={v => {
                           const updated = [...optionRecipeItems];
                           updated[index].measurement_unit = v;
@@ -805,13 +796,30 @@ const Products = () => {
                       >
                         <SelectTrigger><SelectValue placeholder="Unid." /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="g">g</SelectItem>
-                          <SelectItem value="kg">kg</SelectItem>
-                          <SelectItem value="ml">ml</SelectItem>
-                          <SelectItem value="l">l</SelectItem>
-                          <SelectItem value="un">un</SelectItem>
+                          <SelectItem value="g">Gramas</SelectItem>
+                          <SelectItem value="kg">Quilos</SelectItem>
+                          <SelectItem value="ml">Mililitros</SelectItem>
+                          <SelectItem value="l">Litros</SelectItem>
+                          <SelectItem value="un">Unidade</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="w-28 relative">
+                      <Input
+                        type="number"
+                        step="0.001"
+                        value={item.quantity || ""}
+                        onChange={e => {
+                          const updated = [...optionRecipeItems];
+                          updated[index].quantity = parseFloat(e.target.value) || 0;
+                          setOptionRecipeItems(updated);
+                        }}
+                        placeholder="Qtd"
+                        className="pr-8 text-right font-medium"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-xs text-muted-foreground font-bold">
+                        {item.measurement_unit || "un"}
+                      </div>
                     </div>
                     <Button variant="ghost" size="icon" className="shrink-0 text-destructive h-8 w-8" onClick={() => removeOptionRecipeItem(index)}>
                       <X className="w-4 h-4" />
