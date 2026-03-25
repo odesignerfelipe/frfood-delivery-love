@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, AlertTriangle, GripVertical, BookOpen, X } from "lucide-react";
 
-type VariationOption = { name: string; price: number };
+type VariationOption = { name: string; price: number; recipe?: any[] };
 type Variation = {
   id?: string;
   name: string;
@@ -47,6 +47,11 @@ const Products = () => {
   const [recipeProduct, setRecipeProduct] = useState<any>(null);
   const [recipeItems, setRecipeItems] = useState<any[]>([]);
   const [isSavingRecipe, setIsSavingRecipe] = useState(false);
+
+  const [optionRecipeOpen, setOptionRecipeOpen] = useState(false);
+  const [optionRecipeGroupIndex, setOptionRecipeGroupIndex] = useState<number | null>(null);
+  const [optionRecipeOptionIndex, setOptionRecipeOptionIndex] = useState<number | null>(null);
+  const [optionRecipeItems, setOptionRecipeItems] = useState<any[]>([]);
 
   const fetchAll = async () => {
     if (!store) return;
@@ -257,6 +262,31 @@ const Products = () => {
     const updated = [...variations];
     updated[varIndex].options = updated[varIndex].options.filter((_, i) => i !== optIndex);
     setVariations(updated);
+  };
+
+  const openOptionRecipe = (varIndex: number, optIndex: number) => {
+    setOptionRecipeGroupIndex(varIndex);
+    setOptionRecipeOptionIndex(optIndex);
+    const existingRecipe = variations[varIndex].options[optIndex].recipe || [];
+    setOptionRecipeItems([...existingRecipe]);
+    setOptionRecipeOpen(true);
+  };
+
+  const addOptionRecipeItem = () => {
+    setOptionRecipeItems([...optionRecipeItems, { inventory_item_id: "", quantity: 1 }]);
+  };
+
+  const removeOptionRecipeItem = (index: number) => {
+    setOptionRecipeItems(optionRecipeItems.filter((_, i) => i !== index));
+  };
+
+  const handleSaveOptionRecipe = () => {
+    if (optionRecipeGroupIndex === null || optionRecipeOptionIndex === null) return;
+    const updatedVariations = [...variations];
+    updatedVariations[optionRecipeGroupIndex].options[optionRecipeOptionIndex].recipe = optionRecipeItems.filter(ri => ri.inventory_item_id && ri.quantity > 0);
+    setVariations(updatedVariations);
+    setOptionRecipeOpen(false);
+    toast.success("Receita da opção salva!");
   };
 
   // Recipe helpers
@@ -518,6 +548,10 @@ const Products = () => {
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0" onClick={() => removeOption(vi, oi)}>
                               <Trash2 className="w-3 h-3" />
                             </Button>
+                            <Button variant="outline" size="sm" className="h-8 px-2 shrink-0 text-xs flex items-center gap-1" onClick={() => openOptionRecipe(vi, oi)}>
+                              <BookOpen className="w-3 h-3" />
+                              <span className="hidden md:inline">Receita</span>
+                            </Button>
                           </div>
                         ))}
                         <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => addOption(vi)}>
@@ -601,6 +635,71 @@ const Products = () => {
 
               <Button className="w-full" onClick={handleSaveRecipe} disabled={isSavingRecipe}>
                 {isSavingRecipe ? "Salvando..." : "Salvar Ficha Técnica"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Option Recipe Modal */}
+        <Dialog open={optionRecipeOpen} onOpenChange={setOptionRecipeOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Ficha Técnica (Variação)</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <p className="text-xs text-muted-foreground bg-muted p-2 rounded border border-border">
+                Defina os insumos deduzidos quando esta opção for escolhida.
+              </p>
+
+              <div className="space-y-3">
+                {optionRecipeItems.map((item, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <Select
+                        value={item.inventory_item_id}
+                        onValueChange={v => {
+                          const updated = [...optionRecipeItems];
+                          updated[index].inventory_item_id = v;
+                          setOptionRecipeItems(updated);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Insumo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {inventoryItems.map(inv => (
+                            <SelectItem key={inv.id} value={inv.id}>{inv.name} ({inv.unit})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-24">
+                      <Input
+                        type="number"
+                        step="0.001"
+                        value={item.quantity}
+                        onChange={e => {
+                          const updated = [...optionRecipeItems];
+                          updated[index].quantity = parseFloat(e.target.value) || 0;
+                          setOptionRecipeItems(updated);
+                        }}
+                        placeholder="Qtd"
+                      />
+                    </div>
+                    <Button variant="ghost" size="icon" className="shrink-0 text-destructive h-8 w-8" onClick={() => removeOptionRecipeItem(index)}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              <Button variant="outline" className="w-full border-dashed" onClick={addOptionRecipeItem}>
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar Insumo
+              </Button>
+
+              <Button variant="hero" onClick={handleSaveOptionRecipe} className="w-full">
+                Salvar Receita
               </Button>
             </div>
           </DialogContent>
