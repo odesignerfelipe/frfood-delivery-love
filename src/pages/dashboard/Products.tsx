@@ -53,6 +53,29 @@ const Products = () => {
   const [optionRecipeOptionIndex, setOptionRecipeOptionIndex] = useState<number | null>(null);
   const [optionRecipeItems, setOptionRecipeItems] = useState<any[]>([]);
 
+  const [newIngredientOpen, setNewIngredientOpen] = useState(false);
+  const [newIngredientForm, setNewIngredientForm] = useState({ name: "", unit: "kg", cost_per_unit: 0 });
+
+  const handleCreateIngredient = async () => {
+    if (!store) return;
+    try {
+      const { data, error } = await supabase.from("inventory_items").insert({
+        store_id: store.id,
+        current_stock: 0,
+        ...newIngredientForm
+      }).select().single();
+      
+      if (error) throw error;
+      
+      setInventoryItems(prev => [...prev, data]);
+      setNewIngredientOpen(false);
+      setNewIngredientForm({ name: "", unit: "kg", cost_per_unit: 0 });
+      toast.success("Insumo criado com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro ao criar insumo: " + err.message);
+    }
+  };
+
   const fetchAll = async () => {
     if (!store) return;
     const [p, c, i] = await Promise.all([
@@ -156,7 +179,8 @@ const Products = () => {
           .map((ri: any) => ({
             product_id: productId,
             inventory_item_id: ri.inventory_item_id,
-            quantity: ri.quantity
+            quantity: ri.quantity,
+            measurement_unit: ri.measurement_unit || null
           }));
         if (toInsert.length > 0) {
           await supabase.from("product_recipe_items").insert(toInsert);
@@ -349,7 +373,8 @@ const Products = () => {
     setRecipeItems((data || []).map(r => ({
       id: r.id,
       inventory_item_id: r.inventory_item_id,
-      quantity: r.quantity
+      quantity: r.quantity,
+      measurement_unit: r.measurement_unit
     })));
     setRecipeOpen(true);
   };
@@ -376,7 +401,8 @@ const Products = () => {
         .map(ri => ({
           product_id: recipeProduct.id,
           inventory_item_id: ri.inventory_item_id,
-          quantity: ri.quantity
+          quantity: ri.quantity,
+          measurement_unit: ri.measurement_unit || null
         }));
 
       if (toInsert.length > 0) {
@@ -635,6 +661,13 @@ const Products = () => {
                 Defina os ingredientes que compõem este produto. O estoque será deduzido automaticamente a cada venda.
               </p>
 
+              <div className="flex justify-between items-center bg-muted/30 p-2 rounded">
+                <span className="text-sm font-medium">Lista de Insumos</span>
+                <Button variant="outline" size="sm" onClick={() => setNewIngredientOpen(true)} className="h-8 text-xs">
+                  <Plus className="w-3 h-3 mr-1" /> Novo Insumo
+                </Button>
+              </div>
+
               <div className="space-y-3">
                 {recipeItems.map((item, index) => (
                   <div key={index} className="flex gap-2 items-center">
@@ -657,7 +690,7 @@ const Products = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="w-24">
+                    <div className="w-20">
                       <Input
                         type="number"
                         step="0.001"
@@ -669,6 +702,25 @@ const Products = () => {
                         }}
                         placeholder="Qtd"
                       />
+                    </div>
+                    <div className="w-20">
+                      <Select
+                        value={item.measurement_unit || ""}
+                        onValueChange={v => {
+                          const updated = [...recipeItems];
+                          updated[index].measurement_unit = v;
+                          setRecipeItems(updated);
+                        }}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Unid." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="g">g</SelectItem>
+                          <SelectItem value="kg">kg</SelectItem>
+                          <SelectItem value="ml">ml</SelectItem>
+                          <SelectItem value="l">l</SelectItem>
+                          <SelectItem value="un">un</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <Button variant="ghost" size="icon" className="shrink-0 text-destructive h-8 w-8" onClick={() => removeRecipeItem(index)}>
                       <X className="w-4 h-4" />
@@ -700,6 +752,13 @@ const Products = () => {
                 Defina os insumos deduzidos quando esta opção for escolhida.
               </p>
 
+              <div className="flex justify-between items-center bg-muted/30 p-2 rounded">
+                <span className="text-sm font-medium">Lista de Insumos</span>
+                <Button variant="outline" size="sm" onClick={() => setNewIngredientOpen(true)} className="h-8 text-xs">
+                  <Plus className="w-3 h-3 mr-1" /> Novo Insumo
+                </Button>
+              </div>
+
               <div className="space-y-3">
                 {optionRecipeItems.map((item, index) => (
                   <div key={index} className="flex gap-2 items-center">
@@ -722,7 +781,7 @@ const Products = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="w-24">
+                    <div className="w-20">
                       <Input
                         type="number"
                         step="0.001"
@@ -734,6 +793,25 @@ const Products = () => {
                         }}
                         placeholder="Qtd"
                       />
+                    </div>
+                    <div className="w-20">
+                      <Select
+                        value={item.measurement_unit || ""}
+                        onValueChange={v => {
+                          const updated = [...optionRecipeItems];
+                          updated[index].measurement_unit = v;
+                          setOptionRecipeItems(updated);
+                        }}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Unid." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="g">g</SelectItem>
+                          <SelectItem value="kg">kg</SelectItem>
+                          <SelectItem value="ml">ml</SelectItem>
+                          <SelectItem value="l">l</SelectItem>
+                          <SelectItem value="un">un</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <Button variant="ghost" size="icon" className="shrink-0 text-destructive h-8 w-8" onClick={() => removeOptionRecipeItem(index)}>
                       <X className="w-4 h-4" />
@@ -749,6 +827,45 @@ const Products = () => {
 
               <Button variant="hero" onClick={handleSaveOptionRecipe} className="w-full">
                 Salvar Receita
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* New Ingredient Modal */}
+        <Dialog open={newIngredientOpen} onOpenChange={setNewIngredientOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Novo Insumo Rápido</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label>Nome do Insumo</Label>
+                <Input value={newIngredientForm.name} onChange={e => setNewIngredientForm({...newIngredientForm, name: e.target.value})} placeholder="Ex: Manteiga" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Unidade Base (Estoque)</Label>
+                  <Select value={newIngredientForm.unit} onValueChange={v => setNewIngredientForm({...newIngredientForm, unit: v})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="kg">Quilograma (kg)</SelectItem>
+                      <SelectItem value="g">Grama (g)</SelectItem>
+                      <SelectItem value="l">Litro (l)</SelectItem>
+                      <SelectItem value="ml">Mililitro (ml)</SelectItem>
+                      <SelectItem value="un">Unidade (un)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Custo Unitário (R$)</Label>
+                  <Input type="number" step="0.01" value={newIngredientForm.cost_per_unit || ""} onChange={e => setNewIngredientForm({...newIngredientForm, cost_per_unit: parseFloat(e.target.value) || 0})} placeholder="0.00" />
+                </div>
+              </div>
+              <Button className="w-full" onClick={handleCreateIngredient}>
+                Salvar Insumo
               </Button>
             </div>
           </DialogContent>
