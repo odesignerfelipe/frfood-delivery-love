@@ -52,6 +52,7 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
   const [variationSelections, setVariationSelections] = useState<Record<string, { name: string; price: number }[]>>({});
   const [session, setSession] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [itemNotes, setItemNotes] = useState("");
   const [form, setForm] = useState({
     email: "", password: "", customer_name: "", customer_phone: "",
     customer_address: "", neighborhood: "", delivery_type: "delivery",
@@ -216,12 +217,12 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
     else { addToCartDirect(product, [], 0); }
   };
 
-  const addToCartDirect = (product: any, selectedVariations: SelectedVariation[], variationsPrice: number) => {
+  const addToCartDirect = (product: any, selectedVariations: SelectedVariation[], variationsPrice: number, notes: string = "") => {
     setCart((prev) => {
-      if (selectedVariations.length > 0) { return [...prev, { product, quantity: 1, notes: "", variations: selectedVariations, variationsPrice }]; }
-      const existing = prev.find((i) => i.product.id === product.id && i.variations.length === 0);
-      if (existing) return prev.map((i) => i.product.id === product.id && i.variations.length === 0 ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { product, quantity: 1, notes: "", variations: [], variationsPrice: 0 }];
+      if (selectedVariations.length > 0 || notes) { return [...prev, { product, quantity: 1, notes, variations: selectedVariations, variationsPrice }]; }
+      const existing = prev.find((i) => i.product.id === product.id && i.variations.length === 0 && !i.notes);
+      if (existing) return prev.map((i) => i.product.id === product.id && i.variations.length === 0 && !i.notes ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { product, quantity: 1, notes, variations: [], variationsPrice: 0 }];
     });
     toast.success(`${product.name} adicionado!`);
   };
@@ -244,9 +245,10 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         totalVarPrice += selected.reduce((sum, s) => sum + s.price, 0);
       }
     }
-    addToCartDirect(variationProduct, selectedVariations, totalVarPrice);
+    addToCartDirect(variationProduct, selectedVariations, totalVarPrice, itemNotes);
     setVariationModalOpen(false);
     setVariationProduct(null);
+    setItemNotes("");
   };
 
   const toggleVariationOption = (variationId: string, option: { name: string; price: number }, maxSelections: number) => {
@@ -457,30 +459,73 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         </div>
       )}
 
+      {/* Main Banner Section */}
       <div className="max-w-[1210px] mx-auto px-4 pt-4 md:pt-6">
-        <div className="relative h-48 md:h-[250px] rounded-2xl md:rounded-[24px] shadow-sm bg-primary/10">
-          <img src={store.banner_url || store.banner_mobile_url || ""} className="w-full h-full object-cover rounded-2xl md:rounded-[24px]" />
-          <div className="absolute inset-0 bg-black/20 rounded-2xl md:rounded-[24px]" />
-          <div className="absolute -bottom-8 md:-bottom-12 left-1/2 -translate-x-1/2 w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white bg-white shadow-hero z-10 transition-all flex items-center justify-center overflow-visible">
-            <div className="w-full h-full rounded-full overflow-hidden border border-border/10">
-              <img src={store.logo_url || ""} className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform" onClick={() => setInfoDialogOpen(true)} />
+        <div className="relative h-40 md:h-[220px] rounded-[24px] md:rounded-[32px] overflow-hidden shadow-sm bg-muted group">
+          <img src={store.banner_url || store.banner_mobile_url || ""} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+          
+          {/* Floating Logo */}
+          <div className="absolute -bottom-6 left-6 md:left-10 w-20 h-20 md:w-28 md:h-28 rounded-[20px] md:rounded-[28px] bg-white p-1 shadow-card z-10 transition-transform hover:scale-105">
+            <div className="w-full h-full rounded-[18px] md:rounded-[26px] overflow-hidden border border-border/10">
+              <img 
+                src={store.logo_url || ""} 
+                className="w-full h-full object-cover cursor-pointer" 
+                onClick={() => setInfoDialogOpen(true)} 
+              />
             </div>
           </div>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-4 space-y-4 pt-12 text-center">
-        <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">
-          {((store as any).display_name_type === 'razao_social' && (store as any).razao_social) ? (store as any).razao_social : store.name}
-        </h1>
-        <div className="flex items-center justify-center gap-4 text-sm font-medium">
-          <button onClick={() => setInfoDialogOpen(true)} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors"><Plus className="w-4 h-4" /> Ver mais</button>
-          <div className={`flex items-center gap-1.5 ${storeOpen ? "text-green-600" : "text-destructive"}`}><Clock className="w-4 h-4" /> {storeOpen ? "Aberto" : "Fechado"}</div>
-          {todayHours && <div className="flex items-center gap-1.5 text-muted-foreground"><Clock className="w-4 h-4 opacity-70" /> {todayHours}</div>}
+
+      {/* Store Info & Tools */}
+      <div className="max-w-7xl mx-auto px-4 pt-10 pb-4 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 px-2">
+          <div className="space-y-1.5 text-left ml-2 md:ml-4">
+            <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tighter text-foreground">
+              {((store as any).display_name_type === 'razao_social' && (store as any).razao_social) ? (store as any).razao_social : store.name}
+            </h1>
+            <div className="flex items-center gap-3 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+              <button onClick={() => setInfoDialogOpen(true)} className="hover:text-primary transition-colors flex items-center gap-1">
+                Sobre a loja <Plus className="w-3 h-3" />
+              </button>
+              <span>•</span>
+              <div className={`flex items-center gap-1 ${storeOpen ? "text-green-600" : "text-destructive"}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${storeOpen ? "bg-green-600 animate-pulse" : "bg-destructive"}`} />
+                {storeOpen ? "Aberto" : "Fechado"}
+              </div>
+            </div>
+          </div>
+
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+            <input 
+              type="text" 
+              placeholder="O que você procura?" 
+              value={search} 
+              onChange={(e) => setSearch(e.target.value)} 
+              className="w-full h-11 pl-10 pr-4 rounded-xl border-border/60 bg-card shadow-sm focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground/40 text-sm font-medium" 
+            />
+          </div>
         </div>
-        <div className="relative mt-6"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><input type="text" placeholder="Buscar no cardápio..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full h-11 pl-10 rounded-xl border border-border bg-card shadow-sm focus:ring-2 focus:ring-primary/20" /></div>
-        <div className="flex gap-2 overflow-x-auto pb-4 pt-2 scrollbar-hide">
-          <button onClick={() => setActiveCategory(null)} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${!activeCategory ? "bg-primary text-white" : "bg-card border"}`}>Todos</button>
-          {categories.map(cat => <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${activeCategory === cat.id ? "bg-primary text-white" : "bg-card border"}`}>{cat.name}</button>)}
+
+        {/* Category Navigation Pills */}
+        <div className="flex gap-2 overflow-x-auto pb-4 pt-2 scrollbar-hide sticky top-0 md:relative z-20 bg-muted/50 -mx-4 px-4 md:mx-0 md:px-0">
+          <button 
+            onClick={() => setActiveCategory(null)} 
+            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all ${!activeCategory ? "bg-primary text-white shadow-hero scale-105" : "bg-card border border-border/40 text-muted-foreground hover:border-primary/50"}`}
+          >
+            Todos
+          </button>
+          {categories.map(cat => (
+            <button 
+              key={cat.id} 
+              onClick={() => setActiveCategory(cat.id)} 
+              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeCategory === cat.id ? "bg-primary text-white shadow-hero scale-105" : "bg-card border border-border/40 text-muted-foreground hover:border-primary/50"}`}
+            >
+              {cat.name}
+            </button>
+          ))}
         </div>
         <div className="space-y-12 text-left mt-8">
           {productsByCategory.map(cat => cat.products.length > 0 && (
@@ -517,68 +562,163 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
         </div>
       </div>
 
-      {
-        variationModalOpen && variationProduct && (
-          <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}>
-            <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white border-none shadow-hero max-h-[85vh] flex flex-col">
-              <div className="p-6 space-y-6 flex-1 overflow-y-auto min-h-0 bg-white">
-                <div className="flex gap-4">
-                  {variationProduct.image_url && <img src={variationProduct.image_url} className="w-20 h-20 rounded-xl object-cover" />}
-                  <div>
-                    <p className="text-xl font-bold">{variationProduct.name}</p>
-                    <p className="text-primary font-bold">R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}</p>
+      {variationModalOpen && variationProduct && (
+        <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}>
+          <DialogContent className="max-w-[450px] p-0 overflow-hidden bg-muted/30 border-none shadow-hero max-h-[92vh] flex flex-col sm:rounded-2xl">
+            <div className="bg-card flex-1 overflow-y-auto scrollbar-hide">
+              {/* Header Image */}
+              <div className="relative h-48 md:h-56 bg-muted">
+                {variationProduct.image_url ? (
+                  <img src={variationProduct.image_url} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                    <ShoppingBag className="w-12 h-12 text-primary/20" />
                   </div>
-                </div>
+                )}
+                <button 
+                  onClick={() => setVariationModalOpen(false)}
+                  className="absolute top-4 left-4 w-10 h-10 rounded-full bg-black/40 flex items-center justify-center text-white backdrop-blur-sm hover:bg-black/60 transition-colors"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+              </div>
 
-                {(productVariations[variationProduct.id] || []).map(v => (
-                  <div key={v.id} className="space-y-3">
-                    <div className="flex justify-between items-end">
-                      <Label className="text-base font-bold">{v.name}</Label>
-                      {v.required && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full uppercase">Obrigatório</span>}
+              {/* Product Info */}
+              <div className="p-6 space-y-2 bg-card">
+                <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight">{variationProduct.name}</h2>
+                <div className="flex items-center gap-3">
+                  <span className="text-primary font-black text-lg">
+                    R$ {(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price).toFixed(2)}
+                  </span>
+                  {variationProduct.promotional_price > 0 && (
+                    <span className="text-sm text-muted-foreground line-through">
+                      R$ {variationProduct.price.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+                {variationProduct.description && (
+                  <p className="text-sm text-muted-foreground leading-relaxed">{variationProduct.description}</p>
+                )}
+              </div>
+
+              {/* Variation Groups */}
+              <div className="pb-6">
+                {(productVariations[variationProduct.id] || []).map((v) => (
+                  <div key={v.id} className="mt-4">
+                    {/* Group Header */}
+                    <div className="bg-muted px-6 py-3 flex flex-col gap-0.5">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-black uppercase tracking-wider text-muted-foreground">{v.name}</h3>
+                        {v.required && (
+                          <span className="text-[10px] font-bold text-white bg-red-600 px-2 py-0.5 rounded-full uppercase">Obrigatório</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] font-bold text-muted-foreground/70 uppercase">
+                        {v.max_selections === 1 ? "Escolha 1 opção" : `Escolha até ${v.max_selections} opções`}
+                      </p>
                     </div>
-                    <div className="space-y-2">
+
+                    {/* Options List */}
+                    <div className="bg-card divide-y divide-border/50">
                       {(v.options || []).map((opt: any, oi: number) => {
                         const isSelected = (variationSelections[v.id] || []).some(s => s.name === opt.name);
                         return (
                           <button
                             key={oi}
                             onClick={() => toggleVariationOption(v.id, opt, v.max_selections)}
-                            className={`w-full flex justify-between p-3 rounded-xl border text-sm transition-all ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}
+                            className="w-full flex items-center justify-between p-6 text-left hover:bg-muted/30 transition-colors group"
                           >
-                            <span className="font-medium">{opt.name}</span>
-                            {opt.price > 0 && <span className="text-primary font-bold">+R$ {opt.price.toFixed(2)}</span>}
+                            <div className="flex-1 pr-4">
+                              <p className="font-bold text-sm flex items-center gap-2">
+                                {opt.name}
+                                {isSelected && <Check className="w-4 h-4 text-primary" />}
+                              </p>
+                              {opt.description && (
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{opt.description}</p>
+                              )}
+                              {opt.price > 0 && (
+                                <p className="text-xs font-black text-primary mt-2">+ R$ {opt.price.toFixed(2)}</p>
+                              )}
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"}`}>
+                              {isSelected && <div className="w-2 h-2 rounded-full bg-white animate-in zoom-in-50 duration-200" />}
+                            </div>
                           </button>
                         );
                       })}
                     </div>
                   </div>
                 ))}
-              </div>
 
-              <div className="p-6 pt-2 bg-card border-t border-border">
-                <Button
-                  variant="hero"
-                  className="w-full h-12 text-sm font-bold uppercase tracking-wider"
-                  onClick={confirmVariationSelection}
-                >
-                  Adicionar • R$ {((variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price) + Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0)).toFixed(2)}
-                </Button>
+                {/* Observations Field */}
+                <div className="mt-4">
+                  <div className="bg-muted px-6 py-3">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-muted-foreground">Observações</h3>
+                  </div>
+                  <div className="p-6">
+                    <Textarea 
+                      placeholder="Alguma observação? (Ex: sem cebola, ponto da carne...)"
+                      className="resize-none h-24 rounded-xl border-border bg-card"
+                      value={itemNotes}
+                      onChange={(e) => setItemNotes(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
-            </DialogContent>
-          </Dialog>
-        )
-      }
+            </div>
+
+            {/* Sticky Footer */}
+            <div className="p-6 bg-card border-t border-border shadow-modal-footer flex items-center gap-4">
+              <div className="flex-shrink-0 text-center bg-muted px-4 py-2 rounded-xl hidden sm:block">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase leading-none mb-1">Total</p>
+                <p className="text-lg font-black text-primary leading-none">
+                  R$ {((variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price) + Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0)).toFixed(2)}
+                </p>
+              </div>
+              <Button
+                variant="hero"
+                className="flex-1 h-14 text-sm font-black uppercase tracking-widest shadow-hero scale-100 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                onClick={confirmVariationSelection}
+              >
+                <span className="sm:hidden mr-2">Adicionar • R$ {((variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price) + Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0)).toFixed(2)}</span>
+                <span className="hidden sm:inline">Adicionar ao Carrinho</span>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {cart.length > 0 && <div className="fixed bottom-6 left-4 right-4 z-40 max-w-3xl mx-auto"><button onClick={() => setCartOpen(true)} className="w-full gradient-hero h-14 rounded-2xl text-white font-bold flex justify-between items-center px-6 shadow-hero"><span>{cart.reduce((s, i) => s + i.quantity, 0)} itens</span><span>Ver Sacola • R$ {subtotal.toFixed(2)}</span></button></div>}
 
       <Dialog open={cartOpen} onOpenChange={setCartOpen}><DialogContent className="max-w-md p-0 rounded-t-2xl sm:rounded-2xl overflow-hidden"><div className="p-6 flex flex-col h-full max-h-[85vh]">
         <h2 className="text-xl font-bold mb-4">Sua Sacola</h2>
-        <div className="flex-1 overflow-y-auto space-y-4">{cart.map((item, idx) => (
-          <div key={idx} className="flex justify-between items-start border-b pb-4"><div className="flex-1">
-            <p className="font-bold">{item.product.name}</p>
-            <p className="text-sm text-muted-foreground">R$ {(getItemPrice(item) * item.quantity).toFixed(2)}</p>
-            <div className="mt-2 flex items-center gap-4"><button onClick={() => updateQuantity(idx, -1)} className="w-8 h-8 rounded-lg border flex items-center justify-center"><Minus className="w-4 h-4" /></button><span className="font-bold">{item.quantity}</span><button onClick={() => updateQuantity(idx, 1)} className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center"><Plus className="w-4 h-4" /></button></div>
-          </div><button onClick={() => removeFromCart(idx)}><Trash2 className="w-4 h-4 text-destructive" /></button></div>
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1">{cart.map((item, idx) => (
+          <div key={idx} className="flex justify-between items-start border-b border-border/50 pb-4">
+            <div className="flex-1 space-y-1">
+              <p className="font-bold text-sm">{item.product.name}</p>
+              {item.variations.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {item.variations.map((v: any, vi: number) => (
+                    <span key={vi} className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground font-medium">
+                      {v.group}: {v.selected.map((s: any) => s.name).join(", ")}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {item.notes && (
+                <p className="text-[10px] text-primary font-bold italic">Nota: {item.notes}</p>
+              )}
+              <p className="text-sm font-black mt-1">R$ {(getItemPrice(item) * item.quantity).toFixed(2)}</p>
+              <div className="mt-2 flex items-center gap-3">
+                <button onClick={() => updateQuantity(idx, -1)} className="w-8 h-8 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors"><Minus className="w-3 h-3" /></button>
+                <span className="font-bold text-sm">{item.quantity}</span>
+                <button onClick={() => updateQuantity(idx, 1)} className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center hover:shadow-lg transition-transform"><Plus className="w-3 h-3" /></button>
+              </div>
+            </div>
+            <button onClick={() => removeFromCart(idx)} className="p-2 text-muted-foreground/40 hover:text-destructive transition-colors">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         ))}</div>
         <div className="mt-6 space-y-4">
           <div className="flex gap-2"><Input placeholder="Tem um cupom?" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} /><Button onClick={applyCoupon} variant="outline">Aplicar</Button></div>
@@ -785,16 +925,66 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
 const ProductCard = ({ product, onAdd, hasVariations }: { product: any; onAdd: () => void; hasVariations?: boolean }) => {
   const isSoldOut = product.is_sold_out;
+  const price = product.promotional_price > 0 ? product.promotional_price : product.price;
+
   return (
-    <div className={`bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden flex min-h-[120px] h-auto ${isSoldOut ? "opacity-60" : ""}`}>
-      {product.image_url && <div className="w-[120px] h-full relative flex-shrink-0"><img src={product.image_url} className="w-full h-full object-cover" />{isSoldOut && <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><span className="text-[10px] font-bold text-white bg-red-600 px-2 py-1 rounded-full">ESGOTADO</span></div>}</div>}
-      <div className="flex-1 p-3 flex flex-col justify-between overflow-hidden">
-        <div><h3 className="font-bold text-sm truncate">{product.name}</h3><p className="text-xs text-muted-foreground mt-0.5">{product.description}</p></div>
-        <div className="flex justify-between items-end mt-2">
-          <div className="flex flex-col">{product.promotional_price > 0 ? (<><span className="text-[10px] text-muted-foreground line-through">R$ {product.price.toFixed(2)}</span><span className="text-primary font-black text-sm">R$ {product.promotional_price.toFixed(2)}</span></>) : (<span className="text-primary font-black text-sm">R$ {product.price.toFixed(2)}</span>)}</div>
-          {!isSoldOut && <button onClick={onAdd} className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-lg hover:scale-105 transition-transform"><Plus className="w-4 h-4" /></button>}
+    <div 
+      onClick={!isSoldOut ? onAdd : undefined}
+      className={`group bg-card rounded-[20px] border border-border/40 shadow-sm hover:shadow-md transition-all duration-300 flex overflow-hidden cursor-pointer h-[130px] ${isSoldOut ? "opacity-60 grayscale cursor-not-allowed" : "active:scale-[0.98]"}`}
+    >
+      <div className="flex-1 p-4 flex flex-col justify-between overflow-hidden">
+        <div className="space-y-1">
+          <h3 className="font-black text-sm uppercase tracking-tight line-clamp-1 group-hover:text-primary transition-colors">
+            {product.name}
+          </h3>
+          {product.description && (
+            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+              {product.description}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-primary font-black text-sm">
+            R$ {price.toFixed(2)}
+          </span>
+          {product.promotional_price > 0 && (
+            <span className="text-[10px] text-muted-foreground line-through font-medium">
+              R$ {product.price.toFixed(2)}
+            </span>
+          )}
         </div>
       </div>
+      
+      {product.image_url && (
+        <div className="w-[130px] h-full relative flex-shrink-0 overflow-hidden">
+          <img 
+            src={product.image_url} 
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+            alt={product.name}
+          />
+          {isSoldOut && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2">
+              <span className="text-[10px] font-black text-white bg-red-600 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                Esgotado
+              </span>
+            </div>
+          )}
+          {!isSoldOut && (
+            <div className="absolute bottom-2 right-2">
+              <div className="w-8 h-8 rounded-xl bg-primary text-white shadow-hero flex items-center justify-center transform translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                <Plus className="w-4 h-4" />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {!product.image_url && !isSoldOut && (
+        <div className="self-end p-4">
+          <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all duration-300">
+            <Plus className="w-4 h-4" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -634,12 +634,20 @@ const Products = () => {
                         {v.options.map((opt, oi) => (
                           <div key={oi} className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <Input
-                                value={opt.name}
-                                onChange={(e) => updateOption(vi, oi, "name", e.target.value)}
-                                placeholder="Nome da opção"
-                                className="flex-1 h-8 text-sm"
-                              />
+                              <div className="flex-1 space-y-1">
+                                <Input
+                                  value={opt.name}
+                                  onChange={(e) => updateOption(vi, oi, "name", e.target.value)}
+                                  placeholder="Nome da opção"
+                                  className="h-8 text-sm"
+                                />
+                                <Input
+                                  value={opt.description || ""}
+                                  onChange={(e) => updateOption(vi, oi, "description", e.target.value)}
+                                  placeholder="Pequena descrição (ex: 200g, artesanal...)"
+                                  className="h-6 text-[10px] text-muted-foreground bg-muted/20"
+                                />
+                              </div>
                               <div className="flex items-center gap-1">
                                 <span className="text-xs text-muted-foreground">R$</span>
                                 <Input
