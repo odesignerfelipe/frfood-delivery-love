@@ -168,6 +168,8 @@ const Products = () => {
             sort_order: i,
           };
 
+          console.log("Variations Insertion Debug:", { productId, varName: v.name, payload: varPayload });
+
           if (v.id) {
             const { error: uvErr } = await supabase.from("product_variations").update(varPayload).eq("id", v.id);
             if (uvErr) throw new Error(`Erro ao atualizar variação "${v.name}": ${uvErr.message}`);
