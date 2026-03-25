@@ -216,7 +216,7 @@ const Products = () => {
         .insert({
           ...productData,
           name: `${productData.name} (Cópia)`,
-          is_active: false,
+          is_active: true,
           sort_order: products.length
         })
         .select("id")
