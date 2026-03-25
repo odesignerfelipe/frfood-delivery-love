@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, AlertTriangle, GripVertical, BookOpen, X, Copy } from "lucide-react";
 
-type VariationOption = { name: string; price: number; recipe?: any[] };
+type VariationOption = { name: string; price: number; description?: string; recipe?: any[] };
 type Variation = {
   id?: string;
   name: string;
@@ -630,31 +630,39 @@ const Products = () => {
                       <div className="space-y-2">
                         <Label className="text-xs font-semibold text-muted-foreground">Opções</Label>
                         {v.options.map((opt, oi) => (
-                          <div key={oi} className="flex items-center gap-2">
-                            <Input
-                              value={opt.name}
-                              onChange={(e) => updateOption(vi, oi, "name", e.target.value)}
-                              placeholder="Nome da opção"
-                              className="flex-1 h-8 text-sm"
-                            />
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-muted-foreground">R$</span>
+                          <div key={oi} className="space-y-1">
+                            <div className="flex items-center gap-2">
                               <Input
-                                type="number"
-                                step="0.01"
-                                value={opt.price}
-                                onChange={(e) => updateOption(vi, oi, "price", parseFloat(e.target.value) || 0)}
-                                className="w-20 h-8 text-sm"
-                                placeholder="0.00"
+                                value={opt.name}
+                                onChange={(e) => updateOption(vi, oi, "name", e.target.value)}
+                                placeholder="Nome da opção"
+                                className="flex-1 h-8 text-sm"
                               />
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-muted-foreground">R$</span>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={opt.price}
+                                  onChange={(e) => updateOption(vi, oi, "price", parseFloat(e.target.value) || 0)}
+                                  className="w-20 h-8 text-sm"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0" onClick={() => removeOption(vi, oi)}>
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                              <Button variant="outline" size="sm" className="h-8 px-2 shrink-0 text-xs flex items-center gap-1" onClick={() => openOptionRecipe(vi, oi)}>
+                                <BookOpen className="w-3 h-3" />
+                                <span className="hidden md:inline">Receita</span>
+                              </Button>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0" onClick={() => removeOption(vi, oi)}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                            <Button variant="outline" size="sm" className="h-8 px-2 shrink-0 text-xs flex items-center gap-1" onClick={() => openOptionRecipe(vi, oi)}>
-                              <BookOpen className="w-3 h-3" />
-                              <span className="hidden md:inline">Receita</span>
-                            </Button>
+                            <Input
+                              value={opt.description || ""}
+                              onChange={(e) => updateOption(vi, oi, "description", e.target.value)}
+                              placeholder="Descrição opcional (ex: Carne 180g, Alface americana...)"
+                              className="h-7 text-[10px] bg-muted/30 border-dashed"
+                            />
                           </div>
                         ))}
                         <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => addOption(vi)}>
