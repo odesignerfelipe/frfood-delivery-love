@@ -17,6 +17,7 @@ type Variation = {
   name: string;
   required: boolean;
   max_selections: number;
+  is_half_half?: boolean;
   options: VariationOption[];
   sort_order: number;
 };
@@ -101,6 +102,7 @@ const Products = () => {
       name: v.name,
       required: v.required,
       max_selections: v.max_selections,
+      is_half_half: v.is_half_half,
       options: v.options || [],
       sort_order: v.sort_order,
     }));
@@ -164,6 +166,7 @@ const Products = () => {
             name: v.name,
             required: v.required,
             max_selections: v.max_selections,
+            is_half_half: v.is_half_half || false,
             options: v.options,
             sort_order: i,
           };
@@ -617,15 +620,29 @@ const Products = () => {
                           <Switch checked={v.required} onCheckedChange={(val) => updateVariation(vi, "required", val)} />
                           <span className="text-muted-foreground">Obrigatório</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Label className="text-muted-foreground whitespace-nowrap">Máx. seleções:</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={v.max_selections}
-                            onChange={(e) => updateVariation(vi, "max_selections", parseInt(e.target.value) || 1)}
-                            className="w-16 h-8 text-center"
-                          />
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-muted-foreground whitespace-nowrap">Máx. seleções:</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={v.max_selections}
+                              onChange={(e) => updateVariation(vi, "max_selections", parseInt(e.target.value) || 1)}
+                              className="w-16 h-8 text-center"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 border-l pl-4">
+                            <input
+                              type="checkbox"
+                              id={`half-half-${vi}`}
+                              checked={v.is_half_half}
+                              onChange={(e) => updateVariation(vi, "is_half_half", e.target.checked)}
+                              className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            />
+                            <Label htmlFor={`half-half-${vi}`} className="text-xs font-semibold cursor-pointer">
+                              Meio a Meio (Maior valor)
+                            </Label>
+                          </div>
                         </div>
                       </div>
 
