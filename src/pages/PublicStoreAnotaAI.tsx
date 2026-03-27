@@ -36,6 +36,8 @@ const PublicStoreAnotaAI = ({ store, categories, products, productVariations, de
   const [isProcessing, setIsProcessing] = useState(false);
   const [itemNotes, setItemNotes] = useState("");
   const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'cart'>('home');
+  const [detailQty, setDetailQty] = useState(1);
+  const [flavorSearch, setFlavorSearch] = useState("");
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [form, setForm] = useState({
     email: "", password: "", customer_name: "", customer_phone: "",
@@ -114,16 +116,16 @@ const PublicStoreAnotaAI = ({ store, categories, products, productVariations, de
     if (!storeOpen) { toast.error("Loja fechada no momento"); return; }
     if (product.is_sold_out || (product.manage_stock && product.stock_quantity <= 0)) { toast.error("Este produto está esgotado"); return; }
     const vars = productVariations[product.id];
-    if (vars && vars.length > 0) { setVariationProduct(product); setVariationSelections({}); setItemNotes(""); setVariationModalOpen(true); }
+    if (vars && vars.length > 0) { setVariationProduct(product); setVariationSelections({}); setItemNotes(""); setDetailQty(1); setFlavorSearch(""); setVariationModalOpen(true); }
     else { addToCartDirect(product, [], 0); }
   };
 
-  const addToCartDirect = (product: any, selectedVariations: SelectedVariation[], variationsPrice: number, notes: string = "") => {
+  const addToCartDirect = (product: any, selectedVariations: SelectedVariation[], variationsPrice: number, notes: string = "", qty: number = 1) => {
     setCart((prev) => {
-      if (selectedVariations.length > 0 || notes) return [...prev, { product, quantity: 1, notes, variations: selectedVariations, variationsPrice }];
+      if (selectedVariations.length > 0 || notes) return [...prev, { product, quantity: qty, notes, variations: selectedVariations, variationsPrice }];
       const existing = prev.find((i) => i.product.id === product.id && i.variations.length === 0 && !i.notes);
-      if (existing) return prev.map((i) => i.product.id === product.id && i.variations.length === 0 && !i.notes ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { product, quantity: 1, notes, variations: [], variationsPrice: 0 }];
+      if (existing) return prev.map((i) => i.product.id === product.id && i.variations.length === 0 && !i.notes ? { ...i, quantity: i.quantity + qty } : i);
+      return [...prev, { product, quantity: qty, notes, variations: [], variationsPrice: 0 }];
     });
     toast.success(`${product.name} adicionado!`);
   };
@@ -142,8 +144,8 @@ const PublicStoreAnotaAI = ({ store, categories, products, productVariations, de
         else totalVarPrice += selected.reduce((sum, s) => sum + s.price, 0);
       }
     }
-    addToCartDirect(variationProduct, selectedVariations, totalVarPrice, itemNotes);
-    setVariationModalOpen(false); setVariationProduct(null); setItemNotes("");
+    addToCartDirect(variationProduct, selectedVariations, totalVarPrice, itemNotes, detailQty);
+    setVariationModalOpen(false); setVariationProduct(null); setItemNotes(""); setDetailQty(1); setFlavorSearch("");
   };
 
   const toggleVariationOption = (variationId: string, option: { name: string; price: number }, maxSelections: number) => {
@@ -357,92 +359,148 @@ const PublicStoreAnotaAI = ({ store, categories, products, productVariations, de
         </div>
       </div>
 
-      {/* Variation Modal */}
+      {/* Full-Page Product Detail (Anota AI Style) */}
       {variationModalOpen && variationProduct && (
-        <Dialog open={variationModalOpen} onOpenChange={setVariationModalOpen}>
-          <DialogContent className="anotaai-modal">
-            <div className="anotaai-modal-header">
-              <button onClick={() => setVariationModalOpen(false)} className="anotaai-back-btn"><ChevronLeft className="w-5 h-5" /></button>
-              <span className="anotaai-modal-title">Detalhes do produto</span>
+        <div className="anotaai-detail-overlay">
+          {/* Header */}
+          <div className="anotaai-detail-header">
+            <button onClick={() => { setVariationModalOpen(false); setFlavorSearch(""); }} className="anotaai-back-btn"><ChevronLeft className="w-5 h-5" /></button>
+            <span className="anotaai-modal-title">Detalhes do produto</span>
+            <div className="anotaai-store-actions">
+              <button onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success("Link copiado!"); }} className="anotaai-icon-btn"><Search className="w-5 h-5" /></button>
               <button onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success("Link copiado!"); }} className="anotaai-icon-btn"><Share2 className="w-5 h-5" /></button>
             </div>
-            <div className="anotaai-modal-body">
-              {variationProduct.image_url && (
-                <div className="anotaai-modal-product-header">
-                  <img src={variationProduct.image_url} className="anotaai-modal-product-img" />
-                  <div>
-                    <h2 className="anotaai-modal-product-name">{variationProduct.name}</h2>
-                    {variationProduct.description && <p className="anotaai-modal-product-desc">{variationProduct.description}</p>}
-                  </div>
-                </div>
-              )}
-              {!variationProduct.image_url && (
-                <div className="p-6">
-                  <h2 className="anotaai-modal-product-name">{variationProduct.name}</h2>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="anotaai-price-current">{formatCurrency(variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price)}</span>
-                    {variationProduct.promotional_price > 0 && <span className="anotaai-price-old">{formatCurrency(variationProduct.price)}</span>}
-                  </div>
-                  {variationProduct.description && <p className="anotaai-modal-product-desc mt-2">{variationProduct.description}</p>}
-                </div>
-              )}
+          </div>
 
-              {/* Variation Groups */}
-              {(productVariations[variationProduct.id] || []).map((v) => (
+          {/* Scrollable Body */}
+          <div className="anotaai-detail-body">
+            {/* Product Info */}
+            <div className="anotaai-detail-product-info">
+              {variationProduct.image_url ? (
+                <img src={variationProduct.image_url} className="anotaai-detail-product-img" alt={variationProduct.name} />
+              ) : (
+                <div className="anotaai-detail-product-img anotaai-detail-product-placeholder"><Utensils className="w-10 h-10 text-gray-300" /></div>
+              )}
+              <div className="anotaai-detail-product-text">
+                <h2 className="anotaai-detail-product-name">{variationProduct.name}</h2>
+                {variationProduct.description && <p className="anotaai-detail-product-desc">{variationProduct.description}</p>}
+              </div>
+            </div>
+
+            {/* Search within flavors */}
+            <div className="anotaai-detail-search">
+              <Search className="w-4 h-4 text-gray-400" />
+              <input type="text" placeholder="Pesquise pelo nome" value={flavorSearch} onChange={(e) => setFlavorSearch(e.target.value)} className="anotaai-search-input" />
+            </div>
+
+            {/* Sabores mais pedidos Carousel */}
+            {(() => {
+              const vars = productVariations[variationProduct.id] || [];
+              const firstFlavorGroup = vars.find((v: any) => v.options?.some((o: any) => o.image_url));
+              const popularFlavors = firstFlavorGroup ? (firstFlavorGroup.options || []).filter((o: any) => o.image_url).slice(0, 8) : [];
+              if (popularFlavors.length === 0) return null;
+              return (
+                <div className="anotaai-popular-section">
+                  <h2 className="anotaai-section-title">Sabores mais pedidos</h2>
+                  <div className="anotaai-popular-scroll">
+                    {popularFlavors.map((opt: any, i: number) => (
+                      <button key={i} onClick={() => firstFlavorGroup && toggleVariationOption(firstFlavorGroup.id, opt, firstFlavorGroup.max_selections)} className="anotaai-popular-item">
+                        <div className="anotaai-popular-img-wrap">
+                          <img src={opt.image_url} alt={opt.name} className="anotaai-popular-img" />
+                        </div>
+                        <span className="anotaai-popular-name">{opt.name}</span>
+                        <span className="anotaai-popular-price"><strong>{formatCurrency(opt.price)}</strong></span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Variation Groups */}
+            {(productVariations[variationProduct.id] || []).map((v: any) => {
+              const filteredOptions = flavorSearch
+                ? (v.options || []).filter((opt: any) => opt.name.toLowerCase().includes(flavorSearch.toLowerCase()))
+                : (v.options || []);
+              return (
                 <div key={v.id} className="anotaai-variation-group">
                   <div className="anotaai-variation-header">
                     <div>
                       <h3 className="anotaai-variation-title">{v.name}</h3>
-                      <p className="anotaai-variation-subtitle">{v.max_selections === 1 ? "Escolha 1 opção" : `Escolha até ${v.max_selections} opções`}</p>
+                      <p className="anotaai-variation-subtitle">
+                        {v.max_selections === 1 ? "Escolha 1 opção" : `Escolha entre 1 a ${v.max_selections} opções`}
+                      </p>
                     </div>
                     {v.required && <span className="anotaai-badge-required">Obrigatório</span>}
                   </div>
                   <div className="anotaai-variation-options">
-                    {(v.options || []).map((opt: any, oi: number) => {
-                      const isSelected = (variationSelections[v.id] || []).some(s => s.name === opt.name);
+                    {filteredOptions.map((opt: any, oi: number) => {
+                      const isSelected = (variationSelections[v.id] || []).some((s: any) => s.name === opt.name);
                       return (
-                        <button key={oi} onClick={() => toggleVariationOption(v.id, opt, v.max_selections)} className={`anotaai-option ${isSelected ? "selected" : ""}`}>
-                          <div className="anotaai-option-info">
+                        <button key={oi} onClick={() => toggleVariationOption(v.id, opt, v.max_selections)} className={`anotaai-detail-option ${isSelected ? "selected" : ""}`}>
+                          {opt.image_url ? (
+                            <img src={opt.image_url} alt={opt.name} className="anotaai-detail-option-thumb" />
+                          ) : (
+                            <div className="anotaai-detail-option-thumb anotaai-detail-option-placeholder" />
+                          )}
+                          <div className="anotaai-detail-option-info">
                             <span className="anotaai-option-name">{opt.name}</span>
                             {opt.description && <span className="anotaai-option-desc">{opt.description}</span>}
-                            {opt.price > 0 && <span className="anotaai-option-price">+ {formatCurrency(opt.price)}</span>}
+                            {opt.price > 0 && <span className="anotaai-option-price">{formatCurrency(opt.price)}</span>}
                           </div>
-                          <div className={`anotaai-radio ${isSelected ? "checked" : ""}`} />
+                          <div className={`anotaai-checkbox ${isSelected ? "checked" : ""}`}>
+                            {isSelected && <Check className="w-3 h-3" />}
+                          </div>
                         </button>
                       );
                     })}
                   </div>
                 </div>
-              ))}
+              );
+            })}
 
-              {/* Observations */}
-              <div className="anotaai-variation-group">
-                <div className="anotaai-variation-header"><h3 className="anotaai-variation-title">Observações</h3></div>
-                <div className="p-4">
-                  <Textarea placeholder="Ex.: Tirar cebola, ovo, etc." className="anotaai-textarea" value={itemNotes} onChange={(e) => setItemNotes(e.target.value)} />
-                </div>
+            {/* Observações */}
+            <div className="anotaai-variation-group">
+              <div className="anotaai-variation-header"><h3 className="anotaai-variation-title">Observações</h3></div>
+              <div className="p-4">
+                <Textarea placeholder="Ex.: Tirar cebola, ovo, etc." className="anotaai-textarea" value={itemNotes} onChange={(e) => setItemNotes(e.target.value)} />
               </div>
             </div>
+          </div>
 
-            {/* Sticky Footer */}
-            <div className="anotaai-modal-footer">
-              <div className="anotaai-qty-controls">
-                <button className="anotaai-qty-btn">
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span className="anotaai-qty-value">1</span>
-                <button className="anotaai-qty-btn accent">
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-              <button onClick={confirmVariationSelection} className="anotaai-add-btn">
-                <span>Adicionar</span>
-                <span>{formatCurrency((variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price) + Object.values(variationSelections).flat().reduce((sum, s) => sum + s.price, 0))}</span>
-              </button>
+          {/* Sticky Footer */}
+          <div className="anotaai-detail-footer">
+            <div className="anotaai-qty-controls">
+              <button onClick={() => setDetailQty(Math.max(1, detailQty - 1))} className="anotaai-qty-btn"><Minus className="w-4 h-4" /></button>
+              <span className="anotaai-qty-value">{detailQty}</span>
+              <button onClick={() => setDetailQty(detailQty + 1)} className="anotaai-qty-btn accent"><Plus className="w-4 h-4" /></button>
             </div>
-          </DialogContent>
-        </Dialog>
+            {(() => {
+              const vars = productVariations[variationProduct.id] || [];
+              const hasRequired = vars.some((v: any) => v.required);
+              const allRequiredMet = vars.every((v: any) => !v.required || (variationSelections[v.id] || []).length > 0);
+              const basePrice = variationProduct.promotional_price > 0 ? variationProduct.promotional_price : variationProduct.price;
+              const varPrice = Object.entries(variationSelections).reduce((sum, [vid, opts]) => {
+                const v = vars.find((vv: any) => vv.id === vid);
+                if (v && (v as any).is_half_half) return sum + Math.max(...opts.map(o => o.price), 0);
+                return sum + opts.reduce((s, o) => s + o.price, 0);
+              }, 0);
+              const totalPrice = (basePrice + varPrice) * detailQty;
+
+              if (hasRequired && !allRequiredMet) {
+                return <button className="anotaai-add-btn disabled" disabled>Escolha sabor</button>;
+              }
+              return (
+                <button onClick={confirmVariationSelection} className="anotaai-add-btn">
+                  <span>Adicionar</span>
+                  <span>{formatCurrency(totalPrice)}</span>
+                </button>
+              );
+            })()}
+          </div>
+        </div>
       )}
+
 
       {/* Cart Dialog */}
       <Dialog open={cartOpen} onOpenChange={setCartOpen}>
