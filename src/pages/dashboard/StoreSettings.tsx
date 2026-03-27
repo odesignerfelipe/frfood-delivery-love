@@ -77,6 +77,7 @@ const StoreSettings = () => {
     razao_social: (store as any)?.razao_social || "",
     display_name_type: (store as any)?.display_name_type || "name",
     consumo_local_enabled: (store as any)?.consumo_local_enabled ?? true,
+    store_layout: (store as any)?.store_layout || "default",
     opening_hours: openingHours,
   });
 
@@ -113,6 +114,7 @@ const StoreSettings = () => {
         cnpj: (store as any).cnpj || "",
         display_name_type: (store as any).display_name_type || "name",
         consumo_local_enabled: (store as any).consumo_local_enabled ?? true,
+        store_layout: (store as any).store_layout || "default",
         opening_hours: store.opening_hours && Array.isArray(store.opening_hours) && store.opening_hours.length > 0 ? (store.opening_hours as any[]) : defaultHours(),
       });
     }
@@ -524,6 +526,18 @@ const StoreSettings = () => {
                 <input type="color" value={form.primary_color} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} className="w-10 h-10 rounded-lg cursor-pointer border-0" />
                 <Input value={form.primary_color} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} className="w-32" />
               </div>
+            </div>
+
+            <div>
+              <Label>Layout da Loja</Label>
+              <Select value={(form as any).store_layout || "default"} onValueChange={(v) => setForm({ ...form, store_layout: v } as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Padrão</SelectItem>
+                  <SelectItem value="anotaai">Anota AI (Mobile-First)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">Muda o visual da loja pública. O layout "Anota AI" é otimizado para mobile.</p>
             </div>
           </div>
 

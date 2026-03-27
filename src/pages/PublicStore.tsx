@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { ShoppingBag, Plus, Minus, Trash2, X, Send, MapPin, Search, Star, Clock, Phone, Mail, Lock, Check, AlertTriangle, Zap, Bike, Store, Utensils, ChevronLeft } from "lucide-react";
 import { formatCurrency, checkStoreStatus } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import PublicStoreAnotaAI from "./PublicStoreAnotaAI";
+import "@/styles/anotaai.css";
 
 interface SelectedVariation {
   group: string;
@@ -388,6 +390,11 @@ const PublicStore = ({ explicitSlug }: { explicitSlug?: string }) => {
 
   if (loading) { return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" /></div>; }
   if (!store && !loading) { return <div className="min-h-screen flex items-center justify-center p-4"><div className="text-center bg-card p-10 rounded-2xl shadow-card border border-border/50"><h1 className="text-2xl font-extrabold mb-2">Loja não encontrada</h1><Button onClick={() => window.location.href = "https://frfood.com.br"}>Conhecer FRFood</Button></div></div>; }
+
+  // Render Anota AI layout if store has that layout configured
+  if (store?.store_layout === 'anotaai') {
+    return <PublicStoreAnotaAI store={store} categories={categories} products={products} productVariations={productVariations} deliveryZones={deliveryZones} />;
+  }
 
   const storeColor = store?.primary_color || "#ea580c";
   const hexToHSL = (hex: string) => {
