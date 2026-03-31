@@ -1,2 +1,2 @@
--- Apply Neemo layout to toppizzaria store
-UPDATE stores SET store_layout = 'neemo' WHERE slug = 'toppizzaria';
+-- Apply Neemo layout to toppizza store
+UPDATE stores SET store_layout = 'neemo' WHERE slug = 'toppizza';
