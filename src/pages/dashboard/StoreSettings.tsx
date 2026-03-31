@@ -535,9 +535,10 @@ const StoreSettings = () => {
                 <SelectContent>
                   <SelectItem value="default">Padrão</SelectItem>
                   <SelectItem value="anotaai">Anota AI (Mobile-First)</SelectItem>
+                  <SelectItem value="neemo">Neemo Premium ⭐</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-muted-foreground mt-1">Muda o visual da loja pública. O layout "Anota AI" é otimizado para mobile.</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Muda o visual da loja pública. "Neemo Premium" é o layout mais avançado com multi-etapa e checkout guiado.</p>
             </div>
           </div>
 
